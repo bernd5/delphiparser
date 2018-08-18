@@ -1,10 +1,10 @@
 name:                delphi
 version:             0.1.0.0
-github:              "githubuser/delphi"
+github:              "arafangion/delphiparser"
 license:             BSD3
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2018 Author name here"
+author:              "John Chapman"
+maintainer:          "delphi@fussycoder.id.au"
+copyright:           "2018 John Chapman"
 
 extra-source-files:
 - README.md

@@ -1,14 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Lib
-    ( someFunc
-    ) where
+  ( someFunc
+  ) where
 
-import Data.Text 
-import Text.Pretty.Simple (pPrint)
+import Data.Text
 import DelphiAst
 import DelphiLexer
 import DelphiParser
+import Text.Pretty.Simple (pPrint)
 
 --sharedPointer :: Unit
 --sharedPointer = Unit "SharedPointer"
@@ -54,9 +54,9 @@ import DelphiParser
 --        Then ( "Result" `Assign` (ValueOf "FFreeTheValue" `As` (Type "TFreeTheValue") `Prop` "FObjectToFree" `As` (Type "T")))]])
 --  Initialization
 --  Finalization
-
 someFunc :: IO ()
-someFunc = do
+someFunc
   --pPrint sharedPointer
+ = do
   delphi <- readFile "/Users/johnchapman/dev/sharedpointer/sharedpointer.pas"
   parseDelphiUnit delphi
