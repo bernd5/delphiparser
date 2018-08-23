@@ -4,48 +4,40 @@ unit SharedPointer;
 interface
 
 type
-  TDeallocator = {$IFNDEF FPC}reference to{$ENDIF} procedure(AObj: TObject);
+TDeallocator = {$IFNDEF FPC}reference to{$ENDIF} procedure(AObj: TObject);
 
-  TShared<T: class> = record
-  private
-    FFreeTheValue: IInterface;
-  public
-    constructor Create(AValue: T);
-    procedure Assign(AValue: T);
-    procedure SetDeallocator(ADealloc: TDeallocator);
+TShared<T: class> = record
+private
+  FFreeTheValue: IInterface;
+public
+  constructor Create(AValue: T);
+  procedure Assign(AValue: T);
+  procedure SetDeallocator(ADealloc: TDeallocator);
+  function Temporary: T;
+  function Cast<TT: class>: TShared<TT>;
+  function Release: T;
+end;
 
-    function Temporary: T;
+TFreeTheValue = class(TInterfacedObject)
+public
+  FObjectToFree: TObject;
+  FCustomDeallocator: TDeallocator;
+  constructor Create(AObjToFree: TObject);
+  destructor Destroy; override;
+end;
 
-{$IFNDEF FPC}
-    function Cast<TT: class>: TShared<TT>;
-{$ENDIF}
-
-    { Release the object from the TShared<T> convention.  The object
-      will no-longer be Free'ed using TShared<T> and should be managed manually. }
-    function Release: T;
-  end;
-
-
-  TFreeTheValue = class(TInterfacedObject)
-  public
-    FObjectToFree: TObject;
-    FCustomDeallocator: TDeallocator;
-    constructor Create(AObjToFree: TObject);
-    destructor Destroy; override;
-  end;
-
-  TSharedList<T: class> = record
-  private
-    FList: array of TShared<T>;
-    function GetItem(I: Integer): T;
-    function GetSharedItem(I: Integer): TShared<T>;
-  public
-    function Count: Integer;
-    property Items[I: Integer]: T read GetItem;
-    property SharedItems[I: Integer]: TShared<T> read GetSharedItem; default;
-    procedure Add(AObject: TShared<T>);
-    procedure Clear;
-  end;
+TSharedList<T: class> = record
+private
+  FList: array of TShared<T>;
+  function GetItem(I: Integer): T;
+  function GetSharedItem(I: Integer): TShared<T>;
+public
+  function Count: Integer;
+  property Items[I: Integer]: T read GetItem;
+  property SharedItems[I: Integer]: TShared<T> read GetSharedItem; default;
+  procedure Add(AObject: TShared<T>);
+  procedure Clear;
+end;
 
 implementation
 

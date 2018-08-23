@@ -17,6 +17,7 @@ import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 import Text.Megaparsec.Expr
+import Data.Text (strip, pack, unpack)
 
 type Parser = Parsec Void String
 
@@ -54,7 +55,7 @@ rword :: String -> Parser ()
 rword w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
 
 identifier :: Parser String
-identifier = (lexeme . try) (p >>= check)
+identifier = unpack . strip . pack <$> (lexeme . try) (p >>= check)
   where
     p = (:) <$> letterChar <*> many alphaNumChar
     check x =

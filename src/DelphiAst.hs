@@ -19,7 +19,7 @@ newtype Implementation =
   deriving (Eq, Show)
 
 data ImplementationSpec
-  = FunctionImpl Name
+  = FunctionImpl TypeName
                  [Argument]
                  TypeName
                  Expression
@@ -34,7 +34,6 @@ data ImplementationSpec
                           Expression
   | MemberDestructorImpl TypeName
                          TypeName
-                         [Argument]
                          Expression
   | MemberProcedureImpl TypeName
                         TypeName
@@ -56,6 +55,7 @@ data Expression
 -- ValueExpression are expressions that result in a value when evaluated
 data ValueExpression
   = SimpleReference Text
+  | TypeRef TypeName
   | Integer Integer
   | TypeMemberRef TypeName
                   TypeName
@@ -63,6 +63,7 @@ data ValueExpression
   | Operation ValueExpression
               Text
               ValueExpression
+  | MemberAccess ValueExpression ValueExpression
   | FunctionCall ValueExpression
                  [ValueExpression]
   | IndexCall ValueExpression
@@ -104,7 +105,7 @@ data Field
   | Procedure Name
               [Argument]
               [Annotation]
-  | Function Name
+  | Function TypeName
              [Argument]
              TypeName
              [Annotation]

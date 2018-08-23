@@ -1,19 +1,20 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module DelphiParser
-  ( parseDelphiUnit
-  , dUnitP
+  ( dUnitP
   , dValueP
   , dStatementP
   , dIndexArgs
   , dIfExpression
   , dFunctionImplementationP
   , dProcedureImplementationP
+  , dTypeSpecListP
+  , dValueExpression
   ) where
 
 import Control.Monad (void)
 import Data.Maybe
-import Data.Text (Text, pack)
+import Data.Text (Text, pack, strip)
 import Data.Void
 import DelphiAst
 import DelphiLexer
@@ -34,9 +35,9 @@ dUnitP = do
 dUnitNameP :: Parser Text
 dUnitNameP = do
   rword "unit"
-  name <- identifier
+  name <- strip . pack <$> identifier
   semi
-  return $ pack name
+  return name
 
 dUnitInterfaceP :: Parser Interface
 dUnitInterfaceP = do
@@ -46,51 +47,54 @@ dUnitInterfaceP = do
   return $ Interface types
 
 dTypeSpecListP :: Parser [InterfaceExpression]
-dTypeSpecListP =
-  many $
-  (try dReferenceToProcedureP <|> try dGenericRecordP <|> dClassP) <* semi
-
-dReferenceToProcedureP :: Parser InterfaceExpression
-dReferenceToProcedureP = do
-  identifier <- identifier
+dTypeSpecListP = many $ do
+  identifier <- pack <$> identifier
+  args <- dGenericArgs
   symbol "="
+  ie <- try (dReferenceToProcedureP identifier)
+        <|> try (dGenericRecordP identifier args)
+        <|> try (dClassP identifier args)
+  semi
+  return ie
+
+dReferenceToProcedureP :: Text -> Parser InterfaceExpression
+dReferenceToProcedureP identifier = do
   rword "reference"
   rword "to"
   rword "procedure"
   args <- dFunctionOrProcedureArgs'
-  return $ TypeDef (Type $ pack identifier) (ReferenceToProcedure args)
+  return $ TypeDef (Type identifier) (ReferenceToProcedure args)
 
-dGenericRecordP :: Parser InterfaceExpression
-dGenericRecordP = do
-  identifier <- identifier
-  args <- dGenericArgs
-  symbol "="
+dGenericRecordP :: Text -> [Argument] -> Parser InterfaceExpression
+dGenericRecordP identifier args = do
   rword "record"
   r <- dRecordDefinitionListP
-  return $ Record (GenericDefinition (pack identifier) args) r
+  rword "end"
+  return $ Record (GenericDefinition identifier args) r
 
 dArgsPassedP :: Parser [TypeName]
 dArgsPassedP = do
   symbol "("
-  names <- ((Type . pack) <$>) <$> sepBy identifier (symbol ",")
+  names <- ((Type . strip . pack) <$>) <$> sepBy identifier (symbol ",")
   symbol ")"
   return $ names
 
-dClassP :: Parser InterfaceExpression
-dClassP = do
-  identifier <- identifier
-  args <- dGenericArgs
-  symbol "="
+dClassP :: Text -> [Argument] -> Parser InterfaceExpression
+dClassP identifier args = do
   rword "class"
   supers <- dArgsPassedP
   r <- dRecordDefinitionListP
-  return $ Record (GenericDefinition (pack identifier) args) r
+  rword "end"
+  return $ if null supers then
+      Class (GenericDefinition identifier args) supers r
+    else
+      Class (Type identifier) supers r
 
 dArgumentListP :: Parser [Argument]
 dArgumentListP = sepBy1 dArgumentP semi
 
 dRecordDefinitionListP :: Parser [Accessibility]
-dRecordDefinitionListP = many dRecordDefinitionP <* (rword "end")
+dRecordDefinitionListP = many dRecordDefinitionP
 
 dRecordDefinitionP :: Parser Accessibility
 dRecordDefinitionP =
@@ -130,7 +134,7 @@ dGenericTypes =
   (many $ do
      symbol "<"
   -- TODO: This should be 'dTypeNameP', rather than identifier
-     name <- pack <$> identifier
+     name <- strip . pack <$> identifier
      symbol ">"
      return $ Type name)
 
@@ -138,7 +142,8 @@ dArrayOfP :: Parser TypeName
 dArrayOfP = do
   rword "array"
   rword "of"
-  dTypeNameP
+  typ <- dTypeNameP
+  return $ Array typ
 
 simplifyTypeName m (Just []) = Type m
 simplifyTypeName m (Just (x:xs)) = GenericInstance m (x : xs)
@@ -154,13 +159,14 @@ dTypeNameP =
 dFunctionP :: Parser Field
 dFunctionP = do
   rword "function"
-  name <- identifier
+  name <- pack <$> identifier
   generics <- dGenericArgs
+  let name' = if null generics then Type name else GenericDefinition name generics
   args <- dFunctionOrProcedureArgs'
   symbol ":"
   typ <- dTypeNameP
   semi
-  return $ Function (pack name) args typ []
+  return $ Function name' args typ []
 
 dStatementP :: Parser Expression
 dStatementP =
@@ -190,15 +196,6 @@ dSimple = do
   expr <- pack <$> identifier
   return $ SimpleReference expr
 
-dFieldRef :: Parser ValueExpression
-dFieldRef =
-  try $ do
-    typ <- dTypeNameP
-    symbol "."
-    field <- dTypeNameP
-    args <- optional dCallArgs
-    return $ TypeMemberRef typ field (fromMaybe [] args)
-
 dCallArgs :: Parser [ValueExpression]
 dCallArgs = do
   symbol "("
@@ -213,21 +210,28 @@ dIndexArgs = do
   symbol "]"
   return args
 
-dValueP :: Parser ValueExpression
-dValueP = do
-  lhs <- dParens <|> dLiteral <|> dFieldRef <|> dSimple
+dSimpleFunc = do
+  lhs <- dSimple
   args <- optional dCallArgs
   let lhs' =
         if isJust args
           then FunctionCall lhs (fromMaybe [] args)
           else lhs
   index <- optional dIndexArgs
-  let lhs'' =
-        if isJust index
-          then IndexCall lhs' (fromMaybe [] index)
-          else lhs'
+  return $ if isJust index
+            then IndexCall lhs' (fromMaybe [] index)
+            else lhs'
+
+dValueP :: Parser ValueExpression
+dValueP = do
+  lhs <- dParens <|> dLiteral <|> dSimpleFunc
   rhs <- many dBoolean
-  return $ foldl (\a x -> Operation a (fst x) (snd x)) lhs'' rhs
+  return $ foldl
+              (\a (xl, xr) -> if xl == "."
+                              then MemberAccess a xr
+                              else Operation a xl xr )
+              lhs
+              rhs
   where
     dParens = do
       symbol "("
@@ -242,7 +246,7 @@ dValueP = do
          symbol "-" <|>
          symbol ">" <|>
          symbol ".")
-      rhs <- dValueP
+      rhs <- try dParens <|> try dLiteral <|> dSimpleFunc
       return (sym, rhs)
     dLiteral = dInteger <|> dNil
     dInteger = do
@@ -258,15 +262,6 @@ dFunctionCallP = do
   value <- sepBy dValueP (symbol ",")
   symbol ")"
   return value
-
-dAdditionalCompoundValue :: Parser (Text, ValueExpression)
-dAdditionalCompoundValue = do
-  sym <-
-    pack <$>
-    (symbol "<>" <|> symbol "=" <|> symbol "and" <|> symbol "as" <|> symbol "." <|>
-     symbol ",")
-  rhs <- dValueP
-  return (sym, rhs)
 
 dParensValue :: Parser ValueExpression
 dParensValue = do
@@ -295,7 +290,7 @@ dConstructorImplementationP =
 dDestructorImplementationP =
   dMemberImplementationP
     "destructor"
-    (\a b c d e -> MemberDestructorImpl a b c e)
+    (\a b c d e -> MemberDestructorImpl a b e)
 
 dFunctionImplementationP = dMemberImplementationP "function" MemberFunctionImpl
 
@@ -389,6 +384,3 @@ dUnitFinalizationP :: Parser Finalization
 dUnitFinalizationP = do
   optional $ rword "finalization"
   return Finalization
-
-parseDelphiUnit :: String -> IO ()
-parseDelphiUnit = parseTest' dUnitP
