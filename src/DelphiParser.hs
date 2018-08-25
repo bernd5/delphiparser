@@ -11,15 +11,11 @@ module DelphiParser
   , dValueExpression
   ) where
 
-import Control.Monad (void)
 import Data.Maybe
 import Data.Text (Text, pack, strip)
-import Data.Void
 import DelphiAst
 import DelphiLexer
 import Text.Megaparsec
-import Text.Megaparsec.Char
-import qualified Text.Megaparsec.Char.Lexer as L
 import Text.Megaparsec.Expr
 import Data.Functor (($>))
 
@@ -36,7 +32,7 @@ dUnitNameP :: Parser Text
 dUnitNameP = do
   rword "unit"
   name <- strip . pack <$> identifier
-  semi
+  _ <- semi
   return name
 
 dUnitInterfaceP :: Parser Interface
@@ -49,30 +45,30 @@ dUnitInterfaceP = do
 dTypeSpecListP :: Parser [InterfaceExpression]
 dTypeSpecListP =
   many $ do
-    identifier <- pack <$> identifier
+    ident <- pack <$> identifier
     args <- dGenericArgs
     symbol "="
     ie <-
-      try (dReferenceToProcedureP identifier) <|>
-      try (dGenericRecordP identifier args) <|>
-      try (dClassP identifier args)
+      try (dReferenceToProcedureP ident) <|>
+      try (dGenericRecordP ident args) <|>
+      try (dClassP ident args)
     semi
     return ie
 
 dReferenceToProcedureP :: Text -> Parser InterfaceExpression
-dReferenceToProcedureP identifier = do
+dReferenceToProcedureP ident = do
   rword "reference"
   rword "to"
   rword "procedure"
   args <- dFunctionOrProcedureArgs'
-  return $ TypeDef (Type identifier) (ReferenceToProcedure args)
+  return $ TypeDef (Type ident) (ReferenceToProcedure args)
 
 dGenericRecordP :: Text -> [Argument] -> Parser InterfaceExpression
-dGenericRecordP identifier args = do
+dGenericRecordP ident args = do
   rword "record"
   r <- dRecordDefinitionListP
   rword "end"
-  return $ Record (GenericDefinition identifier args) r
+  return $ Record (GenericDefinition ident args) r
 
 dArgsPassedP :: Parser [TypeName]
 dArgsPassedP = do
@@ -82,18 +78,15 @@ dArgsPassedP = do
   return names
 
 dClassP :: Text -> [Argument] -> Parser InterfaceExpression
-dClassP identifier args = do
+dClassP ident args = do
   rword "class"
   supers <- dArgsPassedP
   r <- dRecordDefinitionListP
   rword "end"
   return $
     if null supers
-      then Class (GenericDefinition identifier args) supers r
-      else Class (Type identifier) supers r
-
-dArgumentListP :: Parser [Argument]
-dArgumentListP = sepBy1 dArgumentP semi
+      then Class (GenericDefinition ident args) supers r
+      else Class (Type ident) supers r
 
 dRecordDefinitionListP :: Parser [Accessibility]
 dRecordDefinitionListP = many dRecordDefinitionP
@@ -119,9 +112,9 @@ dFieldDefinitionP =
 
 dFunctionOrProcedureArgs :: String -> String -> Parser [Argument]
 dFunctionOrProcedureArgs a b = do
-  symbol a
+  symbol $ pack a
   args <- sepBy1 dArgumentP semi
-  symbol b
+  symbol $ pack b
   return args
 
 dFunctionOrProcedureArgs' :: Parser [Argument]
@@ -146,6 +139,7 @@ dArrayOfP = do
   typ <- dTypeNameP
   return $ Array typ
 
+simplifyTypeName :: Text -> Maybe [TypeName] -> TypeName
 simplifyTypeName m (Just []) = Type m
 simplifyTypeName m (Just (x:xs)) = GenericInstance m (x : xs)
 simplifyTypeName m Nothing = Type m
@@ -198,8 +192,8 @@ dEqExpression = do
 expression :: Parser ValueExpression
 expression = makeExprParser terms table
 
-comma :: Parser Text
-comma = pack <$> symbol ","
+comma :: Parser ()
+comma = symbol ","
 
 terms :: Parser ValueExpression
 terms =
@@ -215,19 +209,28 @@ terms =
 manyPostfixOp :: Parser (a -> a) -> Parser (a -> a)
 manyPostfixOp singleOp = foldr1 (flip (.)) <$> some singleOp
 
+recordAccess :: Parser (ValueExpression -> ValueExpression)
 recordAccess = flip (:.) . V . pack <$> try (symbol "." *> identifier)
 
+functionCall :: Parser (ValueExpression -> ValueExpression)
 functionCall = flip (:$) <$> try (parens "(" ")" (expression `sepBy` comma))
 
+indexCall :: Parser (ValueExpression -> ValueExpression)
 indexCall = flip (:!!) <$> try (parens "[" "]" (expression `sepBy` comma))
 
+void :: a -> ()
+void _ = ()
+
+genericArgs :: Parser (ValueExpression -> ValueExpression)
 genericArgs =
   flip (:<<>>) <$>
   try
     (do p <- parens "<" ">" ((Type <$> identifier') `sepBy1` comma)
-        notFollowedBy $ choice [symbol "(", symbol "+", identifier]
+        notFollowedBy $ choice [symbol "(", symbol "+", void <$> identifier]
         return p)
 
+binary :: (ValueExpression -> ValueExpression -> ValueExpression)
+             -> Text -> Operator Parser ValueExpression
 binary f name = InfixL (f <$ symbol name)
 
 table :: [[Operator Parser ValueExpression]]
@@ -253,19 +256,25 @@ dIfExpression = do
   rword "then"
   statement <- dStatementP
   elseStatement <- optional (rword "else" *> dStatementP)
-  return $ If expr (Then statement)
+  return $ If expr (Then statement) (Else 
+    (fromMaybe EmptyExpression elseStatement))
+    
 
+dProcedureImplementationP :: Parser ImplementationSpec
 dProcedureImplementationP =
-  dMemberImplementationP "procedure" (\a b c d e -> MemberProcedureImpl a b c e)
+  dMemberImplementationP "procedure" (\a b c _ e -> MemberProcedureImpl a b c e)
 
+dConstructorImplementationP :: Parser ImplementationSpec
 dConstructorImplementationP =
   dMemberImplementationP
     "constructor"
-    (\a b c d e -> MemberConstructorImpl a b c e)
+    (\a b c _ e -> MemberConstructorImpl a b c e)
 
+dDestructorImplementationP :: Parser ImplementationSpec
 dDestructorImplementationP =
-  dMemberImplementationP "destructor" (\a b c d e -> MemberDestructorImpl a b e)
+  dMemberImplementationP "destructor" (\a b _ _ e -> MemberDestructorImpl a b e)
 
+dFunctionImplementationP :: Parser ImplementationSpec
 dFunctionImplementationP = dMemberImplementationP "function" MemberFunctionImpl
 
 dMemberImplementationP ::
@@ -275,13 +284,13 @@ dMemberImplementationP ::
 dMemberImplementationP a b = do
   rword a
   name <- dTypeNameP
-  symbol "."
+  _ <- symbol "."
   member <- dTypeNameP
   args <- dFunctionOrProcedureArgs'
   typ <- optional (symbol ":" *> dTypeNameP)
-  semi
+  _ <- semi
   statements <- dBeginEndExpression
-  semi
+  _ <- semi
   return $ b name member args (fromMaybe UnspecifiedType typ) statements
 
 property :: Parser Field
@@ -289,12 +298,12 @@ property = do
   rword "property"
   name <- pack <$> identifier
   args <- fromMaybe [] <$> optional (dFunctionOrProcedureArgs "[" "]")
-  symbol ":"
+  _ <- symbol ":"
   r <- dTypeNameP
-  read <- (pack <$>) <$> optional (rword "read" *> identifier <* semi)
-  write <- (pack <$>) <$> optional (rword "write" *> identifier <* semi)
+  rd <- (pack <$>) <$> optional (rword "read" *> identifier <* semi)
+  wt <- (pack <$>) <$> optional (rword "write" *> identifier <* semi)
   annotations <- many annotation
-  return $ IndexProperty name (head args) r read write annotations
+  return $ IndexProperty name (head args) r rd wt annotations
 
 dProcedureP' ::
      String
@@ -304,7 +313,7 @@ dProcedureP' a b = do
   rword a
   name <- identifier
   args <- dFunctionOrProcedureArgs'
-  semi
+  _ <- semi
   annotations <- many annotation
   return $ b (pack name) args UnspecifiedType annotations
 
@@ -315,26 +324,26 @@ annotation =
    ((rword "default" *> semi) $> Default)
 
 dConstructorFieldP :: Parser Field
-dConstructorFieldP = dProcedureP' "constructor" (\a b c d -> Constructor a b)
+dConstructorFieldP = dProcedureP' "constructor" (\a b _ _ -> Constructor a b)
 
 dDestructorFieldP :: Parser Field
-dDestructorFieldP = dProcedureP' "destructor" (\a b c d -> Destructor a d)
+dDestructorFieldP = dProcedureP' "destructor" (\a _ _ d -> Destructor a d)
 
 dProcedureP :: Parser Field
-dProcedureP = dProcedureP' "procedure" (\a b c d -> Procedure a b d)
+dProcedureP = dProcedureP' "procedure" (\a b _ d -> Procedure a b d)
 
 dSimpleFieldP :: Parser Field
 dSimpleFieldP = do
   name <- identifier
-  symbol ":"
+  _ <- symbol ":"
   typ <- dTypeNameP
-  semi
+  _ <- semi
   return $ Field (pack name) typ
 
 dArgumentP :: Parser Argument
 dArgumentP = do
   l <- identifier
-  symbol ":"
+  _ <- symbol ":"
   r <- dTypeNameP
   return $ Arg (pack l) r
 
@@ -350,10 +359,10 @@ dUnitImplementationP = do
 
 dUnitInitializationP :: Parser Initialization
 dUnitInitializationP = do
-  optional $ rword "initialization"
+  _ <- optional $ rword "initialization"
   return Initialization
 
 dUnitFinalizationP :: Parser Finalization
 dUnitFinalizationP = do
-  optional $ rword "finalization"
+  _ <- optional $ rword "finalization"
   return Finalization

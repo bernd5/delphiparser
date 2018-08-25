@@ -23,6 +23,7 @@ main = do
   let p = ParserTestsData {sharedpointer = sp}
   defaultMain $ testGroup "Tests" [unitTests p]
 
+roundtrip :: ShowDelphi a => Text -> Parser a -> IO ()
 roundtrip expected p = do
   let r = parse p "" $ unpack expected
   either
@@ -34,6 +35,7 @@ roundtrip expected p = do
          (showDelphi actual))
     r
 
+unitTests :: ParserTestsData -> TestTree
 unitTests p =
   testGroup
     "Delphi Parser Tests"
@@ -139,14 +141,15 @@ unitTests p =
     , testCase "Ensure that the empty statement works" $
       (Right EmptyExpression @=?) $ parse dStatementP "" ";"
     , testCase "Ensure that if-function-then works" $
-      (Right (If ((V "Assigned") :$ [V "FObjectToFree"]) (Then EmptyExpression)) @=?) $
+      (Right (If ((V "Assigned") :$ [V "FObjectToFree"]) (Then EmptyExpression) (Else EmptyExpression)) @=?) $
       parse dIfExpression "" "if Assigned(FObjectToFree) then ;"
     , testCase "Ensure that ifThenElse works" $
       (Right
         (If
           ((V "FFreeTheValue" :<> Nil) :& (
             ((V "FFreeTheValue" `As` V "TFreeTheValue") :. V "FObjectToFree") :<> Nil))
-          (Then ((V "Result") := (((V "FFreeTheValue" `As` V "TFreeTheValue") :. V "FObjectToFree") `As` V "T"))))
+          (Then ((V "Result") := (((V "FFreeTheValue" `As` V "TFreeTheValue") :. V "FObjectToFree") `As` V "T")))
+          (Else EmptyExpression))
          @=?) $
       parse
         dStatementP

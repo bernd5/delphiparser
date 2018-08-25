@@ -46,6 +46,7 @@ data Expression
   | ValueExpression := ValueExpression     -- foo := bar
   | If ValueExpression
        Then
+       Else
   | Begin [Expression]
   | ExpressionValue ValueExpression
   | EmptyExpression
@@ -159,6 +160,9 @@ type ArgName = Text
 
 type Name = Text
 
+newtype Else =
+  Else Expression
+  deriving (Eq, Show)
 newtype Then =
   Then Expression
   deriving (Eq, Show)

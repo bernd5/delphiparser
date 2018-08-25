@@ -4,7 +4,7 @@
 module DelphiWriter where
 
 import DelphiAst
-import Data.Text (Text, unpack, pack, intercalate)
+import Data.Text (Text, pack, intercalate)
 import Data.Maybe (fromMaybe)
 
 indent :: Text
@@ -59,7 +59,8 @@ instance ShowDelphi ValueExpression where
 instance ShowDelphi Expression where
   showDelphi (Expr a) = a
   showDelphi (a := b) = showDelphi a <> " := " <> showDelphi b
-  showDelphi (If a b) = "if " <> showDelphi a <> " then " <> showDelphi b
+  showDelphi (If a b (Else EmptyExpression)) = "if " <> showDelphi a <> " then " <> showDelphi b
+  showDelphi (If a b c) = "if " <> showDelphi a <> " then " <> showDelphi b <> " else " <> showDelphi c
   showDelphi (Begin a) = "\nbegin\n"
                         <> intercalate "\n" (map (\x -> indent <> showDelphi x <> ";") a)
                         <> "\nend"
@@ -68,6 +69,9 @@ instance ShowDelphi Expression where
 
 instance ShowDelphi Then where
   showDelphi (Then a) = showDelphi a
+
+instance ShowDelphi Else where
+  showDelphi (Else a) = showDelphi a
 
 instance ShowDelphi ImplementationSpec where
   showDelphi (FunctionImpl a b c d) = "function "

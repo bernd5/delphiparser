@@ -28,6 +28,8 @@ library:
   - text
   - pretty-simple
   - megaparsec
+  ghc-options:
+  - -Wall
 
 executables:
   delphi-exe:
@@ -37,6 +39,7 @@ executables:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -Wall
     dependencies:
     - delphi
 
@@ -48,6 +51,7 @@ tests:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -Wall
     dependencies:
     - text
     - delphi

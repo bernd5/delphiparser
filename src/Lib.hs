@@ -7,10 +7,8 @@ module Lib
 import Prelude hiding (putStrLn)
 import DelphiParser
 import DelphiWriter
-import Data.Either (either)
 import System.Environment (getArgs)
-import Text.Pretty.Simple (pPrint)
-import Text.Megaparsec (parseTest', runParser)
+import Text.Megaparsec (runParser)
 import Data.Text.IO (putStrLn)
 
 someFunc :: IO ()
