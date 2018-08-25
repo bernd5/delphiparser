@@ -39,12 +39,18 @@ unitTests p =
     "Delphi Parser Tests"
     [ testCase "Ensure that show == read" $ roundtrip (sharedpointer p) dUnitP
     , testCase "Ensure that operations showDelphi are correct" $
-      roundtrip "( 23 + 32 )" dValueExpression
+      roundtrip "(23 + 32)" dValueExpression
     , testCase
         "Ensure that function call value expressions showDelphi without a semicolon" $
       roundtrip "foo(23)" dValueExpression
     , testCase "Ensure that IndexCall showDelphi are correct" $
-      roundtrip "foo[( foo(32) + 32 )]" dValueP
+      roundtrip "foo[(foo(32) + 32)]" expression
+    , testCase "Ensure that 'a < b > c' parses" $
+      (Right ((V "a" :< V "b") :> V "c") @=?) $
+      parse (parens "(" ")" expression) "" "(a < b > c)"
+    , testCase "Ensure that 'a < b and b > c' parses" $
+      (Right (((V "a" :< V "b") :& V "b") :> V "c") @=?) $
+      parse (parens "(" ")" expression) "" "(a < b and b  > c)"
     , testCase "Ensure delphi skeleton parses" $
       (Right
          (Unit
@@ -85,154 +91,81 @@ unitTests p =
       unpack $
       intercalate "\n" ["procedure TShared<T>.Cast<TT>;", "begin", "end;"]
     , testCase "Ensure a simple function call parses using dStatementP" $
-      (Right
-         (ExpressionValue
-            (FunctionCall
-               (SimpleReference "SetLength")
-               [SimpleReference "FList", SimpleReference "FList"])) @=?) $
+      (Right (ExpressionValue ((V "SetLength") :$ [V "FList", V "FList"])) @=?) $
       parse dStatementP "" "SetLength(FList, FList);"
     , testCase "Ensure a nested function call parses" $
       (Right
          (ExpressionValue
-            (FunctionCall
-               (SimpleReference "SetLength")
-               [ SimpleReference "FList"
-               , FunctionCall
-                   (SimpleReference "Length")
-                   [SimpleReference "FList"]
-               ])) @=?) $
+            ((V "SetLength") :$ [V "FList", (V "Length") :$ [V "FList"]])) @=?) $
       parse dStatementP "" "SetLength(FList, Length(FList));"
     , testCase "Ensure a slightly complex nested function call parses" $
       (Right
-         (ExpressionValue
-            (FunctionCall
-               (SimpleReference "SetLength")
-               [ SimpleReference "FList"
-               , Operation
-                   (FunctionCall
-                      (SimpleReference "Length")
-                      [SimpleReference "FList"])
-                   "+"
-                   (Integer 1)
-               ])) @=?) $
-      parse dStatementP "" "SetLength(FList, Length(FList)+1);"
+         ((V "SetLength") :$ [V "FList", ((V "Length") :$ [V "FList"]) :+ (I 1)]) @=?) $
+      parse expression "" "SetLength(FList, Length(FList)+1);"
+    , testCase "Ensure a(b)+c parses" $
+      (Right ((V "a") :$ [V "b"] :+ (V "c")) @=?) $ parse expression "" "a(b)+c"
     , testCase "Ensure that you can assign to the result of a cast" $
       (Right
-         (Assign
-            (MemberAccess
-               (Operation
-                  (SimpleReference "FFreeTheValue")
-                  "as"
-                  (SimpleReference "TFreeTheValue"))
-               (SimpleReference "FObjectToFree"))
-            Nil) @=?) $
+          ((V "FFreeTheValue") `As` (V "TFreeTheValue") :. (V "FObjectToFree") :=
+             Nil) @=?) $
       parse
         dStatementP
         ""
         "(FFreeTheValue as TFreeTheValue).FObjectToFree := nil;"
     , testCase "Ensure a value involving a generic type member function parses" $
-      (Right
-         (TypeMemberRef
-            (GenericInstance "TShared" [Type "TT"])
-            (Type "Create")
-            [Nil]) @=?) $
-      parse dValueP "" "TShared<TT>.Create(nil)"
+      (Right (((V "TShared" :<<>> [Type "TT"]) :. V "Create") :$ [Nil]) @=?) $
+      parse expression "" "TShared<TT>.Create(nil)"
     , testCase "Ensure a parens'ed value parses" $
-      (Right (Nil) @=?) $ parse dValueP "" "(nil)"
+      (Right (Nil) @=?) $ parse expression "" "(nil)"
     , testCase "Ensure a trivial reference value works" $
-      (Right (SimpleReference "one") @=?) $ parse dValueP "" "one"
+      (Right (V "one") @=?) $ parse expression "" "one"
     , testCase "Ensure an <> comparison works" $
-      (Right (Operation (SimpleReference "one") "<>" (SimpleReference "two")) @=?) $
-      parse dValueP "" "one <> two"
+      (Right ((V "one") :<> (V "two")) @=?) $ parse expression "" "one <> two"
     , testCase "Ensure an and comparison works" $
-      (Right (Operation (SimpleReference "one") "and" (SimpleReference "two")) @=?) $
-      parse dValueP "" "one and two"
+      (Right ((V "one") :& (V "two")) @=?) $ parse expression "" "one and two"
     , testCase "Ensure an as cast works" $
-      (Right (Operation (SimpleReference "one") "as" (SimpleReference "two")) @=?) $
-      parse dValueP "" "one as two"
+      (Right ((V "one") `As` (V "two")) @=?) $ parse expression "" "one as two"
     , testCase "Ensure a < works" $
-      (Right (Operation (SimpleReference "one") "<" (SimpleReference "two")) @=?) $
-      parse dValueP "" "one<two"
+      (Right ((V "one") :< (V "two")) @=?) $ parse expression "" "one<two"
     , testCase "Ensure dot operator works" $
-      (Right (TypeMemberRef (Type "one") (Type "two") []) @=?) $
-      parse dValueP "" "one.two"
+      (Right ((V "one") :. (V "two")) @=?) $ parse expression "" "one.two"
     , testCase "Ensure a simple function call works" $
-      (Right (FunctionCall (SimpleReference "one") []) @=?) $
-      parse dValueP "" "one()"
+      (Right ((V "one") :$ []) @=?) $ parse expression "" "one()"
     , testCase "Ensure a simple function call with one arg works" $
-      (Right (FunctionCall (SimpleReference "one") [SimpleReference "two"]) @=?) $
-      parse dValueP "" "one(two)"
+      (Right ((V "one") :$ [V "two"]) @=?) $ parse expression "" "one(two)"
     , testCase "Ensure a simple function call with two args works" $
-      (Right
-         (FunctionCall
-            (SimpleReference "one")
-            [SimpleReference "two", SimpleReference "three"]) @=?) $
-      parse dValueP "" "one(two, three)"
+      (Right ((V "one") :$ [V "two", V "three"]) @=?) $
+      parse expression "" "one(two, three)"
     , testCase "Ensure that the empty statement works" $
       (Right EmptyExpression @=?) $ parse dStatementP "" ";"
     , testCase "Ensure that if-function-then works" $
-      (Right
-         (If
-            (FunctionCall
-               (SimpleReference "Assigned")
-               [SimpleReference "FObjectToFree"])
-            (Then EmptyExpression)) @=?) $
+      (Right (If ((V "Assigned") :$ [V "FObjectToFree"]) (Then EmptyExpression)) @=?) $
       parse dIfExpression "" "if Assigned(FObjectToFree) then ;"
     , testCase "Ensure that ifThenElse works" $
       (Right
-         (If
-            (Operation
-               (Operation (SimpleReference "FFreeTheValue") "<>" Nil)
-               "and"
-               (Operation
-                  (MemberAccess
-                     (Operation
-                        (SimpleReference "FFreeTheValue")
-                        "as"
-                        (SimpleReference "TFreeTheValue"))
-                     (SimpleReference "FObjectToFree"))
-                  "<>"
-                  Nil))
-            (Then
-               (Assign
-                  (SimpleReference "Result")
-                  (Operation
-                     (MemberAccess
-                        (Operation
-                           (SimpleReference "FFreeTheValue")
-                           "as"
-                           (SimpleReference "TFreeTheValue"))
-                        (SimpleReference "FObjectToFree"))
-                     "as"
-                     (SimpleReference "T"))))) @=?) $
+        (If
+          ((V "FFreeTheValue" :<> Nil) :& (
+            ((V "FFreeTheValue" `As` V "TFreeTheValue") :. V "FObjectToFree") :<> Nil))
+          (Then ((V "Result") := (((V "FFreeTheValue" `As` V "TFreeTheValue") :. V "FObjectToFree") `As` V "T"))))
+         @=?) $
       parse
         dStatementP
         ""
         "if ( FFreeTheValue <> nil) and ((FFreeTheValue as TFreeTheValue).FObjectToFree <> nil) then Result := (FFreeTheValue as TFreeTheValue).FObjectToFree as T;"
     , testCase "Ensure assign to an index property parses" $
-      (Right
-         (Assign
-            (IndexCall (SimpleReference "Foo") [Integer 32])
-            (SimpleReference "blah")) @=?) $
-      parse dStatementP "" "Foo[32] := blah;"
+      (Right ((V "foo") :!! [I 32] := (V "blah")) @=?) $
+      parse dStatementP "" "foo[32] := blah;"
     , testCase "Ensure reading an index property parses" $
-      (Right (ExpressionValue (IndexCall (SimpleReference "Foo") [Integer 32])) @=?) $
-      parse dStatementP "" "Foo[32];"
+      (Right (ExpressionValue ((V "foo") :!! [I 32])) @=?) $
+      parse dStatementP "" "foo[32];"
     , testCase "Ensure that foo.bar.baz.fuux is left associative" $
-      (Right
-         (MemberAccess
-            (MemberAccess
-               (MemberAccess (SimpleReference "foo") (SimpleReference "bar"))
-               (SimpleReference "baz"))
-            (SimpleReference "fuux")) @=?) $
-      parse dValueP "" "foo.bar.baz.fuux"
+      (Right ((V "foo") :. (V "bar") :. (V "baz") :. (V "fuux")) @=?) $
+      parse expression "" "foo.bar.baz.fuux"
     , testCase "Ensure a.b(c) syntax parses" $
-      (Right [Integer 32] @=?) $ parse dIndexArgs "" "a.b(c)"
+      (Right ((V "a") :. (V "b") :$ [V "c"]) @=?) $ parse expression "" "a.b(c)"
     , testCase "Ensure a.b[c] syntax parses" $
-      (Right [Integer 32] @=?) $ parse dIndexArgs "" "a.b[c]"
-    , testCase "Ensure index args syntax parses" $
-      (Right [Integer 32] @=?) $ parse dIndexArgs "" "[32]"
+      (Right ((V "a") :. (V "b") :!! [V "c"]) @=?) $
+      parse expression "" "a.b[c]"
     , testCase "Ensure index property parses" $
-      (Right (IndexCall (SimpleReference "Foo") [Integer 32]) @=?) $
-      parse dValueP "" "Foo[32]"
+      (Right ((V "foo") :!! [I 32]) @=?) $ parse expression "" "foo[32]"
     ]

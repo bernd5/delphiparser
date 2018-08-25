@@ -9,6 +9,7 @@ module DelphiLexer
   , rword
   , anyIdentifier
   , identifier
+  , identifier'
   ) where
 
 import Control.Monad (void)
@@ -17,7 +18,7 @@ import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 import Text.Megaparsec.Expr
-import Data.Text (strip, pack, unpack)
+import Data.Text (Text, strip, pack, unpack)
 
 type Parser = Parsec Void String
 
@@ -37,9 +38,10 @@ lexeme = L.lexeme sc
 
 symbol :: String -> Parser String
 symbol = L.symbol sc
+symbol' a = symbol $ unpack a
 
-parens :: Parser a -> Parser a
-parens = between (symbol "(") (symbol ")")
+parens :: Text -> Text -> Parser a -> Parser a
+parens a b = between (symbol' a) (symbol' b)
 
 integer :: Parser Integer
 integer = lexeme L.decimal
@@ -55,7 +57,10 @@ rword :: String -> Parser ()
 rword w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
 
 identifier :: Parser String
-identifier = unpack . strip . pack <$> (lexeme . try) (p >>= check)
+identifier = unpack <$> identifier'
+
+identifier' :: Parser Text
+identifier' = strip . pack <$> (lexeme . try) (p >>= check)
   where
     p = (:) <$> letterChar <*> many alphaNumChar
     check x =

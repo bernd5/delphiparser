@@ -43,8 +43,7 @@ data ImplementationSpec
 
 data Expression
   = Expr Text
-  | Assign ValueExpression
-           ValueExpression
+  | ValueExpression := ValueExpression     -- foo := bar
   | If ValueExpression
        Then
   | Begin [Expression]
@@ -54,21 +53,23 @@ data Expression
 
 -- ValueExpression are expressions that result in a value when evaluated
 data ValueExpression
-  = SimpleReference Text
-  | TypeRef TypeName
-  | Integer Integer
-  | TypeMemberRef TypeName
-                  TypeName
-                  [ValueExpression]
-  | Operation ValueExpression
-              Text
-              ValueExpression
-  | MemberAccess ValueExpression ValueExpression
-  | FunctionCall ValueExpression
-                 [ValueExpression]
-  | IndexCall ValueExpression
-              [ValueExpression]
-  | Nil
+  = V Text
+  | T TypeName
+  | I Integer
+  | ValueExpression :& ValueExpression     -- foo and bar
+  | ValueExpression :+ ValueExpression     -- foo + bar
+  | ValueExpression :- ValueExpression     -- foo - bar
+  | ValueExpression :* ValueExpression     -- foo * bar
+  | ValueExpression :/ ValueExpression     -- foo / bar
+  | ValueExpression :<> ValueExpression    -- foo <> bar
+  | ValueExpression :< ValueExpression    -- foo < bar
+  | ValueExpression :> ValueExpression    -- foo > bar
+  | ValueExpression `As` ValueExpression   -- foo as bar
+  | ValueExpression :$  [ValueExpression]  -- foo(bar, baz)
+  | ValueExpression :!! [ValueExpression]  -- foo[bar,baz]
+  | ValueExpression :.  ValueExpression    -- foo.bar
+  | ValueExpression :<<>> [TypeName] -- For generics
+  | Nil                                    -- nil
   deriving (Eq, Show)
 
 data Initialization =

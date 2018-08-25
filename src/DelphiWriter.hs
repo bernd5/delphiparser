@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 
 module DelphiWriter where
 
@@ -27,7 +28,7 @@ instance ShowDelphi Interface where
     intercalate "\n" (map showDelphi a) <> "\n"
 
 instance ShowDelphi Implementation where
-  showDelphi (Implementation a) = "interface\n\n"
+  showDelphi (Implementation a) = "implementation\n\n"
                                 <> intercalate "\n" (map showDelphi a)
 
 instance ShowDelphi Initialization where
@@ -37,21 +38,31 @@ instance ShowDelphi Finalization where
   showDelphi (Finalization) = "\n\n"
 
 instance ShowDelphi ValueExpression where
-  showDelphi (SimpleReference a) = a
-  showDelphi (Integer a) = pack $ show a
-  showDelphi (TypeMemberRef a b c) = showDelphi a <> "." <> showDelphi b <> _toDelphiAnnotations c
-  showDelphi (Operation a b c) = "( " <> showDelphi a <> " " <> b <> " " <> showDelphi c <> " )"
-  showDelphi (MemberAccess a b) = showDelphi a <> "." <> showDelphi b
-  showDelphi (FunctionCall a b) = showDelphi a <> _toDelphiArgString(b)
-  showDelphi (IndexCall a b) = showDelphi a <> "[" <> intercalate "," (map showDelphi b) <> "]"
+  showDelphi (V a) = a
+  showDelphi (T a) = showDelphi a
+  showDelphi (I a) = pack $ show a
+  showDelphi (a :. b) = showDelphi a <> "." <> showDelphi b
+  showDelphi (a :$ b) = showDelphi a <> _toDelphiArgString(b)
+  showDelphi (a :+ b) = "(" <> showDelphi a <> " + " <> showDelphi b <> ")"
+  showDelphi (a :- b) = "(" <> showDelphi a <> " - " <> showDelphi b <> ")"
+  showDelphi (a :* b) = "(" <> showDelphi a <> " * " <> showDelphi b <> ")"
+  showDelphi (a :/ b) = "(" <> showDelphi a <> " / " <> showDelphi b <> ")"
+  showDelphi (a :& b) = "(" <> showDelphi a <> " and " <> showDelphi b <> ")"
+  showDelphi (a :< b) = "(" <> showDelphi a <> " < " <> showDelphi b <> ")"
+  showDelphi (a :> b) = "(" <> showDelphi a <> " > " <> showDelphi b <> ")"
+  showDelphi (a :<> b) = "(" <> showDelphi a <> " <> " <> showDelphi b <> ")"
+  showDelphi (a `As` b) = "(" <> showDelphi a <> " as " <> showDelphi b <> ")"
+  showDelphi (a :<<>> b) = showDelphi a <> "<" <> intercalate "," (map showDelphi b) <> ">"
+  showDelphi (a :!! b) = showDelphi a <> "[" <> intercalate "," (map showDelphi b) <> "]"
   showDelphi (Nil) = "nil"
 
 instance ShowDelphi Expression where
   showDelphi (Expr a) = a
-  showDelphi (Assign a b) = showDelphi a <> " := " <> showDelphi b
+  showDelphi (a := b) = showDelphi a <> " := " <> showDelphi b
   showDelphi (If a b) = "if " <> showDelphi a <> " then " <> showDelphi b
-  showDelphi (Begin a) = "begin\n"
+  showDelphi (Begin a) = "\nbegin\n"
                         <> intercalate "\n" (map (\x -> indent <> showDelphi x <> ";") a)
+                        <> "\nend"
   showDelphi (ExpressionValue a) = showDelphi a
   showDelphi (EmptyExpression) = ""
 
@@ -62,32 +73,37 @@ instance ShowDelphi ImplementationSpec where
   showDelphi (FunctionImpl a b c d) = "function "
                                       <> showDelphi a
                                       <> _toDelphiArgString b
-                                      <> ": " <> showDelphi c
+                                      <> ": " <> showDelphi c <> ";"
                                       <> showDelphi d
+                                      <> ";\n"
   showDelphi (MemberFunctionImpl a b c d e) = "function "
                                       <> showDelphi a
                                       <> "."
                                       <> showDelphi b
                                       <> _toDelphiArgString c
-                                      <> ": " <> showDelphi d
+                                      <> ": " <> showDelphi d <> ";"
                                       <> showDelphi e
+                                      <> ";\n"
   showDelphi (MemberProcedureImpl a b c d) = "procedure "
                                       <> showDelphi a
                                       <> "."
                                       <> showDelphi b
-                                      <> _toDelphiArgString c
+                                      <> _toDelphiArgString c <> ";"
                                       <> showDelphi d
+                                      <> ";\n"
   showDelphi (MemberConstructorImpl a b c d) = "constructor "
                                       <> showDelphi a
                                       <> "."
                                       <> showDelphi b
-                                      <> _toDelphiArgString c
+                                      <> _toDelphiArgString c <> ";"
                                       <> showDelphi d
+                                      <> ";\n"
   showDelphi (MemberDestructorImpl a b c) = "destructor "
                                       <> showDelphi a
                                       <> "."
-                                      <> showDelphi b
+                                      <> showDelphi b <> ";"
                                       <> showDelphi c
+                                      <> ";\n"
 
 instance ShowDelphi InterfaceExpression where
   showDelphi (TypeDef a b) = "type\n"
@@ -107,6 +123,7 @@ instance ShowDelphi InterfaceExpression where
                            <> "\nend;\n"
 
 instance ShowDelphi TypeName where
+  showDelphi UnspecifiedType = "{ Unspecified Type }"
   showDelphi (Type a)  = a
   showDelphi (Array a) = "array of " <> showDelphi a
   showDelphi (Constraint a) = "Constraint "
@@ -121,6 +138,7 @@ instance ShowDelphi TypeName where
                                     <> ">"
 
 instance ShowDelphi TypeDefinition where
+  showDelphi (UnknownTypeDefinition a) = "{ Unknown Type Definition: " <> a <> " }"
   showDelphi (ReferenceToProcedure a) = "{$IFNDEF FPC}reference to{$ENDIF} procedure("
                                       <> intercalate ", " (map showDelphi a)
                                       <> ");"
@@ -136,7 +154,7 @@ _toDelphiArgString x | not (null x) = "("
                                           ", "
                                           ( map showDelphi x) ) 
                                       <> ")"
-                     | null x       = ""
+                     | True         = ""
 
 _toDelphiAnnotations :: ShowDelphi a => [a] -> Text
 _toDelphiAnnotations x = foldl (\e' e -> e' <> " " <> (showDelphi e) <> ";") "" x
