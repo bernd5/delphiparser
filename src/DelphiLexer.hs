@@ -8,11 +8,13 @@ module DelphiLexer
   , symbol'
   , parens
   , integer
+  , hexinteger
   , semi
   , rword
   , anyIdentifier
   , identifier
   , identifier'
+  , identifierPlus
   ) where
 
 import Prelude hiding (words)
@@ -50,6 +52,9 @@ parens a b = between (symbol a) (symbol b)
 integer :: Parser Integer
 integer = lexeme L.decimal
 
+hexinteger :: Parser Integer
+hexinteger = char '$' *> lexeme L.hexadecimal
+
 semi :: Parser ()
 semi = (\_ -> ()) <$> symbol ";"
 
@@ -65,14 +70,19 @@ identifier :: Parser String
 identifier = unpack <$> identifier'
 
 identifier' :: Parser Text
-identifier' = strip <$> (lexeme . try) (p >>= check)
+identifier' = identifierPlus []
+
+identifierPlus :: [Text] -> Parser Text
+identifierPlus override = strip <$> (lexeme . try) (p >>= check)
   where
     p :: Parser Text
-    p = pack <$> ((:) <$> letterChar <*> many alphaNumChar)
+    p = pack <$> ((:) <$> letterChar <*> many (alphaNumChar <|> char '_'))
     check x =
-      if x `elem` reserved
-        then fail $ "keyword " ++ show x ++ " cannot be an identifier"
-        else return x
+      if x `elem` override
+        then return x
+        else if x `elem` reserved
+          then fail $ "keyword " ++ show x ++ " cannot be an identifier"
+          else return x
 
 anyIdentifier :: Parser String
-anyIdentifier = (lexeme . try) $ (:) <$> letterChar <*> many alphaNumChar
+anyIdentifier = (lexeme . try) $ (:) <$> letterChar <*> many (alphaNumChar <|> char '_')

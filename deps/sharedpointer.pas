@@ -44,8 +44,8 @@ implementation
 function TShared<T>.Temporary: T;
 begin
   Result := nil;
-  if ( FFreeTheValue <> nil) and ((FFreeTheValue as TFreeTheValue).FObjectToFree <> nil) then
-    Result := (FFreeTheValue as TFreeTheValue).FObjectToFree as T;
+  if (( FFreeTheValue <> nil) and ((FFreeTheValue as TFreeTheValue).FObjectToFree <> nil)) then
+    Result := ((FFreeTheValue as TFreeTheValue).FObjectToFree as T);
 end;
 
 constructor TFreeTheValue.Create(AObjToFree: TObject);
@@ -71,13 +71,11 @@ begin
   end;
 end;
 
-{$IFNDEF FPC}
 function TShared<T>.Cast<TT>: TShared<TT>;
 begin
   Result := TShared<TT>.Create(nil);
   Result.FFreeTheValue := FFreeTheValue;
 end;
-{$ENDIF}
 
 constructor TShared<T>.Create(AValue: T);
 begin
@@ -100,12 +98,10 @@ begin
   (FFreeTheValue as TFreeTheValue).FCustomDeallocator := ADealloc;
 end;
 
-{ TSharedList<T> }
-
 procedure TSharedList<T>.Add(AObject: TShared<T>);
 begin
-  SetLength(FList, Length(FList)+1);
-  FList[Length(FList)-1] := AObject;
+  SetLength(FList,( Length(FList)+1));
+  FList[(Length(FList)-1)] := AObject;
 end;
 
 procedure TSharedList<T>.Clear;

@@ -5,7 +5,7 @@ module DelphiWriter where
 
 import DelphiAst
 import Data.Text (Text, pack, intercalate)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (Maybe(Just, Nothing), fromMaybe)
 
 indent :: Text
 indent = "  "
@@ -21,11 +21,16 @@ instance ShowDelphi Unit where
     (showDelphi d) <>
     (showDelphi e) <>
     "end.\n"
-  
+
 instance ShowDelphi Interface where
-  showDelphi (Interface a) =
-    "interface\n\n" <>
-    intercalate "\n" (map showDelphi a) <> "\n"
+  showDelphi (Interface (Uses []) b)
+    =  "interface\n\n"
+    <> intercalate "\n" (map showDelphi b) <> "\n"
+  showDelphi (Interface (Uses a) b)
+    =  "interface\n\n"
+    <> "uses\n"
+    <> intercalate ",\n" a <> ";\n"
+    <> intercalate "\n" (map showDelphi b) <> "\n"
 
 instance ShowDelphi Implementation where
   showDelphi (Implementation a) = "implementation\n\n"
@@ -110,9 +115,18 @@ instance ShowDelphi ImplementationSpec where
                                       <> ";\n"
 
 instance ShowDelphi InterfaceExpression where
-  showDelphi (TypeDef a b) = "type\n"
-                           <> showDelphi a <> " = "
+  showDelphi (TypeDefinitions a) = "type\n"
+                                 <> intercalate "\n" (map showDelphi a)
+  showDelphi (ConstDefinitions a) = "const\n"
+                                <> intercalate "\n" (map showDelphi a)
+
+instance ShowDelphi ConstDefinition where
+  showDelphi (ConstDefinition a b) = a <> " = " <> intercalate "," (map showDelphi b)
+
+instance ShowDelphi TypeDefinition where
+  showDelphi (TypeDef a b) = showDelphi a <> " = "
                            <> showDelphi b <> "\n"
+  showDelphi (ForwardClass) = "class"
   showDelphi (Record a b) = showDelphi a
                            <> " = record\n"
                            <> intercalate "\n" (
@@ -125,11 +139,23 @@ instance ShowDelphi InterfaceExpression where
                            <> intercalate "\n" (
                                 map showDelphi c)
                            <> "\nend;\n"
+  showDelphi (TypeAlias a b) = showDelphi a <> " = " <> showDelphi b
+  showDelphi (EnumDefinition a b) = showDelphi a <> " = ("
+                                  <> intercalate ", " b
+                                  <> ")"
+  showDelphi (SetDefinition a b) = showDelphi a <> " = set of " <> showDelphi b
+
+instance ShowDelphi ArrayIndex where
+  showDelphi (IndexOf a) = showDelphi a
+  showDelphi (Range a) = intercalate "," $ map (\(x, y) -> pack ( show x ) <> ".." <> pack ( show y) ) a
 
 instance ShowDelphi TypeName where
   showDelphi UnspecifiedType = "{ Unspecified Type }"
   showDelphi (Type a)  = a
-  showDelphi (Array a) = "array of " <> showDelphi a
+  showDelphi (StaticArray a b) = "array[" <> showDelphi a <> "] of " <> showDelphi b
+  showDelphi (DynamicArray a b) = "array of " <> showDelphi b -- TODO: FIx this, needs to repeat.
+  showDelphi (VariantArray a) = "array of const" -- TODO: Fix this, needs to repeat.
+  showDelphi (OpenDynamicArray a) = "array of " <> showDelphi a
   showDelphi (Constraint a) = "Constraint "
                              <> intercalate "\n" ( map showDelphi a)
   showDelphi (GenericDefinition a b) = a <> "<"
@@ -141,7 +167,7 @@ instance ShowDelphi TypeName where
                                     <> intercalate ", "(map showDelphi b) 
                                     <> ">"
 
-instance ShowDelphi TypeDefinition where
+instance ShowDelphi TypeDefinitionRHS where
   showDelphi (UnknownTypeDefinition a) = "{ Unknown Type Definition: " <> a <> " }"
   showDelphi (ReferenceToProcedure a) = "{$IFNDEF FPC}reference to{$ENDIF} procedure("
                                       <> intercalate ", " (map showDelphi a)
@@ -151,6 +177,7 @@ instance ShowDelphi Accessibility where
   showDelphi (Private a) = "private\n" <> intercalate "\n" (map (\x -> indent <> showDelphi x) a)
   showDelphi (Public a) = "public\n"   <> intercalate "\n" (map (\x -> indent <> showDelphi x) a) 
   showDelphi (Protected a) = "protected\n" <> intercalate "\n" (map showDelphi a)
+  showDelphi (Published a) = "published\n" <> intercalate "\n" (map showDelphi a)
 
 _toDelphiArgString :: ShowDelphi a => [a] -> Text
 _toDelphiArgString x | not (null x) = "(" 
@@ -172,13 +199,23 @@ instance ShowDelphi Field where
   showDelphi (Function a b c d) = "function " <> (showDelphi a) <> _toDelphiArgString b <> ": "
                                 <> (showDelphi c) <> ";"
                                 <> _toDelphiAnnotations d
-  showDelphi (IndexProperty a b c d e f) = "property " <> a
+  showDelphi (IndexProperty a (Just b) c d e f g h) = "property " <> a
                                             <> "[" <> showDelphi b <> "]: "
                                             <> showDelphi c
-                                            <> fromMaybe "" ((\x -> " read " <> x) <$> d)
-                                            <> fromMaybe "" ((\x -> " write " <> x) <$> e)
+                                            <> fromMaybe "" ((\x -> " index " <> x) <$> d)
+                                            <> fromMaybe "" ((\x -> " read " <> x) <$> e)
+                                            <> fromMaybe "" ((\x -> " write " <> x) <$> f)
+                                            <> fromMaybe "" ((\x -> " default " <> showDelphi x) <$> g)
                                             <> ";"
-                                            <> _toDelphiAnnotations f
+                                            <> _toDelphiAnnotations h
+  showDelphi (IndexProperty a (Nothing) c d e f g h) = "property " <> a
+                                            <> showDelphi c
+                                            <> fromMaybe "" ((\x -> " index " <> x) <$> d)
+                                            <> fromMaybe "" ((\x -> " read " <> x) <$> e)
+                                            <> fromMaybe "" ((\x -> " write " <> x) <$> f)
+                                            <> fromMaybe "" ((\x -> " default " <> showDelphi x) <$> g)
+                                            <> ";"
+                                            <> _toDelphiAnnotations h
 
 instance ShowDelphi Annotation where
   showDelphi (Override) = "override"

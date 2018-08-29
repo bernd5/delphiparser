@@ -26,6 +26,8 @@ library:
   source-dirs: src
   dependencies:
   - text
+  - hex
+  - safe
   - pretty-simple
   - megaparsec
   ghc-options:

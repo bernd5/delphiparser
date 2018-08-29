@@ -3,24 +3,39 @@
 module DelphiParser
   ( dUnitP
   , expression
+  , uses
+  , array'
+  , typeAlias
+  , setDefinition
   , dStatementP
+  , dArgumentP
+  , constExpressions
   , dIfExpression
+  , dUnitInterfaceP
   , dFunctionImplementationP
   , dProcedureImplementationP
+  , dFunctionOrProcedureArgs'
+  , dUnitImplementationP
   , dTypeSpecListP
+  , typeName
   , dValueExpression
   ) where
 
 import Data.Maybe
+import Safe (headMay)
 import Data.Text (Text, pack, strip)
 import DelphiAst
 import DelphiLexer
+import DelphiArray (array)
 import Text.Megaparsec
 import Text.Megaparsec.Expr
 import Data.Functor (($>))
+import Text.Megaparsec.Char (char)
 
 dUnitP :: Parser Unit
 dUnitP = do
+  _ <- optional $ char '\xFEFF'
+  _ <- optional sc
   unitName <- dUnitNameP
   interface <- dUnitInterfaceP
   implementation <- dUnitImplementationP
@@ -35,35 +50,94 @@ dUnitNameP = do
   _ <- semi
   return name
 
+uses :: Parser [Text]
+uses = do
+  rword "uses"
+  items <- identifier' `sepBy` (symbol ",")
+  semi
+  return items
+
 dUnitInterfaceP :: Parser Interface
 dUnitInterfaceP = do
   rword "interface"
-  rword "type"
-  types <- dTypeSpecListP
-  return $ Interface types
+  usings <- optional uses
+  items <- many (typeExpressions <|> constExpressions)
+  return $ Interface (Uses (fromMaybe [] usings)) items
 
-dTypeSpecListP :: Parser [InterfaceExpression]
-dTypeSpecListP =
-  many $ do
+singleConstExpression :: Parser ConstDefinition
+singleConstExpression = do
+  lhs <- identifier'
+  optional $ symbol ":" >> array'
+  symbol "="
+  rhs <- choice [ parens "(" ")" (expression `sepBy` symbol ",")
+                , (:[]) <$> expression]
+  semi
+  return $ ConstDefinition lhs rhs
+
+constExpressions :: Parser InterfaceExpression
+constExpressions = do
+  rword "const"
+  consts <- many singleConstExpression
+  return $ ConstDefinitions consts
+
+typeExpressions :: Parser InterfaceExpression
+typeExpressions = do
+  rword "type"
+  types <- TypeDefinitions <$> many dTypeSpecListP
+  return types
+
+forwardClass :: Parser TypeDefinition
+forwardClass = do
+  rword "class"
+  return ForwardClass
+
+dTypeSpecListP :: Parser TypeDefinition
+dTypeSpecListP = do
     ident <- pack <$> identifier
     args <- dGenericArgs
     symbol "="
-    ie <-
-      try (dReferenceToProcedureP ident) <|>
-      try (dGenericRecordP ident args) <|>
-      try (dClassP ident args)
+    ie <- choice
+      [ dReferenceToProcedureP ident 
+      , dGenericRecordP ident args 
+      , try $ dClassP ident args 
+      , setDefinition ident args 
+      , enumDefinition ident args  -- Contains parens
+      , typeAlias ident args
+      , forwardClass
+      ]
     semi
     return ie
 
-dReferenceToProcedureP :: Text -> Parser InterfaceExpression
+typeAlias :: Text -> [Argument] ->  Parser TypeDefinition
+typeAlias lhs args = do
+  rhs <- typeName
+  return $ TypeAlias (GenericDefinition lhs args) rhs
+
+setDefinition :: Text -> [Argument] -> Parser TypeDefinition
+setDefinition a b = do
+  rword "set"
+  rword "of"
+  rhs <- Type <$> identifier'
+  return $ SetDefinition (GenericDefinition a b) rhs
+
+enumDefinition :: Text -> [Argument] -> Parser TypeDefinition
+enumDefinition a b = do
+  rhs <- parens "(" ")" $ identifier' `sepBy` symbol ","
+  return $ EnumDefinition (GenericDefinition a b) rhs
+
+dReferenceToProcedureP :: Text -> Parser TypeDefinition
 dReferenceToProcedureP ident = do
-  rword "reference"
-  rword "to"
+  optional $ do
+    rword "reference"
+    rword "to"
   rword "procedure"
   args <- dFunctionOrProcedureArgs'
+  optional $ do
+    rword "of"
+    rword "object"
   return $ TypeDef (Type ident) (ReferenceToProcedure args)
 
-dGenericRecordP :: Text -> [Argument] -> Parser InterfaceExpression
+dGenericRecordP :: Text -> [Argument] -> Parser TypeDefinition
 dGenericRecordP ident args = do
   rword "record"
   r <- dRecordDefinitionListP
@@ -77,7 +151,7 @@ dArgsPassedP = do
   symbol ")"
   return names
 
-dClassP :: Text -> [Argument] -> Parser InterfaceExpression
+dClassP :: Text -> [Argument] -> Parser TypeDefinition
 dClassP ident args = do
   rword "class"
   supers <- dArgsPassedP
@@ -95,7 +169,8 @@ dRecordDefinitionP :: Parser Accessibility
 dRecordDefinitionP =
   dRecordDefinitionP' "public" Public <|>
   dRecordDefinitionP' "private" Private <|>
-  dRecordDefinitionP' "protected" Protected
+  dRecordDefinitionP' "protected" Protected <|>
+  dRecordDefinitionP' "published" Published
 
 dRecordDefinitionP' ::
      String -> ([Field] -> Accessibility) -> Parser Accessibility
@@ -105,15 +180,14 @@ dRecordDefinitionP' a b = do
   return $ b fields
 
 dFieldDefinitionP :: Parser Field
-dFieldDefinitionP =
-  dSimpleFieldP <|> dConstructorFieldP <|> dDestructorFieldP <|> dProcedureP <|>
-  dFunctionP <|>
-  property
+dFieldDefinitionP = do
+  optional $ rword "class"
+  dSimpleFieldP <|> dConstructorFieldP <|> dDestructorFieldP <|> dProcedureP <|> dFunctionP <|> property
 
 dFunctionOrProcedureArgs :: String -> String -> Parser [Argument]
 dFunctionOrProcedureArgs a b = do
   symbol $ pack a
-  args <- sepBy1 dArgumentP semi
+  args <- concat <$> sepBy1 dArgumentP semi
   symbol $ pack b
   return args
 
@@ -127,29 +201,27 @@ dGenericArgs = fromMaybe [] <$> optional (dFunctionOrProcedureArgs "<" ">")
 dGenericTypes :: Parser [TypeName]
 dGenericTypes = many $ do
   symbol "<"
-  -- TODO: This should be 'dTypeNameP', rather than identifier
+  -- TODO: This should be 'typeName', rather than identifier
   name <- strip . pack <$> identifier
   symbol ">"
   return $ Type name
 
-dArrayOfP :: Parser TypeName
-dArrayOfP = do
-  rword "array"
-  rword "of"
-  typ <- dTypeNameP
-  return $ Array typ
+array':: Parser TypeName
+array' = array typeName
 
 simplifyTypeName :: Text -> Maybe [TypeName] -> TypeName
 simplifyTypeName m (Just []) = Type m
 simplifyTypeName m (Just (x:xs)) = GenericInstance m (x : xs)
 simplifyTypeName m Nothing = Type m
 
-dTypeNameP :: Parser TypeName
-dTypeNameP =
-  dArrayOfP <|> do
-    name <- pack <$> anyIdentifier
+typeName :: Parser TypeName
+typeName = choice [ array',
+  do
+    -- TODO: Distinguish between the different sorts of identifiers, especially class.
+    name <- identifierPlus ["string", "boolean", "cardinal", "class"]
     args <- optional dGenericTypes
     return $ simplifyTypeName name args
+  ]
 
 dFunctionP :: Parser Field
 dFunctionP = do
@@ -162,7 +234,7 @@ dFunctionP = do
           else GenericDefinition name generics
   args <- dFunctionOrProcedureArgs'
   symbol ":"
-  typ <- dTypeNameP
+  typ <- typeName
   semi
   return $ Function name' args typ []
 
@@ -200,6 +272,7 @@ terms =
   choice
     [ V <$> identifier'
     , I <$> integer
+    , I <$> hexinteger
     , Nil <$ rword "nil"
     , parens "(" ")" expression
     ]
@@ -283,11 +356,11 @@ dMemberImplementationP ::
   -> Parser ImplementationSpec
 dMemberImplementationP a b = do
   rword a
-  name <- dTypeNameP
+  name <- typeName
   _ <- symbol "."
-  member <- dTypeNameP
+  member <- typeName
   args <- dFunctionOrProcedureArgs'
-  typ <- optional (symbol ":" *> dTypeNameP)
+  typ <- optional (symbol ":" *> typeName)
   _ <- semi
   statements <- dBeginEndExpression
   _ <- semi
@@ -299,11 +372,14 @@ property = do
   name <- pack <$> identifier
   args <- fromMaybe [] <$> optional (dFunctionOrProcedureArgs "[" "]")
   _ <- symbol ":"
-  r <- dTypeNameP
-  rd <- (pack <$>) <$> optional (rword "read" *> identifier <* semi)
-  wt <- (pack <$>) <$> optional (rword "write" *> identifier <* semi)
+  r <- typeName
+  id <- (pack <$>) <$> optional (rword "index" *> identifier)
+  rd <- (pack <$>) <$> optional (rword "read" *> identifier)
+  wt <- (pack <$>) <$> optional (rword "write" *> identifier)
+  def <- optional (rword "default" *> expression)
+  semi
   annotations <- many annotation
-  return $ IndexProperty name (head args) r rd wt annotations
+  return $ IndexProperty name (headMay args) r id rd wt def annotations
 
 dProcedureP' ::
      String
@@ -336,20 +412,28 @@ dSimpleFieldP :: Parser Field
 dSimpleFieldP = do
   name <- identifier
   _ <- symbol ":"
-  typ <- dTypeNameP
+  typ <- typeName
   _ <- semi
   return $ Field (pack name) typ
 
-dArgumentP :: Parser Argument
+dArgumentP :: Parser [Argument]
 dArgumentP = do
-  l <- identifier
+  optional $ rword "const"
+  optional $ rword "var"
+  optional $ rword "out"
+  l <- identifier' `sepBy` symbol ","
   _ <- symbol ":"
-  r <- dTypeNameP
-  return $ Arg (pack l) r
+  r <- typeName
+  optional $ do
+    symbol "="
+    anyIdentifier
+  return $ map (\a -> Arg a r) l
 
 dUnitImplementationP :: Parser Implementation
 dUnitImplementationP = do
   rword "implementation"
+  optional uses
+  optional $ many (typeExpressions <|> constExpressions)
   functions <-
     many
       (dFunctionImplementationP <|> dProcedureImplementationP <|>

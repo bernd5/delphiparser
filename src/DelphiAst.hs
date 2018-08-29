@@ -10,8 +10,11 @@ data Unit =
        Finalization
   deriving (Eq, Show)
 
-newtype Interface =
-  Interface [InterfaceExpression]
+data Interface =
+  Interface Uses [InterfaceExpression]
+  deriving (Eq, Show)
+
+newtype Uses = Uses [Text]
   deriving (Eq, Show)
 
 newtype Implementation =
@@ -23,6 +26,7 @@ data ImplementationSpec
                  [Argument]
                  TypeName
                  Expression
+  | AdditionalInterface [InterfaceExpression]
   | MemberFunctionImpl TypeName
                        TypeName
                        [Argument]
@@ -81,20 +85,40 @@ data Finalization =
   Finalization
   deriving (Eq, Show)
 
-data InterfaceExpression
+-- These Type Definitions can only appear on the RHS.
+data TypeDefinitionRHS
+  = UnknownTypeDefinition Text
+  | ReferenceToProcedure [Argument]
+  deriving (Eq, Show)
+
+data TypeDefinition
   = TypeDef TypeName
-            TypeDefinition
+            TypeDefinitionRHS
+  | TypeAlias TypeName TypeName -- Simple type alias: type foo = bar;
+  | EnumDefinition TypeName [Text]
+  | SetDefinition TypeName TypeName
   | Record TypeName
            RecordDefinition
+  | ForwardClass
   | Class TypeName
           [TypeName]
           ClassDefinition
+  deriving (Eq, Show)
+
+data InterfaceExpression
+  = TypeDefinitions [TypeDefinition]
+  | ConstDefinitions [ConstDefinition]
+  deriving (Eq, Show)
+
+data ConstDefinition
+  = ConstDefinition Text [ValueExpression]
   deriving (Eq, Show)
 
 data Accessibility
   = Private [Field]
   | Public [Field]
   | Protected [Field]
+  | Published [Field]
   deriving (Eq, Show)
 
 data Field
@@ -112,10 +136,12 @@ data Field
              TypeName
              [Annotation]
   | IndexProperty Name
-                  Argument
+                  (Maybe Argument)
                   TypeName
                   (Maybe Name)
                   (Maybe Name)
+                  (Maybe Name)
+                  (Maybe ValueExpression)
                   [Annotation]
   deriving (Eq, Show)
 
@@ -123,11 +149,6 @@ data Annotation
   = Override
   | Virtual
   | Default
-  deriving (Eq, Show)
-
-data TypeDefinition
-  = UnknownTypeDefinition Text
-  | ReferenceToProcedure [Argument]
   deriving (Eq, Show)
 
 data Argument =
@@ -139,9 +160,19 @@ type RecordDefinition = [Accessibility]
 
 type ClassDefinition = [Accessibility]
 
+data ArrayIndex
+  = IndexOf TypeName -- ie, Byte.  TODO: Consider how to constrain this to ordinals.
+  | Range [(Integer,Integer)] -- ie, 34..56
+  deriving (Eq, Show)
+
 data TypeName
   = Type Text
-  | Array TypeName
+  -- Arrays
+  | StaticArray ArrayIndex TypeName
+  | DynamicArray Integer TypeName
+  | VariantArray ArrayIndex
+  | OpenDynamicArray TypeName
+
   | Constraint [GenericConstraint]
   | GenericDefinition Text
                       [Argument]
