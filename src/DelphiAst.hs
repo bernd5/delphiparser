@@ -17,8 +17,8 @@ data Interface =
 newtype Uses = Uses [Text]
   deriving (Eq, Show)
 
-newtype Implementation =
-  Implementation [ImplementationSpec]
+data Implementation =
+  Implementation Uses [ImplementationSpec]
   deriving (Eq, Show)
 
 data ImplementationSpec
@@ -26,7 +26,7 @@ data ImplementationSpec
                  [Argument]
                  TypeName
                  Expression
-  | AdditionalInterface [InterfaceExpression]
+  | AdditionalInterface InterfaceExpression
   | MemberFunctionImpl TypeName
                        TypeName
                        [Argument]
@@ -45,12 +45,18 @@ data ImplementationSpec
                         Expression
   deriving (Eq, Show)
 
+data LoopDirection = LoopUpTo | LoopDownTo
+  deriving (Eq, Show)
+
 data Expression
   = Expr Text
   | ValueExpression := ValueExpression     -- foo := bar
   | If ValueExpression
        Then
        Else
+  | For Expression LoopDirection ValueExpression Expression
+  | While ValueExpression Expression
+  | Repeat [Expression] ValueExpression
   | Begin [Expression]
   | ExpressionValue ValueExpression
   | EmptyExpression
@@ -61,13 +67,23 @@ data ValueExpression
   = V Text
   | T TypeName
   | I Integer
+  | S Text
+  | DTrue
+  | DFalse
+  | Result
+  | Not ValueExpression
+  | Dereference ValueExpression -- '^foo'
+  | AddressOf ValueExpression -- '@foo'
   | ValueExpression :& ValueExpression     -- foo and bar
+  | ValueExpression :| ValueExpression     -- foo or bar
+  | ValueExpression :== ValueExpression     -- foo = bar
   | ValueExpression :+ ValueExpression     -- foo + bar
   | ValueExpression :- ValueExpression     -- foo - bar
   | ValueExpression :* ValueExpression     -- foo * bar
   | ValueExpression :/ ValueExpression     -- foo / bar
   | ValueExpression :<> ValueExpression    -- foo <> bar
   | ValueExpression :< ValueExpression    -- foo < bar
+  | ValueExpression :<= ValueExpression    -- foo <= bar
   | ValueExpression :> ValueExpression    -- foo > bar
   | ValueExpression `As` ValueExpression   -- foo as bar
   | ValueExpression :$  [ValueExpression]  -- foo(bar, baz)
@@ -108,10 +124,15 @@ data TypeDefinition
 data InterfaceExpression
   = TypeDefinitions [TypeDefinition]
   | ConstDefinitions [ConstDefinition]
+  | VarDefinitions [VarDefinition]
   deriving (Eq, Show)
 
 data ConstDefinition
-  = ConstDefinition Text [ValueExpression]
+  = ConstDefinition Text (Maybe TypeName) [ValueExpression]
+  deriving (Eq, Show)
+
+data VarDefinition
+  = VarDefinition Text TypeName
   deriving (Eq, Show)
 
 data Accessibility
@@ -119,6 +140,15 @@ data Accessibility
   | Public [Field]
   | Protected [Field]
   | Published [Field]
+  | DefaultAccessibility [Field]
+  deriving (Eq, Show)
+
+data PropertySpecifier
+  = PropertyRead Text
+  | PropertyWrite Text
+  | PropertyStored
+  | PropertyDefault Text
+  | PropertyNoDefault
   deriving (Eq, Show)
 
 data Field
@@ -135,6 +165,7 @@ data Field
              [Argument]
              TypeName
              [Annotation]
+  | Property Text (Maybe [Argument]) TypeName (Maybe Text) [PropertySpecifier] Bool
   | IndexProperty Name
                   (Maybe Argument)
                   TypeName
@@ -149,6 +180,7 @@ data Annotation
   = Override
   | Virtual
   | Default
+  | StdCall
   deriving (Eq, Show)
 
 data Argument =
@@ -172,7 +204,8 @@ data TypeName
   | DynamicArray Integer TypeName
   | VariantArray ArrayIndex
   | OpenDynamicArray TypeName
-
+  | AddressOfType TypeName -- '^'
+  | TargetOfPointer TypeName -- '@'
   | Constraint [GenericConstraint]
   | GenericDefinition Text
                       [Argument]

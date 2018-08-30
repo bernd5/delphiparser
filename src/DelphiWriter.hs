@@ -26,15 +26,20 @@ instance ShowDelphi Interface where
   showDelphi (Interface (Uses []) b)
     =  "interface\n\n"
     <> intercalate "\n" (map showDelphi b) <> "\n"
-  showDelphi (Interface (Uses a) b)
+  showDelphi (Interface a b)
     =  "interface\n\n"
-    <> "uses\n"
-    <> intercalate ",\n" a <> ";\n"
+    <> showDelphi a
     <> intercalate "\n" (map showDelphi b) <> "\n"
 
+instance ShowDelphi Uses where
+  showDelphi (Uses []) = ""
+  showDelphi (Uses a) = "uses\n    "
+    <> intercalate ",\n    " a <> ";\n"
+
 instance ShowDelphi Implementation where
-  showDelphi (Implementation a) = "implementation\n\n"
-                                <> intercalate "\n" (map showDelphi a)
+  showDelphi (Implementation a b) = "implementation\n\n"
+                                <> showDelphi a
+                                <> intercalate "\n" (map showDelphi b)
 
 instance ShowDelphi Initialization where
   showDelphi (Initialization) = "\n\n"
@@ -79,6 +84,7 @@ instance ShowDelphi Else where
   showDelphi (Else a) = showDelphi a
 
 instance ShowDelphi ImplementationSpec where
+  showDelphi (AdditionalInterface a) = showDelphi a
   showDelphi (FunctionImpl a b c d) = "function "
                                       <> showDelphi a
                                       <> _toDelphiArgString b
@@ -121,7 +127,8 @@ instance ShowDelphi InterfaceExpression where
                                 <> intercalate "\n" (map showDelphi a)
 
 instance ShowDelphi ConstDefinition where
-  showDelphi (ConstDefinition a b) = a <> " = " <> intercalate "," (map showDelphi b)
+  showDelphi (ConstDefinition a (Just b) c) = a <> " : " <> showDelphi b <> " = (" <> intercalate ", " (map showDelphi c) <> ")"
+  showDelphi (ConstDefinition a (Nothing) c) = a <> " = (" <> intercalate ", " (map showDelphi c) <> ")"
 
 instance ShowDelphi TypeDefinition where
   showDelphi (TypeDef a b) = showDelphi a <> " = "
@@ -178,6 +185,7 @@ instance ShowDelphi Accessibility where
   showDelphi (Public a) = "public\n"   <> intercalate "\n" (map (\x -> indent <> showDelphi x) a) 
   showDelphi (Protected a) = "protected\n" <> intercalate "\n" (map showDelphi a)
   showDelphi (Published a) = "published\n" <> intercalate "\n" (map showDelphi a)
+  showDelphi (DefaultAccessibility a) = intercalate "\n" (map showDelphi a)
 
 _toDelphiArgString :: ShowDelphi a => [a] -> Text
 _toDelphiArgString x | not (null x) = "(" 

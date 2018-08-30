@@ -14,6 +14,10 @@ import DelphiParser
 import DelphiWriter
 import Text.Megaparsec (parse)
 
+import TestArrays (arrayTests)
+import TestLoops (loopTests)
+import TestProperties (propertiesTests)
+
 newtype ParserTestsData = ParserTestsData
   { sharedpointer :: Text
   }
@@ -22,7 +26,7 @@ main :: IO ()
 main = do
   sp <- readFile "deps/sharedpointer.pas"
   let p = ParserTestsData {sharedpointer = sp}
-  defaultMain $ testGroup "Tests" [unitTests p, arrayTests]
+  defaultMain $ testGroup "Tests" [unitTests p, arrayTests, loopTests, propertiesTests]
 
 stripWhitespace :: Text -> Text
 stripWhitespace = concatMap f
@@ -43,39 +47,6 @@ roundtrip expected p = do
         "Delphi Generation must match source"
         (stripWhitespace expected)
         (stripWhitespace (showDelphi actual))
-
-arrayTests :: TestTree
-arrayTests = testGroup "Delphi Array Tests"
-  [ testGroup "Static Arrays" [
-      testCase "array [foo] of bar" $
-      (Right (StaticArray (IndexOf (Type "foo")) (Type "bar")) @=?) $
-      parse array' "" "array [foo] of bar"
-    , testCase "array [43..25] of bar" $
-      (Right (StaticArray (Range [(43, 25)]) (Type "bar")) @=?) $
-      parse array' "" "array [43..25] of bar"
-    , testCase "array [43..25,5..6] of bar" $
-      (Right (StaticArray (Range [(43, 25), (5,6)]) (Type "bar")) @=?) $
-      parse array' "" "array [43..25,5..6] of bar"
-    ]
-  , testGroup "Dynamic Arrays"
-    [ testCase "array of foo" $
-      (Right (DynamicArray 1 (Type "foo")) @=?) $
-      parse array' "" "array of foo"
-    , testCase "array of array of foo" $
-      (Right (DynamicArray 2 (Type "foo")) @=?) $
-      parse array' "" "array of array of foo"
-    ]
-  , testGroup "Variant Arrays" $
-    [ testCase "array [foo] of const" $
-      (Right (VariantArray $ IndexOf $ Type "foo") @=? ) $
-      parse array' "" "array [foo] of const"
-    ]
-  , testGroup "Open Dynamic Arrays"
-    [ testCase "array foo" $
-      (Right (OpenDynamicArray $ Type "foo") @=? ) $
-      parse array' "" "array foo"
-    ]
-  ]
 
 unitTests :: ParserTestsData -> TestTree
 unitTests p =
@@ -106,7 +77,7 @@ unitTests p =
          (Unit
             "TestUnit"
             (Interface (Uses []) [TypeDefinitions []])
-            (Implementation [])
+            (Implementation (Uses []) [])
             Initialization
             Finalization) @=?) $
       parse
@@ -118,7 +89,7 @@ unitTests p =
          (Unit
             "TestUnit"
             (Interface (Uses []) [TypeDefinitions []])
-            (Implementation [])
+            (Implementation (Uses []) [])
             Initialization
             Finalization) @=?) $
       parse
@@ -144,7 +115,7 @@ unitTests p =
          (Unit
             "TestUnit"
             (Interface (Uses []) [TypeDefinitions []])
-            (Implementation [])
+            (Implementation (Uses []) [])
             Initialization
             Finalization) @=?) $
       parse
@@ -241,6 +212,9 @@ unitTests p =
     , testCase "Ensure reading an index property parses" $
       (Right (ExpressionValue (V "foo" :!! [I 32])) @=?) $
       parse dStatementP "" "foo[32];"
+    , testCase "Ensure reading an index property parses" $
+      (Right (V "foo" :!! [I 32]) @=?) $
+      parse expression "" "foo[32];"
     , testCase "Ensure that foo.bar.baz.fuux is left associative" $
       (Right (V "foo" :. V "bar" :. V "baz" :. V "fuux") @=?) $
       parse expression "" "foo.bar.baz.fuux"
@@ -266,8 +240,32 @@ unitTests p =
       (Right (StaticArray ( IndexOf $ Type "foo") (Type "bar") ) @=?) $
       parse typeName "" "array [foo] of bar"
     , testCase "Ensure that const expressions involving arrays parse" $
-      (Right (ConstDefinitions [ConstDefinition "foo" [V "one", V "two", V "three"]]) @=?) $
+      (Right (ConstDefinitions [ConstDefinition "foo" (Just $ StaticArray (IndexOf $ Type "bar") (Type "baz")) [V "one", V "two", V "three"]]) @=?) $
       parse constExpressions "" "const foo: array [bar] of baz = (one, two, three);"
+    , testCase "Ensure foo.bar parses" $
+      (Right (V "foo" :. V "bar") @=? ) $
+      parse expression "" "foo.bar"
+    , testCase "Ensure a = foo.bar parses" $
+      (Right (V "a" :== (V "foo" :. V "bar")) @=? ) $
+      parse expression "" "a = foo.bar"
+    , testCase "Ensure if a = foo.bar then... parses" $
+      (Right (If (V "a" :== (V "foo" :. V "bar")) (Then (ExpressionValue (V "Nil"))) (Else EmptyExpression)) @=? ) $
+      parse dIfExpression"" "if a = foo.bar then Nil;"
+    , testCase "Ensure dereference parses" $
+      (Right (Dereference (V "foo")) @=? ) $
+      parse expression "" "^foo"
+    , testCase "Ensure address-of parses" $
+      (Right (AddressOf (V "foo")) @=? ) $
+      parse expression "" "@foo"
+    , testCase "Ensure foo <= bar parses" $
+      (Right (V "foo" :<= V "bar") @=? ) $
+      parse expression "" "foo <= bar"
+    , testCase "Ensure that function call with indexed args parse" $
+      (Right (V "foo" := (V "bar" :$ [V "baz",DFalse,V "fuux" :!! [V "I"]])) @=? ) $
+      parse dStatementP "" "foo := bar(baz, false, fuux[I]);"
+    , testCase "Ensure that function call with indexed args parse" $
+      (Right (V "bar" :$ [V "baz",DFalse,V "fuux" :!! [V "I"]]) @=? ) $
+      parse expression "" "bar(baz, false, fuux[I])"
     , testCase "Ensure simple set parses" $
       (Right (SetDefinition (GenericDefinition "foo" []) (Type "bar")) @=?) $
       parse (setDefinition "foo" []) "" "set of bar"
