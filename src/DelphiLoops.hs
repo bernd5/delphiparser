@@ -5,12 +5,9 @@ module DelphiLoops (loop) where
 import Prelude hiding (repeat)
 
 import Text.Megaparsec
-import Text.Megaparsec.Expr
 
 import DelphiLexer
 import DelphiAst
-
-type ExpressionParser = Parser ValueExpression
 
 loop :: Parser ValueExpression -> Parser Expression -> Parser Expression
 loop a b = choice

@@ -7,11 +7,15 @@ module DelphiParser
   , array'
   , loop'
   , property'
+  , typeArguments'
+  , delphiCase'
   , functionCall
   , typeAlias
+  , varExpressions
   , setDefinition
-  , dStatementP
-  , dArgumentP
+  , functionImpl
+  , statement
+  , delphiTry'
   , constExpressions
   , dIfExpression
   , dUnitInterfaceP
@@ -25,21 +29,41 @@ module DelphiParser
   ) where
 
 import Data.Maybe
-import Safe (headMay)
 import Data.Text (Text, pack, strip)
 import DelphiAst
 import DelphiLexer
 import DelphiArray (array)
 import DelphiLoops (loop)
 import DelphiProperty (property)
+import DelphiTry (delphiTry)
+import DelphiCase (delphiCase)
+import DelphiTypeArguments (typeArguments)
 import Text.Megaparsec
 import Text.Megaparsec.Expr
 import qualified Text.Megaparsec.Char.Lexer as L
 import Data.Functor (($>))
 import Text.Megaparsec.Char (char)
 
-loop' = loop expression dStatementP
-property' = property typeName dArgumentP
+loop' :: Parser Expression
+loop' = loop expression statement
+
+property' :: Parser Field
+property' = property typeName dArgumentP expression
+
+typeArguments'' :: Char -> Char -> Parser (Maybe [Argument])
+typeArguments'' a b  = optional (parens' a b $ typeArguments typeName expression)
+
+typeArguments' :: Parser (Maybe [Argument])
+typeArguments' = typeArguments'' '(' ')'
+
+delphiTry' :: Parser Expression
+delphiTry' = delphiTry statement
+
+delphiCase' :: Parser Expression
+delphiCase' = delphiCase statement expression
+
+dArgumentP :: Parser [Argument]
+dArgumentP = typeArguments typeName expression
 
 dUnitP :: Parser Unit
 dUnitP = do
@@ -73,6 +97,7 @@ dUnitInterfaceP = do
   items <- many interfaceItems
   return $ Interface (Uses (fromMaybe [] usings)) items
 
+interfaceItems :: Parser InterfaceExpression
 interfaceItems = typeExpressions <|> constExpressions <|> varExpressions
 
 singleConstExpression :: Parser ConstDefinition
@@ -151,15 +176,21 @@ enumDefinition a b = do
 
 dReferenceToProcedureP :: Text -> Parser TypeDefinition
 dReferenceToProcedureP ident = do
-  optional $ do
+  r <- optional $ do
     rword "reference"
     rword "to"
   rword "procedure"
   args <- dFunctionOrProcedureArgs'
-  optional $ do
+  o <- optional $ do
     rword "of"
     rword "object"
-  return $ TypeDef (Type ident) (ReferenceToProcedure args)
+  let t = if isJust r
+          then ReferenceToProcedure
+          else
+            if isJust o
+              then ProcedureOfObject
+              else SimpleProcedure
+  return $ TypeDef (Type ident) (t args)
 
 dGenericRecordP :: Text -> [Argument] -> Parser TypeDefinition
 dGenericRecordP ident args = do
@@ -210,19 +241,12 @@ dFieldDefinitionP = do
   optional $ rword "class"
   dSimpleFieldP <|> dConstructorFieldP <|> dDestructorFieldP <|> dProcedureP <|> dFunctionP <|> property'
 
-dFunctionOrProcedureArgs :: String -> String -> Parser [Argument]
-dFunctionOrProcedureArgs a b = do
-  symbol $ pack a
-  args <- concat <$> sepBy1 dArgumentP semi
-  symbol $ pack b
-  return args
-
 dFunctionOrProcedureArgs' :: Parser [Argument]
 dFunctionOrProcedureArgs' =
-  fromMaybe [] <$> optional (dFunctionOrProcedureArgs "(" ")")
+  fromMaybe [] <$> typeArguments'
 
 dGenericArgs :: Parser [Argument]
-dGenericArgs = fromMaybe [] <$> optional (dFunctionOrProcedureArgs "<" ">")
+dGenericArgs = fromMaybe [] <$> typeArguments'' '<' '>'
 
 dGenericTypes :: Parser [TypeName]
 dGenericTypes = many $ do
@@ -233,7 +257,7 @@ dGenericTypes = many $ do
   return $ Type name
 
 array':: Parser TypeName
-array' = array typeName
+array' = array typeName expression
 
 simplifyTypeName :: Text -> Maybe String -> Maybe [TypeName] -> TypeName
 simplifyTypeName m (Just "^") (Just []) = AddressOfType $ Type m
@@ -267,12 +291,17 @@ dFunctionP = do
   semi
   return $ Function name' args typ []
 
-dStatementP :: Parser Expression
-dStatementP =
-  try dEqExpression <|> try dIfExpression <|> try dBeginEndExpression <|>
-  try dValueExpression <|>
-  try loop' <|>
-  (const EmptyExpression <$> semi)
+statement :: Parser Expression
+statement = choice
+  [ try dEqExpression
+  , try dIfExpression
+  , try dBeginEndExpression
+  , try dValueExpression
+  , try loop'
+  , delphiTry'
+  , delphiCase'
+  , const EmptyExpression <$> semi
+  ]
 
 dValueExpression :: Parser Expression
 dValueExpression = ExpressionValue <$> expression
@@ -280,7 +309,7 @@ dValueExpression = ExpressionValue <$> expression
 dBeginEndExpression :: Parser Expression
 dBeginEndExpression = do
   rword "begin"
-  expressions <- many $ dStatementP <* semi
+  expressions <- many $ statement <* semi
   rword "end"
   return $ Begin expressions
 
@@ -305,6 +334,7 @@ terms =
     , I <$> hexinteger
     , DTrue <$ rword "true"
     , DFalse <$ rword "false"
+    , Inherited <$> (rword "inherited" >> identifier')
     , Result <$ rword "result"
     , Nil <$ rword "nil"
     , S . pack  <$> ( char '\'' >> manyTill L.charLiteral (char '\'') )
@@ -371,9 +401,9 @@ dIfExpression = do
   rword "if"
   expr <- expression
   rword "then"
-  statement <- dStatementP
-  elseStatement <- optional (rword "else" *> dStatementP)
-  return $ If expr (Then statement) (Else 
+  s <- statement
+  elseStatement <- optional (rword "else" *> statement)
+  return $ If expr (Then s) (Else 
     (fromMaybe EmptyExpression elseStatement))
     
 
@@ -407,6 +437,18 @@ functionImpl = do
   _ <- semi
   return $ FunctionImpl name args typ statements
 
+procedureImpl :: Parser ImplementationSpec
+procedureImpl = do
+  rword "procedure"
+  name <- typeName
+  args <- dFunctionOrProcedureArgs'
+  _ <- semi
+  annotations <- many annotation
+  optional interfaceItems
+  statements <- dBeginEndExpression
+  _ <- semi
+  return $ ProcedureImpl name args statements
+
 dMemberImplementationP ::
      String
   -> (TypeName -> TypeName -> [Argument] -> TypeName -> Expression -> ImplementationSpec)
@@ -419,6 +461,7 @@ dMemberImplementationP a b = do
   args <- dFunctionOrProcedureArgs'
   typ <- optional (symbol ":" *> typeName)
   _ <- semi
+  optional interfaceItems
   statements <- dBeginEndExpression
   _ <- semi
   return $ b name member args (fromMaybe UnspecifiedType typ) statements
@@ -460,19 +503,6 @@ dSimpleFieldP = do
   _ <- semi
   return $ Field (pack name) typ
 
-dArgumentP :: Parser [Argument]
-dArgumentP = do
-  optional $ rword "const"
-  optional $ rword "var"
-  optional $ rword "out"
-  l <- identifier' `sepBy` symbol ","
-  _ <- symbol ":"
-  r <- typeName
-  optional $ do
-    symbol "="
-    anyIdentifier
-  return $ map (\a -> Arg a r) l
-
 dUnitImplementationP :: Parser Implementation
 dUnitImplementationP = do
   rword "implementation"
@@ -480,6 +510,7 @@ dUnitImplementationP = do
   functions <-
     many $ choice 
       [ try functionImpl
+      , try procedureImpl
       , dFunctionImplementationP
       , dProcedureImplementationP
       , dConstructorImplementationP

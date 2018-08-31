@@ -16,11 +16,14 @@ arrayTests = testGroup "Delphi Array Tests"
       testCase "array [foo] of bar" $
       (Right (StaticArray (IndexOf (Type "foo")) (Type "bar")) @=?) $
       parse array' "" "array [foo] of bar"
+    , testCase "array [43..foo-2] of bar" $
+      (Right (StaticArray (Range [(I 43, (V "foo" :- I 2))]) (Type "bar")) @=?) $
+      parse array' "" "array [43..foo-2] of bar"
     , testCase "array [43..25] of bar" $
-      (Right (StaticArray (Range [(43, 25)]) (Type "bar")) @=?) $
+      (Right (StaticArray (Range [(I 43, I 25)]) (Type "bar")) @=?) $
       parse array' "" "array [43..25] of bar"
     , testCase "array [43..25,5..6] of bar" $
-      (Right (StaticArray (Range [(43, 25), (5,6)]) (Type "bar")) @=?) $
+      (Right (StaticArray (Range [(I 43,I 25), (I 5,I 6)]) (Type "bar")) @=?) $
       parse array' "" "array [43..25,5..6] of bar"
     ]
   , testGroup "Dynamic Arrays"

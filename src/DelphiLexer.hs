@@ -7,6 +7,7 @@ module DelphiLexer
   , symbol
   , symbol'
   , parens
+  , parens'
   , integer
   , hexinteger
   , semi
@@ -49,11 +50,14 @@ symbol a = (\_ -> ()) <$> (symbol' $ unpack a)
 parens :: Text -> Text -> Parser a -> Parser a
 parens a b = between (symbol a) (symbol b)
 
+parens' :: Char -> Char -> Parser a -> Parser a
+parens' a b = parens (pack [a]) (pack [b])
+
 integer :: Parser Integer
 integer = lexeme L.decimal
 
 hexinteger :: Parser Integer
-hexinteger = char '$' *> lexeme L.hexadecimal
+hexinteger = (char '#' <|> char '$') *> lexeme L.hexadecimal
 
 semi :: Parser ()
 semi = (\_ -> ()) <$> symbol ";"

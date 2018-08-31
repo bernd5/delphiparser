@@ -44,6 +44,8 @@ executables:
     - -Wall
     dependencies:
     - delphi
+    - text
+    - megaparsec
 
 tests:
   delphi-test:

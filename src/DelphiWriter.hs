@@ -51,14 +51,25 @@ instance ShowDelphi ValueExpression where
   showDelphi (V a) = a
   showDelphi (T a) = showDelphi a
   showDelphi (I a) = pack $ show a
+  showDelphi (S a) = pack $ show a
+  showDelphi (Inherited a) = "inherited " <> a
+  showDelphi (a :| b) = "(" <> showDelphi a <> " or " <> showDelphi b <> ")"
+  showDelphi (DTrue) = "True"
+  showDelphi (DFalse) = "False"
+  showDelphi (Result) = "Result"
+  showDelphi (Not a) = "(not " <> showDelphi a <> ")"
+  showDelphi (AddressOf a) = "@" <> showDelphi a
+  showDelphi (Dereference a) = "^" <> showDelphi a
   showDelphi (a :. b) = showDelphi a <> "." <> showDelphi b
   showDelphi (a :$ b) = showDelphi a <> _toDelphiArgString(b)
   showDelphi (a :+ b) = "(" <> showDelphi a <> " + " <> showDelphi b <> ")"
+  showDelphi (a :== b) = "(" <> showDelphi a <> " == " <> showDelphi b <> ")"
   showDelphi (a :- b) = "(" <> showDelphi a <> " - " <> showDelphi b <> ")"
   showDelphi (a :* b) = "(" <> showDelphi a <> " * " <> showDelphi b <> ")"
   showDelphi (a :/ b) = "(" <> showDelphi a <> " / " <> showDelphi b <> ")"
   showDelphi (a :& b) = "(" <> showDelphi a <> " and " <> showDelphi b <> ")"
   showDelphi (a :< b) = "(" <> showDelphi a <> " < " <> showDelphi b <> ")"
+  showDelphi (a :<= b) = "(" <> showDelphi a <> " <= " <> showDelphi b <> ")"
   showDelphi (a :> b) = "(" <> showDelphi a <> " > " <> showDelphi b <> ")"
   showDelphi (a :<> b) = "(" <> showDelphi a <> " <> " <> showDelphi b <> ")"
   showDelphi (a `As` b) = "(" <> showDelphi a <> " as " <> showDelphi b <> ")"
@@ -76,6 +87,10 @@ instance ShowDelphi Expression where
                         <> "\nend"
   showDelphi (ExpressionValue a) = showDelphi a
   showDelphi (EmptyExpression) = ""
+  showDelphi (For a LoopUpTo b c) = "for " <> showDelphi a <> " to " <> showDelphi b <> showDelphi c
+  showDelphi (For a LoopDownTo b c) = "for " <> showDelphi a <> " downto " <> showDelphi b <> showDelphi c
+  showDelphi (While a b) = "while (" <> showDelphi a <> ") do\n" <> showDelphi b
+  showDelphi (Repeat a b) = "repeat " <> (intercalate "\n" (map showDelphi a) ) <> "\nuntil\n" <> showDelphi b
 
 instance ShowDelphi Then where
   showDelphi (Then a) = showDelphi a
@@ -85,6 +100,12 @@ instance ShowDelphi Else where
 
 instance ShowDelphi ImplementationSpec where
   showDelphi (AdditionalInterface a) = showDelphi a
+  showDelphi (ProcedureImpl a b c) = "function "
+                                      <> showDelphi a
+                                      <> _toDelphiArgString b
+                                      <> ";\n"
+                                      <> showDelphi c
+                                      <> ";\n"
   showDelphi (FunctionImpl a b c d) = "function "
                                       <> showDelphi a
                                       <> _toDelphiArgString b
@@ -125,10 +146,15 @@ instance ShowDelphi InterfaceExpression where
                                  <> intercalate "\n" (map showDelphi a)
   showDelphi (ConstDefinitions a) = "const\n"
                                 <> intercalate "\n" (map showDelphi a)
+  showDelphi (VarDefinitions a) = "var\n"
+                                <> intercalate "\n" (map showDelphi a)
 
 instance ShowDelphi ConstDefinition where
   showDelphi (ConstDefinition a (Just b) c) = a <> " : " <> showDelphi b <> " = (" <> intercalate ", " (map showDelphi c) <> ")"
   showDelphi (ConstDefinition a (Nothing) c) = a <> " = (" <> intercalate ", " (map showDelphi c) <> ")"
+
+instance ShowDelphi VarDefinition where
+  showDelphi (VarDefinition a b) = a <> " : " <> showDelphi b
 
 instance ShowDelphi TypeDefinition where
   showDelphi (TypeDef a b) = showDelphi a <> " = "
@@ -157,12 +183,13 @@ instance ShowDelphi ArrayIndex where
   showDelphi (Range a) = intercalate "," $ map (\(x, y) -> pack ( show x ) <> ".." <> pack ( show y) ) a
 
 instance ShowDelphi TypeName where
-  showDelphi UnspecifiedType = "{ Unspecified Type }"
   showDelphi (Type a)  = a
   showDelphi (StaticArray a b) = "array[" <> showDelphi a <> "] of " <> showDelphi b
   showDelphi (DynamicArray a b) = "array of " <> showDelphi b -- TODO: FIx this, needs to repeat.
   showDelphi (VariantArray a) = "array of const" -- TODO: Fix this, needs to repeat.
   showDelphi (OpenDynamicArray a) = "array of " <> showDelphi a
+  showDelphi (AddressOfType a) = "^" <> showDelphi a
+  showDelphi (TargetOfPointer a) = "@" <> showDelphi a
   showDelphi (Constraint a) = "Constraint "
                              <> intercalate "\n" ( map showDelphi a)
   showDelphi (GenericDefinition a b) = a <> "<"
@@ -173,6 +200,7 @@ instance ShowDelphi TypeName where
                                     <> "<"
                                     <> intercalate ", "(map showDelphi b) 
                                     <> ">"
+  showDelphi UnspecifiedType = "{ Unspecified Type }"
 
 instance ShowDelphi TypeDefinitionRHS where
   showDelphi (UnknownTypeDefinition a) = "{ Unknown Type Definition: " <> a <> " }"
@@ -224,15 +252,17 @@ instance ShowDelphi Field where
                                             <> fromMaybe "" ((\x -> " default " <> showDelphi x) <$> g)
                                             <> ";"
                                             <> _toDelphiAnnotations h
+  showDelphi (Property a b c d e f) = "Property"
 
 instance ShowDelphi Annotation where
   showDelphi (Override) = "override"
   showDelphi (Virtual) = "virtual"
   showDelphi (Default) = "default"
+  showDelphi (StdCall) = "stdcall"
 
 instance ShowDelphi GenericConstraint where
   showDelphi (ClassConstraint) = "class"
 
 instance ShowDelphi Argument where
-  showDelphi (Arg a b) = a <> ": " <> (showDelphi b)
+  showDelphi (Arg m a b d) = a <> ": " <> (showDelphi b)
 

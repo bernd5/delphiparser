@@ -26,6 +26,9 @@ data ImplementationSpec
                  [Argument]
                  TypeName
                  Expression
+  | ProcedureImpl TypeName
+                 [Argument]
+                 Expression
   | AdditionalInterface InterfaceExpression
   | MemberFunctionImpl TypeName
                        TypeName
@@ -48,12 +51,23 @@ data ImplementationSpec
 data LoopDirection = LoopUpTo | LoopDownTo
   deriving (Eq, Show)
 
-data Expression
+data Except
+  = On (Maybe Argument) (Maybe Else)
+  deriving (Eq, Show)
+
+type Finally = [Expression]
+
+data CaseBranches = CaseBranch [ValueExpression] Expression
+  deriving (Eq, Show)
+
+data Expression -- TODO: Should be 'Statement'
   = Expr Text
   | ValueExpression := ValueExpression     -- foo := bar
   | If ValueExpression
        Then
        Else
+  | Try [Expression] (Either [Except] Finally)
+  | Case ValueExpression [CaseBranches] (Maybe Else)
   | For Expression LoopDirection ValueExpression Expression
   | While ValueExpression Expression
   | Repeat [Expression] ValueExpression
@@ -72,6 +86,7 @@ data ValueExpression
   | DFalse
   | Result
   | Not ValueExpression
+  | Inherited Text
   | Dereference ValueExpression -- '^foo'
   | AddressOf ValueExpression -- '@foo'
   | ValueExpression :& ValueExpression     -- foo and bar
@@ -105,6 +120,8 @@ data Finalization =
 data TypeDefinitionRHS
   = UnknownTypeDefinition Text
   | ReferenceToProcedure [Argument]
+  | SimpleProcedure [Argument]
+  | ProcedureOfObject [Argument]
   deriving (Eq, Show)
 
 data TypeDefinition
@@ -147,7 +164,7 @@ data PropertySpecifier
   = PropertyRead Text
   | PropertyWrite Text
   | PropertyStored
-  | PropertyDefault Text
+  | PropertyDefault ValueExpression -- TODO: Define a simpler set of "ValueExpression" that are limited to const.
   | PropertyNoDefault
   deriving (Eq, Show)
 
@@ -165,7 +182,7 @@ data Field
              [Argument]
              TypeName
              [Annotation]
-  | Property Text (Maybe [Argument]) TypeName (Maybe Text) [PropertySpecifier] Bool
+  | Property Text (Maybe [Argument]) TypeName (Maybe ValueExpression) [PropertySpecifier] Bool
   | IndexProperty Name
                   (Maybe Argument)
                   TypeName
@@ -183,9 +200,15 @@ data Annotation
   | StdCall
   deriving (Eq, Show)
 
+data ArgModifier
+  = ConstArg
+  | VarArg
+  | OutArg
+  | NormalArg
+  deriving (Eq, Show)
+
 data Argument =
-  Arg ArgName
-      TypeName
+  Arg ArgModifier ArgName TypeName (Maybe ValueExpression)
   deriving (Eq, Show)
 
 type RecordDefinition = [Accessibility]
@@ -194,7 +217,7 @@ type ClassDefinition = [Accessibility]
 
 data ArrayIndex
   = IndexOf TypeName -- ie, Byte.  TODO: Consider how to constrain this to ordinals.
-  | Range [(Integer,Integer)] -- ie, 34..56
+  | Range [(ValueExpression,ValueExpression)] -- ie, 34..56
   deriving (Eq, Show)
 
 data TypeName

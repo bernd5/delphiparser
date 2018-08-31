@@ -17,6 +17,9 @@ import Text.Megaparsec (parse)
 import TestArrays (arrayTests)
 import TestLoops (loopTests)
 import TestProperties (propertiesTests)
+import TestTypeArguments (typeArgumentTests)
+import TestDelphiTry (delphiTryTests)
+import TestDelphiCase (caseTests)
 
 newtype ParserTestsData = ParserTestsData
   { sharedpointer :: Text
@@ -26,7 +29,15 @@ main :: IO ()
 main = do
   sp <- readFile "deps/sharedpointer.pas"
   let p = ParserTestsData {sharedpointer = sp}
-  defaultMain $ testGroup "Tests" [unitTests p, arrayTests, loopTests, propertiesTests]
+  defaultMain $ testGroup "Tests"
+    [ unitTests p
+    , arrayTests
+    , loopTests
+    , propertiesTests
+    , typeArgumentTests
+    , delphiTryTests
+    , caseTests
+    ]
 
 stripWhitespace :: Text -> Text
 stripWhitespace = concatMap f
@@ -138,14 +149,14 @@ unitTests p =
       parse dProcedureImplementationP "" $
       unpack $
       intercalate "\n" ["procedure TShared<T>.Cast<TT>;", "begin", "end;"]
-    , testCase "Ensure a simple function call parses using dStatementP" $
+    , testCase "Ensure a simple function call parses using statement" $
       (Right (ExpressionValue (V "SetLength" :$ [V "FList", V "FList"])) @=?) $
-      parse dStatementP "" "SetLength(FList, FList);"
+      parse statement "" "SetLength(FList, FList);"
     , testCase "Ensure a nested function call parses" $
       (Right
          (ExpressionValue
             (V "SetLength" :$ [V "FList", V "Length" :$ [V "FList"]])) @=?) $
-      parse dStatementP "" "SetLength(FList, Length(FList));"
+      parse statement "" "SetLength(FList, Length(FList));"
     , testCase "Ensure a slightly complex nested function call parses" $
       (Right (V "SetLength" :$ [V "FList", (V "Length" :$ [V "FList"]) :+ I 1]) @=?) $
       parse expression "" "SetLength(FList, Length(FList)+1);"
@@ -155,7 +166,7 @@ unitTests p =
       (Right
          (V "FFreeTheValue" `As` V "TFreeTheValue" :. V "FObjectToFree" := Nil) @=?) $
       parse
-        dStatementP
+        statement
         ""
         "(FFreeTheValue as TFreeTheValue).FObjectToFree := nil;"
     , testCase "Ensure a value involving a generic type member function parses" $
@@ -183,7 +194,7 @@ unitTests p =
       (Right (V "one" :$ [V "two", V "three"]) @=?) $
       parse expression "" "one(two, three)"
     , testCase "Ensure that the empty statement works" $
-      (Right EmptyExpression @=?) $ parse dStatementP "" ";"
+      (Right EmptyExpression @=?) $ parse statement "" ";"
     , testCase "Ensure that if-function-then works" $
       (Right
          (If
@@ -203,15 +214,15 @@ unitTests p =
                  V "T")))
             (Else EmptyExpression)) @=?) $
       parse
-        dStatementP
+        statement
         ""
         "if ( FFreeTheValue <> nil) and ((FFreeTheValue as TFreeTheValue).FObjectToFree <> nil) then Result := (FFreeTheValue as TFreeTheValue).FObjectToFree as T;"
     , testCase "Ensure assign to an index property parses" $
       (Right (V "foo" :!! [I 32] := V "blah") @=?) $
-      parse dStatementP "" "foo[32] := blah;"
+      parse statement "" "foo[32] := blah;"
     , testCase "Ensure reading an index property parses" $
       (Right (ExpressionValue (V "foo" :!! [I 32])) @=?) $
-      parse dStatementP "" "foo[32];"
+      parse statement "" "foo[32];"
     , testCase "Ensure reading an index property parses" $
       (Right (V "foo" :!! [I 32]) @=?) $
       parse expression "" "foo[32];"
@@ -230,12 +241,6 @@ unitTests p =
     , testCase "Ensure hex integers parse" $
       (Right (I 0x42) @=?) $
       parse expression "" "$42"
-    , testCase "Ensure that delpi argument shorthands parse" $
-      (Right [Arg "aone" (Type "tone"),Arg "atwo" (Type "tfour"),Arg "athree" (Type "tfour")] @=? ) $
-      parse dFunctionOrProcedureArgs' "" "(aone: tone; atwo, athree: tfour)"
-    , testCase "Ensure that 'class' is a valid argument type" $
-      (Right [Arg "foo" (Type "class")] @=? ) $
-      parse dArgumentP "" "foo: class"
     , testCase "Ensure that arrays are a valid type" $
       (Right (StaticArray ( IndexOf $ Type "foo") (Type "bar") ) @=?) $
       parse typeName "" "array [foo] of bar"
@@ -262,10 +267,16 @@ unitTests p =
       parse expression "" "foo <= bar"
     , testCase "Ensure that function call with indexed args parse" $
       (Right (V "foo" := (V "bar" :$ [V "baz",DFalse,V "fuux" :!! [V "I"]])) @=? ) $
-      parse dStatementP "" "foo := bar(baz, false, fuux[I]);"
+      parse statement "" "foo := bar(baz, false, fuux[I]);"
     , testCase "Ensure that function call with indexed args parse" $
       (Right (V "bar" :$ [V "baz",DFalse,V "fuux" :!! [V "I"]]) @=? ) $
       parse expression "" "bar(baz, false, fuux[I])"
+    , testCase "Ensure var works" $
+      (Right (VarDefinitions [VarDefinition "foo" (Type "bar"),VarDefinition "baz" (Type "fuux")]) @=?) $
+      parse varExpressions "" "var foo: bar; baz: fuux;"
+    , testCase "Ensure var works in a function" $
+      (Right (FunctionImpl (Type "foo") [] (Type "bar") {-(VarDefinitions [VarDefinition "foo" (Type "bar"),VarDefinition "baz" (Type "fuux")]-} (Begin [])) @=?) $
+      parse functionImpl "" "function foo: bar; var foo: bar; baz: fuux; begin end;"
     , testCase "Ensure simple set parses" $
       (Right (SetDefinition (GenericDefinition "foo" []) (Type "bar")) @=?) $
       parse (setDefinition "foo" []) "" "set of bar"
