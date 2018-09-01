@@ -6,7 +6,6 @@ import DelphiWriter
 import System.Environment (getArgs)
 import Text.Megaparsec (runParser)
 import Data.Text.IO (putStrLn)
-import Data.Char (ord)
 
 main :: IO ()
 main = do

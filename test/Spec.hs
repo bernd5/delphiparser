@@ -15,11 +15,11 @@ import DelphiWriter
 import Text.Megaparsec (parse)
 
 import TestArrays (arrayTests)
+import TestDelphiCase (caseTests)
+import TestDelphiTry (delphiTryTests)
 import TestLoops (loopTests)
 import TestProperties (propertiesTests)
 import TestTypeArguments (typeArgumentTests)
-import TestDelphiTry (delphiTryTests)
-import TestDelphiCase (caseTests)
 
 newtype ParserTestsData = ParserTestsData
   { sharedpointer :: Text
@@ -29,15 +29,17 @@ main :: IO ()
 main = do
   sp <- readFile "deps/sharedpointer.pas"
   let p = ParserTestsData {sharedpointer = sp}
-  defaultMain $ testGroup "Tests"
-    [ unitTests p
-    , arrayTests
-    , loopTests
-    , propertiesTests
-    , typeArgumentTests
-    , delphiTryTests
-    , caseTests
-    ]
+  defaultMain $
+    testGroup
+      "Tests"
+      [ unitTests p
+      , arrayTests
+      , loopTests
+      , propertiesTests
+      , typeArgumentTests
+      , delphiTryTests
+      , caseTests
+      ]
 
 stripWhitespace :: Text -> Text
 stripWhitespace = concatMap f
@@ -115,6 +117,8 @@ unitTests p =
             (GenericInstance "Cast" [Type "TT"])
             []
             (GenericInstance "TShared" [Type "TT"])
+            []
+            []
             (Begin [])) @=?) $
       parse dFunctionImplementationP "" $
       unpack $
@@ -137,7 +141,7 @@ unitTests p =
       (Right (Class (Type "TFreeTheValue") [Type "TInterfacedObject"] []) @=?) $
       parse dTypeSpecListP "" "TFreeTheValue = class(TInterfacedObject) end;"
     , testCase "Ensure Forward Class parses" $
-      ( Right (TypeAlias (GenericDefinition "foo" []) (Type "class"))  @=? ) $
+      (Right (TypeAlias (GenericDefinition "foo" []) (Type "class")) @=?) $
       parse dTypeSpecListP "" "foo = class;"
     , testCase "Ensure a Generic Procedure of a Generic Class parses" $
       (Right
@@ -145,10 +149,18 @@ unitTests p =
             (GenericInstance "TShared" [Type "T"])
             (GenericInstance "Cast" [Type "TT"])
             []
+            []
+            []
             (Begin [])) @=?) $
       parse dProcedureImplementationP "" $
       unpack $
       intercalate "\n" ["procedure TShared<T>.Cast<TT>;", "begin", "end;"]
+    , testCase "Ensure a class function declaration parses" $
+      (Right (Function (Type "foo") [Arg NormalArg "bar" (Type "TBar") Nothing] (Type "TBar") [Static]) @=?) $
+      parse dFieldDefinitionP "" "class function foo(bar: TBar): TBar;"
+    , testCase "Ensure a class function declaration parses - using dFunctionP" $
+      (Right (Function (Type "foo") [Arg NormalArg "bar" (Type "TBar") Nothing] (Type "TBar") [Static]) @=?) $
+      parse dFunctionP "" "class function foo(bar: TBar): TBar;"
     , testCase "Ensure a simple function call parses using statement" $
       (Right (ExpressionValue (V "SetLength" :$ [V "FList", V "FList"])) @=?) $
       parse statement "" "SetLength(FList, FList);"
@@ -224,8 +236,7 @@ unitTests p =
       (Right (ExpressionValue (V "foo" :!! [I 32])) @=?) $
       parse statement "" "foo[32];"
     , testCase "Ensure reading an index property parses" $
-      (Right (V "foo" :!! [I 32]) @=?) $
-      parse expression "" "foo[32];"
+      (Right (V "foo" :!! [I 32]) @=?) $ parse expression "" "foo[32];"
     , testCase "Ensure that foo.bar.baz.fuux is left associative" $
       (Right (V "foo" :. V "bar" :. V "baz" :. V "fuux") @=?) $
       parse expression "" "foo.bar.baz.fuux"
@@ -239,44 +250,71 @@ unitTests p =
       (Right (TypeAlias (GenericDefinition "foo" []) (Type "bar")) @=?) $
       parse (typeAlias "foo" []) "" "bar"
     , testCase "Ensure hex integers parse" $
-      (Right (I 0x42) @=?) $
-      parse expression "" "$42"
+      (Right (I 0x42) @=?) $ parse expression "" "$42"
     , testCase "Ensure that arrays are a valid type" $
-      (Right (StaticArray ( IndexOf $ Type "foo") (Type "bar") ) @=?) $
+      (Right (StaticArray (IndexOf $ Type "foo") (Type "bar")) @=?) $
       parse typeName "" "array [foo] of bar"
     , testCase "Ensure that const expressions involving arrays parse" $
-      (Right (ConstDefinitions [ConstDefinition "foo" (Just $ StaticArray (IndexOf $ Type "bar") (Type "baz")) [V "one", V "two", V "three"]]) @=?) $
-      parse constExpressions "" "const foo: array [bar] of baz = (one, two, three);"
+      (Right
+         (ConstDefinitions
+            [ ConstDefinition
+                "foo"
+                (Just $ StaticArray (IndexOf $ Type "bar") (Type "baz"))
+                [V "one", V "two", V "three"]
+            ]) @=?) $
+      parse
+        constExpressions
+        ""
+        "const foo: array [bar] of baz = (one, two, three);"
     , testCase "Ensure foo.bar parses" $
-      (Right (V "foo" :. V "bar") @=? ) $
-      parse expression "" "foo.bar"
+      (Right (V "foo" :. V "bar") @=?) $ parse expression "" "foo.bar"
     , testCase "Ensure a = foo.bar parses" $
-      (Right (V "a" :== (V "foo" :. V "bar")) @=? ) $
+      (Right (V "a" :== (V "foo" :. V "bar")) @=?) $
       parse expression "" "a = foo.bar"
     , testCase "Ensure if a = foo.bar then... parses" $
-      (Right (If (V "a" :== (V "foo" :. V "bar")) (Then (ExpressionValue (V "Nil"))) (Else EmptyExpression)) @=? ) $
-      parse dIfExpression"" "if a = foo.bar then Nil;"
+      (Right
+         (If
+            (V "a" :== (V "foo" :. V "bar"))
+            (Then (ExpressionValue (V "Nil")))
+            (Else EmptyExpression)) @=?) $
+      parse dIfExpression "" "if a = foo.bar then Nil;"
     , testCase "Ensure dereference parses" $
-      (Right (Dereference (V "foo")) @=? ) $
-      parse expression "" "^foo"
+      (Right (Dereference (V "foo")) @=?) $ parse expression "" "^foo"
     , testCase "Ensure address-of parses" $
-      (Right (AddressOf (V "foo")) @=? ) $
-      parse expression "" "@foo"
+      (Right (AddressOf (V "foo")) @=?) $ parse expression "" "@foo"
     , testCase "Ensure foo <= bar parses" $
-      (Right (V "foo" :<= V "bar") @=? ) $
-      parse expression "" "foo <= bar"
+      (Right (V "foo" :<= V "bar") @=?) $ parse expression "" "foo <= bar"
     , testCase "Ensure that function call with indexed args parse" $
-      (Right (V "foo" := (V "bar" :$ [V "baz",DFalse,V "fuux" :!! [V "I"]])) @=? ) $
+      (Right (V "foo" := (V "bar" :$ [V "baz", DFalse, V "fuux" :!! [V "I"]])) @=?) $
       parse statement "" "foo := bar(baz, false, fuux[I]);"
     , testCase "Ensure that function call with indexed args parse" $
-      (Right (V "bar" :$ [V "baz",DFalse,V "fuux" :!! [V "I"]]) @=? ) $
+      (Right (V "bar" :$ [V "baz", DFalse, V "fuux" :!! [V "I"]]) @=?) $
       parse expression "" "bar(baz, false, fuux[I])"
     , testCase "Ensure var works" $
-      (Right (VarDefinitions [VarDefinition "foo" (Type "bar"),VarDefinition "baz" (Type "fuux")]) @=?) $
+      (Right
+         (VarDefinitions
+            [ VarDefinition "foo" (Type "bar")
+            , VarDefinition "baz" (Type "fuux")
+            ]) @=?) $
       parse varExpressions "" "var foo: bar; baz: fuux;"
     , testCase "Ensure var works in a function" $
-      (Right (FunctionImpl (Type "foo") [] (Type "bar") {-(VarDefinitions [VarDefinition "foo" (Type "bar"),VarDefinition "baz" (Type "fuux")]-} (Begin [])) @=?) $
-      parse functionImpl "" "function foo: bar; var foo: bar; baz: fuux; begin end;"
+      (Right
+         (FunctionImpl
+            (Type "foo")
+            []
+            (Type "bar")
+            []
+            [ AdditionalInterface
+                (VarDefinitions
+                   [ VarDefinition "foo" (Type "bar")
+                   , VarDefinition "baz" (Type "fuux")
+                   ])
+            ]
+            (Begin [])) @=?) $
+      parse
+        functionImpl
+        ""
+        "function foo: bar; var foo: bar; baz: fuux; begin end;"
     , testCase "Ensure simple set parses" $
       (Right (SetDefinition (GenericDefinition "foo" []) (Type "bar")) @=?) $
       parse (setDefinition "foo" []) "" "set of bar"

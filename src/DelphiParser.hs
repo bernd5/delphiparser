@@ -5,6 +5,7 @@ module DelphiParser
   , expression
   , uses
   , array'
+  , with'
   , loop'
   , property'
   , typeArguments'
@@ -18,6 +19,8 @@ module DelphiParser
   , delphiTry'
   , constExpressions
   , dIfExpression
+  , dFieldDefinitionP
+  , dFunctionP
   , dUnitInterfaceP
   , dFunctionImplementationP
   , dProcedureImplementationP
@@ -34,6 +37,7 @@ import DelphiAst
 import DelphiLexer
 import DelphiArray (array)
 import DelphiLoops (loop)
+import DelphiWith (with)
 import DelphiProperty (property)
 import DelphiTry (delphiTry)
 import DelphiCase (delphiCase)
@@ -47,6 +51,9 @@ import Text.Megaparsec.Char (char)
 loop' :: Parser Expression
 loop' = loop expression statement
 
+with' :: Parser Expression
+with' = with expression statement
+
 property' :: Parser Field
 property' = property typeName dArgumentP expression
 
@@ -57,7 +64,7 @@ typeArguments' :: Parser (Maybe [Argument])
 typeArguments' = typeArguments'' '(' ')'
 
 delphiTry' :: Parser Expression
-delphiTry' = delphiTry statement
+delphiTry' = delphiTry expression statement
 
 delphiCase' :: Parser Expression
 delphiCase' = delphiCase statement expression
@@ -237,9 +244,14 @@ dRecordDefinitionP' a b = do
   return $ b fields
 
 dFieldDefinitionP :: Parser Field
-dFieldDefinitionP = do
-  optional $ rword "class"
-  dSimpleFieldP <|> dConstructorFieldP <|> dDestructorFieldP <|> dProcedureP <|> dFunctionP <|> property'
+dFieldDefinitionP = choice
+  [ try dSimpleFieldP
+  , try dConstructorFieldP
+  , try dDestructorFieldP
+  , try dProcedureP
+  , try dFunctionP
+  , try property'
+  ]
 
 dFunctionOrProcedureArgs' :: Parser [Argument]
 dFunctionOrProcedureArgs' =
@@ -260,11 +272,16 @@ array':: Parser TypeName
 array' = array typeName expression
 
 simplifyTypeName :: Text -> Maybe String -> Maybe [TypeName] -> TypeName
-simplifyTypeName m (Just "^") (Just []) = AddressOfType $ Type m
-simplifyTypeName m (Just "@") (Just []) = TargetOfPointer $ Type m
-simplifyTypeName m (Nothing) (Just []) = Type m
-simplifyTypeName m p (Just (x:xs)) = GenericInstance m (x : xs)
-simplifyTypeName m p Nothing = Type m
+simplifyTypeName m a b = r a $ t b $ m
+  where
+    r (Just "^") = AddressOfType
+    r (Just "@") = TargetOfPointer
+    r Nothing = id
+    r _ = error "Unspecified pointer or reference type"
+
+    t (Just []) = Type
+    t (Just (x:xs)) = flip GenericInstance (x:xs)
+    t Nothing = Type
 
 typeName :: Parser TypeName
 typeName = choice [ try array',
@@ -278,6 +295,8 @@ typeName = choice [ try array',
 
 dFunctionP :: Parser Field
 dFunctionP = do
+  c <- optional $ rword "class"
+  let c' = Static <$ c
   rword "function"
   name <- pack <$> identifier
   generics <- dGenericArgs
@@ -289,7 +308,7 @@ dFunctionP = do
   symbol ":"
   typ <- typeName
   semi
-  return $ Function name' args typ []
+  return $ Function name' args typ (catMaybes [c'])
 
 statement :: Parser Expression
 statement = choice
@@ -298,8 +317,9 @@ statement = choice
   , try dBeginEndExpression
   , try dValueExpression
   , try loop'
-  , delphiTry'
-  , delphiCase'
+  , try with'
+  , try delphiTry'
+  , try delphiCase'
   , const EmptyExpression <$> semi
   ]
 
@@ -380,16 +400,20 @@ table =
         ]
     , Prefix (Not <$ rword "not")
     , Prefix (Dereference <$ symbol "^")
+    , Postfix (Dereference <$ symbol "^")
     , Prefix (AddressOf <$ symbol "@")
     , binary (:<>) "<>"
     , binary (:+) "+"
     , binary (:-) "-"
+    , Prefix ((I 0 :-) <$ symbol "-")
     , binary (:==) "="
     , binary (:*) "*"
     , binary (:/) "/"
     , binary (:&) "and"
     , binary (:|) "or"
     , binary As "as"
+    , binary Is "is"
+    , binary In "in"
     , binary (:<=) "<="
     , binary (:<) "<"
     , binary (:>) ">"
@@ -409,7 +433,7 @@ dIfExpression = do
 
 dProcedureImplementationP :: Parser ImplementationSpec
 dProcedureImplementationP =
-  dMemberImplementationP "procedure" (\a b c _ e -> MemberProcedureImpl a b c e)
+  dMemberImplementationP "procedure" (\a b c _ e f -> MemberProcedureImpl a b c e f)
 
 dConstructorImplementationP :: Parser ImplementationSpec
 dConstructorImplementationP =
@@ -419,7 +443,7 @@ dConstructorImplementationP =
 
 dDestructorImplementationP :: Parser ImplementationSpec
 dDestructorImplementationP =
-  dMemberImplementationP "destructor" (\a b _ _ e -> MemberDestructorImpl a b e)
+  dMemberImplementationP "destructor" (\a b _ _ e f -> MemberDestructorImpl a b e f)
 
 dFunctionImplementationP :: Parser ImplementationSpec
 dFunctionImplementationP = dMemberImplementationP "function" MemberFunctionImpl
@@ -432,10 +456,10 @@ functionImpl = do
   typ <- symbol ":" *> typeName
   _ <- semi
   annotations <- many annotation
-  optional interfaceItems
+  nested <- many  ( AdditionalInterface <$> interfaceItems)
   statements <- dBeginEndExpression
   _ <- semi
-  return $ FunctionImpl name args typ statements
+  return $ FunctionImpl name args typ annotations nested statements
 
 procedureImpl :: Parser ImplementationSpec
 procedureImpl = do
@@ -444,16 +468,17 @@ procedureImpl = do
   args <- dFunctionOrProcedureArgs'
   _ <- semi
   annotations <- many annotation
-  optional interfaceItems
+  nested <- many (AdditionalInterface <$> interfaceItems)
   statements <- dBeginEndExpression
   _ <- semi
-  return $ ProcedureImpl name args statements
+  return $ ProcedureImpl name args annotations nested statements
 
 dMemberImplementationP ::
      String
-  -> (TypeName -> TypeName -> [Argument] -> TypeName -> Expression -> ImplementationSpec)
+  -> (TypeName -> TypeName -> [Argument] -> TypeName -> [FieldAnnotation] -> [ImplementationSpec] -> Expression -> ImplementationSpec)
   -> Parser ImplementationSpec
 dMemberImplementationP a b = do
+  s <- optional $ (Static <$ rword "class")
   rword a
   name <- typeName
   _ <- symbol "."
@@ -461,24 +486,26 @@ dMemberImplementationP a b = do
   args <- dFunctionOrProcedureArgs'
   typ <- optional (symbol ":" *> typeName)
   _ <- semi
-  optional interfaceItems
+  annotations <- many annotation
+  nested <- many (AdditionalInterface <$> interfaceItems)
   statements <- dBeginEndExpression
   _ <- semi
-  return $ b name member args (fromMaybe UnspecifiedType typ) statements
+  return $ b name member args (fromMaybe UnspecifiedType typ) ((catMaybes [s]) <> annotations) nested statements
 
 dProcedureP' ::
      String
-  -> (Name -> [Argument] -> TypeName -> [Annotation] -> Field)
+  -> (Name -> [Argument] -> TypeName -> [FieldAnnotation] -> Field)
   -> Parser Field
 dProcedureP' a b = do
+  s <- optional $ (Static <$ rword "class")
   rword a
   name <- identifier
   args <- dFunctionOrProcedureArgs'
   _ <- semi
   annotations <- many annotation
-  return $ b (pack name) args UnspecifiedType annotations
+  return $ b (pack name) args UnspecifiedType ((catMaybes [s])<>annotations)
 
-annotation :: Parser Annotation
+annotation :: Parser FieldAnnotation
 annotation = choice
   [ (rword "override" *> semi) $> Override
   , (rword "virtual" *> semi) $> Virtual
@@ -506,7 +533,7 @@ dSimpleFieldP = do
 dUnitImplementationP :: Parser Implementation
 dUnitImplementationP = do
   rword "implementation"
-  uses <- optional uses
+  u <- optional uses
   functions <-
     many $ choice 
       [ try functionImpl
@@ -517,7 +544,7 @@ dUnitImplementationP = do
       , dDestructorImplementationP
       , AdditionalInterface <$> interfaceItems
       ]
-  return $ Implementation (Uses (fromMaybe [] uses)) functions
+  return $ Implementation (Uses (fromMaybe [] u)) functions
 
 dUnitInitializationP :: Parser Initialization
 dUnitInitializationP = do
