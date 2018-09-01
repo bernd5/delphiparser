@@ -62,7 +62,7 @@ instance ShowDelphi ValueExpression where
   showDelphi (a :. b) = showDelphi a <> "." <> showDelphi b
   showDelphi (Is a b) = showDelphi a <> " is " <> showDelphi b
   showDelphi (In a b) = showDelphi a <> " in " <> showDelphi b
-  showDelphi (a :$ b) = showDelphi a <> _toDelphiArgString(b)
+  showDelphi (a :$ b) = showDelphi a <> _toDelphiCallArgString(b)
   showDelphi (a :+ b) = "(" <> showDelphi a <> " + " <> showDelphi b <> ")"
   showDelphi (a :== b) = "(" <> showDelphi a <> " == " <> showDelphi b <> ")"
   showDelphi (a :- b) = "(" <> showDelphi a <> " - " <> showDelphi b <> ")"
@@ -113,7 +113,7 @@ instance ShowDelphi Expression where
   showDelphi (a := b) = showDelphi a <> " := " <> showDelphi b
   showDelphi (If a b (Else EmptyExpression)) = "if " <> showDelphi a <> " then\n" <> showDelphi b
   showDelphi (If a b c) = "if " <> showDelphi a <> " then " <> showDelphi b <> " else " <> showDelphi c
-  showDelphi (Begin a) = "\nbegin\n"
+  showDelphi (Begin a) = "begin\n"
                         <> intercalate "\n" (map (\x -> indent <> showDelphi x <> ";") a)
                         <> "\nend"
   showDelphi (ExpressionValue a) = showDelphi a
@@ -142,7 +142,7 @@ instance ShowDelphi ImplementationSpec where
   showDelphi (FunctionImpl a b c d e f) = "function "
                                       <> showDelphi a
                                       <> _toDelphiArgString b
-                                      <> ": " <> showDelphi c <> ";"
+                                      <> ": " <> showDelphi c <> ";\n"
                                       <> intercalate "\n" (map showDelphi d)
                                       <> intercalate "\n" (map showDelphi e)
                                       <> showDelphi f
@@ -152,7 +152,7 @@ instance ShowDelphi ImplementationSpec where
                                       <> "."
                                       <> showDelphi b
                                       <> _toDelphiArgString c
-                                      <> ": " <> showDelphi d <> ";"
+                                      <> ": " <> showDelphi d <> ";\n"
                                       <> intercalate "\n" (map showDelphi e)
                                       <> intercalate "\n" (map showDelphi f)
                                       <> showDelphi g
@@ -161,7 +161,7 @@ instance ShowDelphi ImplementationSpec where
                                       <> showDelphi a
                                       <> "."
                                       <> showDelphi b
-                                      <> _toDelphiArgString c <> ";"
+                                      <> _toDelphiArgString c <> ";\n"
                                       <> intercalate "\n" (map showDelphi d)
                                       <> intercalate "\n" (map showDelphi e)
                                       <> showDelphi f
@@ -170,7 +170,7 @@ instance ShowDelphi ImplementationSpec where
                                       <> showDelphi a
                                       <> "."
                                       <> showDelphi b
-                                      <> _toDelphiArgString c <> ";"
+                                      <> _toDelphiArgString c <> ";\n"
                                       <> intercalate "\n" (map showDelphi d)
                                       <> intercalate "\n" (map showDelphi e)
                                       <> showDelphi f
@@ -178,19 +178,19 @@ instance ShowDelphi ImplementationSpec where
   showDelphi (MemberDestructorImpl a b c d e) = "destructor "
                                       <> showDelphi a
                                       <> "."
-                                      <> showDelphi b <> ";"
+                                      <> showDelphi b <> ";\n"
                                       <> intercalate "\n" (map showDelphi c)
                                       <> intercalate "\n" (map showDelphi d)
                                       <> showDelphi e
                                       <> ";\n"
 
 instance ShowDelphi InterfaceExpression where
-  showDelphi (TypeDefinitions a) = "type\n"
-                                 <> intercalate "\n" (map showDelphi a)
-  showDelphi (ConstDefinitions a) = "const\n"
-                                <> intercalate "\n" (map showDelphi a)
-  showDelphi (VarDefinitions a) = "var\n"
-                                <> intercalate "\n" (map showDelphi a)
+  showDelphi (TypeDefinitions a) = "type\n  "
+                                 <> intercalate ";\n  " (map showDelphi a) <> ";\n"
+  showDelphi (ConstDefinitions a) = "const\n  "
+                                <> intercalate ";\n  " (map showDelphi a) <> ";\n"
+  showDelphi (VarDefinitions a) = "var\n  "
+                                <> intercalate ";\n  " (map showDelphi a) <> ";\n"
 
 instance ShowDelphi ConstDefinition where
   showDelphi (ConstDefinition a (Just b) c) = a <> " : " <> showDelphi b <> " = (" <> intercalate ", " (map showDelphi c) <> ")"
@@ -201,20 +201,20 @@ instance ShowDelphi VarDefinition where
 
 instance ShowDelphi TypeDefinition where
   showDelphi (TypeDef a b) = showDelphi a <> " = "
-                           <> showDelphi b <> "\n"
+                           <> showDelphi b
   showDelphi (ForwardClass) = "class"
   showDelphi (Record a b) = showDelphi a
-                           <> " = record\n"
-                           <> intercalate "\n" (
+                           <> " = record\n  "
+                           <> intercalate "\n  " (
                                 map showDelphi b)
-                           <> "\nend;\n"
+                           <> "\n  end"
   showDelphi (Class a b c) = showDelphi a
                            <> " = class("
                               <> intercalate ", " (map showDelphi b)
-                           <> ")\n"
-                           <> intercalate "\n" (
+                           <> ")\n  "
+                           <> intercalate "\n  " (
                                 map showDelphi c)
-                           <> "\nend;\n"
+                           <> "\n  end"
   showDelphi (TypeAlias a b) = showDelphi a <> " = " <> showDelphi b
   showDelphi (EnumDefinition a b) = showDelphi a <> " = ("
                                   <> intercalate ", " b
@@ -223,7 +223,7 @@ instance ShowDelphi TypeDefinition where
 
 instance ShowDelphi ArrayIndex where
   showDelphi (IndexOf a) = showDelphi a
-  showDelphi (Range a) = intercalate "," $ map (\(x, y) -> pack ( show x ) <> ".." <> pack ( show y) ) a
+  showDelphi (Range a) = intercalate "," $ map (\(x, y) -> showDelphi x <> ".." <> showDelphi y) a
 
 instance ShowDelphi TypeName where
   showDelphi (Type a)  = a
@@ -250,39 +250,41 @@ instance ShowDelphi TypeName where
 instance ShowDelphi TypeDefinitionRHS where
   showDelphi (UnknownTypeDefinition a) = "{ Unknown Type Definition: " <> a <> " }"
   showDelphi (ReferenceToProcedure a) = "{$IFNDEF FPC}reference to{$ENDIF} procedure("
-                                      <> intercalate ", " (map showDelphi a)
-                                      <> ");"
+                                      <> intercalate "; " (map showDelphi a)
+                                      <> ")"
   showDelphi (SimpleProcedure a) = "procedure("
-                                 <> intercalate ", " (map showDelphi a)
-                                 <> ");"
+                                 <> intercalate "; " (map showDelphi a)
+                                 <> ")"
   showDelphi (ProcedureOfObject a) = "procedure("
-                                 <> intercalate ", " (map showDelphi a)
-                                 <> ") of object;"
+                                 <> intercalate "; " (map showDelphi a)
+                                 <> ") of object"
 
 instance ShowDelphi Accessibility where
-  showDelphi (Private a) = "private\n" <> intercalate "\n" (map (\x -> indent <> showDelphi x) a)
-  showDelphi (Public a) = "public\n"   <> intercalate "\n" (map (\x -> indent <> showDelphi x) a) 
-  showDelphi (Protected a) = "protected\n" <> intercalate "\n" (map showDelphi a)
-  showDelphi (Published a) = "published\n" <> intercalate "\n" (map showDelphi a)
-  showDelphi (DefaultAccessibility a) = intercalate "\n" (map showDelphi a)
+  showDelphi (Private a) = "\n  private\n    " <> intercalate "\n    " (map showDelphi a)
+  showDelphi (Public a) = "\n  public\n    "   <> intercalate "\n    " (map showDelphi a)
+  showDelphi (Protected a) = "\n  protected\n    " <> intercalate "\n    " (map showDelphi a)
+  showDelphi (Published a) = "\n  published\n    " <> intercalate "\n    " (map showDelphi a)
+  showDelphi (DefaultAccessibility a) = "\n    " <> intercalate "\n    " (map showDelphi a)
 
+_toDelphiCallArgString :: ShowDelphi a => [a] -> Text
+_toDelphiCallArgString x
+  | not (null x) = "(" <> (intercalate ", " (map showDelphi x)) <> ")"
+  | True         = ""
 _toDelphiArgString :: ShowDelphi a => [a] -> Text
-_toDelphiArgString x | not (null x) = "(" 
-                                      <> (intercalate
-                                          ", "
-                                          ( map showDelphi x) ) 
-                                      <> ")"
-                     | True         = ""
+_toDelphiArgString x
+  | not (null x) = "(" <> (intercalate "; " (map showDelphi x)) <> ")"
+  | True         = ""
 
 _toDelphiAnnotations :: ShowDelphi a => [a] -> Text
-_toDelphiAnnotations x = foldl (\e' e -> e' <> " " <> (showDelphi e) <> ";") "" x
+_toDelphiAnnotations x =
+  foldl (\e' e -> " " <> e' <> " " <> (showDelphi e) <> ";") "" x
 
 instance ShowDelphi Field where
   showDelphi (Constructor a b) = "constructor " <> a <> _toDelphiArgString b <> ";"
   showDelphi (Field a b) = a <> ": " <> showDelphi b <> ";"
   showDelphi (Destructor a b) = "destructor " <> a <> ";" <> _toDelphiAnnotations b
   showDelphi (Procedure a b c) = "procedure " <> a <> _toDelphiArgString b <> ";"
-                                <> foldl (\d' d -> d' <> ( showDelphi d) <> ";") "" c
+                               <> _toDelphiAnnotations c
   showDelphi (Function a b c d) = "function " <> (showDelphi a) <> _toDelphiArgString b <> ": "
                                 <> (showDelphi c) <> ";"
                                 <> _toDelphiAnnotations d
@@ -311,11 +313,11 @@ instance ShowDelphi Field where
                                                     ""
                                                     $ (\x -> " index " <> showDelphi x)
                                                     <$> d
-                                          specs = intercalate ";" (map showDelphi e)
+                                          specs = intercalate " " (map showDelphi e)
                                           def (True) = "; default"
                                           def (False) = ""
                                       in
-                                        "property " <> a <> arg <> ": " <> showDelphi c <> index <> specs <> def f <> ";"
+                                        "property " <> a <> arg <> ": " <> showDelphi c <> index <> " " <> specs <> def f <> ";"
 
 instance ShowDelphi PropertySpecifier where
   showDelphi (PropertyRead a) = "read " <> a
@@ -336,13 +338,13 @@ instance ShowDelphi GenericConstraint where
 
 
 instance ShowDelphi ArgModifier where
-  showDelphi (ConstArg) = "class"
-  showDelphi (VarArg) = "var"
-  showDelphi (OutArg) = "out"
+  showDelphi (ConstArg) = "const "
+  showDelphi (VarArg) = "var "
+  showDelphi (OutArg) = "out "
   showDelphi (NormalArg) = ""
   
 
 instance ShowDelphi Argument where
-  showDelphi (Arg m a b (Just c)) = showDelphi m <> a <> ": " <> (showDelphi b) <> "=" <> showDelphi c
+  showDelphi (Arg m a b (Just c)) = showDelphi m <> a <> ": " <> (showDelphi b) <> " = " <> showDelphi c
   showDelphi (Arg m a b Nothing) = showDelphi m <> a <> ": " <> (showDelphi b)
 

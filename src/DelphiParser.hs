@@ -151,35 +151,39 @@ dTypeSpecListP :: Parser TypeDefinition
 dTypeSpecListP = do
     ident <- pack <$> identifier
     args <- dGenericArgs
+    let lhs' =
+          if null args
+            then Type ident
+            else GenericDefinition ident args
     symbol "="
     ie <- choice
       [ try $ dReferenceToProcedureP ident 
-      , try $ dGenericRecordP ident args 
-      , try $ dClassP ident args 
-      , try $ setDefinition ident args 
-      , try $ enumDefinition ident args  -- Contains parens
-      , try $ typeAlias ident args
+      , try $ dGenericRecordP lhs' 
+      , try $ dClassP lhs' 
+      , try $ setDefinition lhs' 
+      , try $ enumDefinition lhs'  -- Contains parens
+      , try $ typeAlias lhs'
       , forwardClass
       ]
     semi
     return ie
 
-typeAlias :: Text -> [Argument] ->  Parser TypeDefinition
-typeAlias lhs args = do
+typeAlias :: TypeName ->  Parser TypeDefinition
+typeAlias lhs = do
   rhs <- typeName
-  return $ TypeAlias (GenericDefinition lhs args) rhs
+  return $ TypeAlias lhs rhs
 
-setDefinition :: Text -> [Argument] -> Parser TypeDefinition
-setDefinition a b = do
+setDefinition :: TypeName -> Parser TypeDefinition
+setDefinition a = do
   rword "set"
   rword "of"
   rhs <- Type <$> identifier'
-  return $ SetDefinition (GenericDefinition a b) rhs
+  return $ SetDefinition a rhs
 
-enumDefinition :: Text -> [Argument] -> Parser TypeDefinition
-enumDefinition a b = do
+enumDefinition :: TypeName -> Parser TypeDefinition
+enumDefinition a = do
   rhs <- parens "(" ")" $ identifier' `sepBy` symbol ","
-  return $ EnumDefinition (GenericDefinition a b) rhs
+  return $ EnumDefinition a rhs
 
 dReferenceToProcedureP :: Text -> Parser TypeDefinition
 dReferenceToProcedureP ident = do
@@ -199,13 +203,13 @@ dReferenceToProcedureP ident = do
               else SimpleProcedure
   return $ TypeDef (Type ident) (t args)
 
-dGenericRecordP :: Text -> [Argument] -> Parser TypeDefinition
-dGenericRecordP ident args = do
+dGenericRecordP :: TypeName -> Parser TypeDefinition
+dGenericRecordP a = do
   rword "record"
   d <- many dFieldDefinitionP
   r <- dRecordDefinitionListP
   rword "end"
-  return $ Record (GenericDefinition ident args) ((DefaultAccessibility d):r)
+  return $ Record a ((DefaultAccessibility d):r)
 
 dArgsPassedP :: Parser [TypeName]
 dArgsPassedP = do
@@ -214,16 +218,16 @@ dArgsPassedP = do
   symbol ")"
   return names
 
-dClassP :: Text -> [Argument] -> Parser TypeDefinition
-dClassP ident args = do
+dClassP :: TypeName -> Parser TypeDefinition
+dClassP a = do
   rword "class"
   supers <- dArgsPassedP
   r <- dRecordDefinitionListP
   rword "end"
   return $
     if null supers
-      then Class (GenericDefinition ident args) supers r
-      else Class (Type ident) supers r
+      then Class a supers r
+      else Class a supers r
 
 dRecordDefinitionListP :: Parser [Accessibility]
 dRecordDefinitionListP = many dRecordDefinitionP
