@@ -498,16 +498,16 @@ dMemberImplementationP a b = do
 
 dProcedureP' ::
      String
-  -> (Name -> [Argument] -> TypeName -> [FieldAnnotation] -> Field)
+  -> (TypeName -> [Argument] -> TypeName -> [FieldAnnotation] -> Field)
   -> Parser Field
 dProcedureP' a b = do
   s <- optional $ (Static <$ rword "class")
   rword a
-  name <- identifier
+  name <- typeName
   args <- dFunctionOrProcedureArgs'
   _ <- semi
   annotations <- many annotation
-  return $ b (pack name) args UnspecifiedType ((catMaybes [s])<>annotations)
+  return $ b name args UnspecifiedType ((catMaybes [s])<>annotations)
 
 annotation :: Parser FieldAnnotation
 annotation = choice
@@ -518,7 +518,7 @@ annotation = choice
   ]
 
 dConstructorFieldP :: Parser Field
-dConstructorFieldP = dProcedureP' "constructor" (\a b _ _ -> Constructor a b)
+dConstructorFieldP = dProcedureP' "constructor" (\a b _ d -> Constructor a b d)
 
 dDestructorFieldP :: Parser Field
 dDestructorFieldP = dProcedureP' "destructor" (\a _ _ d -> Destructor a d)

@@ -207,13 +207,14 @@ data PropertySpecifier
   deriving (Eq, Show)
 
 data Field
-  = Constructor Name
+  = Constructor TypeName
                 [Argument]
+                [FieldAnnotation]
   | Field Name
           TypeName
-  | Destructor Name
+  | Destructor TypeName
                [FieldAnnotation]
-  | Procedure Name
+  | Procedure TypeName
               [Argument]
               [FieldAnnotation]
   | Function TypeName

@@ -112,7 +112,7 @@ instance ShowDelphi Expression where
       c' = (\(Else x) -> "else\n" <> showDelphi x) <$> c
   showDelphi (a := b) = showDelphi a <> " := " <> showDelphi b
   showDelphi (If a b (Else EmptyExpression)) = "if " <> showDelphi a <> " then\n" <> showDelphi b
-  showDelphi (If a b c) = "if " <> showDelphi a <> " then " <> showDelphi b <> " else " <> showDelphi c
+  showDelphi (If a b c) = "if " <> showDelphi a <> " then\n" <> showDelphi b <> " else " <> showDelphi c
   showDelphi (Begin a) = "begin\n"
                         <> intercalate "\n" (map (\x -> indent <> showDelphi x <> ";") a)
                         <> "\nend"
@@ -197,7 +197,7 @@ instance ShowDelphi ConstDefinition where
   showDelphi (ConstDefinition a (Nothing) c) = a <> " = (" <> intercalate ", " (map showDelphi c) <> ")"
 
 instance ShowDelphi VarDefinition where
-  showDelphi (VarDefinition a b) = a <> " : " <> showDelphi b
+  showDelphi (VarDefinition a b) = a <> ": " <> showDelphi b
 
 instance ShowDelphi TypeDefinition where
   showDelphi (TypeDef a b) = showDelphi a <> " = "
@@ -211,8 +211,8 @@ instance ShowDelphi TypeDefinition where
   showDelphi (Class a b c) = showDelphi a
                            <> " = class("
                               <> intercalate ", " (map showDelphi b)
-                           <> ")\n  "
-                           <> intercalate "\n  " (
+                           <> ")"
+                           <> intercalate "" (
                                 map showDelphi c)
                            <> "\n  end"
   showDelphi (TypeAlias a b) = showDelphi a <> " = " <> showDelphi b
@@ -276,18 +276,26 @@ _toDelphiArgString x
   | True         = ""
 
 _toDelphiAnnotations :: ShowDelphi a => [a] -> Text
-_toDelphiAnnotations x =
-  foldl (\e' e -> " " <> e' <> " " <> (showDelphi e) <> ";") "" x
+_toDelphiAnnotations x@[_] = " " <> (intercalate "; " (map showDelphi x)) <> ";"
+_toDelphiAnnotations _ = ""
 
 instance ShowDelphi Field where
-  showDelphi (Constructor a b) = "constructor " <> a <> _toDelphiArgString b <> ";"
+  showDelphi (Constructor a b c) = "constructor " <> showDelphi a <> _toDelphiArgString b <> ";" <> _toDelphiAnnotations c
   showDelphi (Field a b) = a <> ": " <> showDelphi b <> ";"
-  showDelphi (Destructor a b) = "destructor " <> a <> ";" <> _toDelphiAnnotations b
-  showDelphi (Procedure a b c) = "procedure " <> a <> _toDelphiArgString b <> ";"
+  showDelphi (Destructor a b) = "destructor " <> showDelphi a <> ";" <> _toDelphiAnnotations b
+  showDelphi (Procedure a b c) = "procedure " <> showDelphi a <> _toDelphiArgString b <> ";"
                                <> _toDelphiAnnotations c
-  showDelphi (Function a b c d) = "function " <> (showDelphi a) <> _toDelphiArgString b <> ": "
-                                <> (showDelphi c) <> ";"
-                                <> _toDelphiAnnotations d
+  showDelphi (Function a b c d) =
+    let static      = if Static `elem` d then "class " else ""
+        annotations = _toDelphiAnnotations $ filter (\x -> x /= Static) d
+    in  static
+        <> "function "
+        <> (showDelphi a)
+        <> _toDelphiArgString b
+        <> ": "
+        <> (showDelphi c)
+        <> ";"
+        <> annotations
   showDelphi (IndexProperty a (Just b) c d e f g h) = "property " <> a
                                             <> "[" <> showDelphi b <> "]: "
                                             <> showDelphi c
