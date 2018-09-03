@@ -9,12 +9,15 @@ module DelphiParser
   , loop'
   , property'
   , typeArguments'
+  , typeAttribute'
   , delphiCase'
   , functionCall
   , typeAlias
   , varExpressions
   , setDefinition
   , functionImpl
+  , procedureImpl
+  , typeDefinition
   , statement
   , delphiTry'
   , constExpressions
@@ -42,6 +45,7 @@ import DelphiProperty (property)
 import DelphiTry (delphiTry)
 import DelphiCase (delphiCase)
 import DelphiTypeArguments (typeArguments)
+import DelphiTypeDefinition (typeAttribute)
 import Text.Megaparsec
 import Text.Megaparsec.Expr
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -62,6 +66,10 @@ typeArguments'' a b  = optional (parens' a b $ typeArguments typeName expression
 
 typeArguments' :: Parser (Maybe [Argument])
 typeArguments' = typeArguments'' '(' ')'
+
+typeAttribute' :: Parser TypeDefinition
+typeAttribute' = typeAttribute expression typeDefinition
+
 
 delphiTry' :: Parser Expression
 delphiTry' = delphiTry expression statement
@@ -117,12 +125,12 @@ singleConstExpression = do
   semi
   return $ ConstDefinition lhs typ rhs
 
-singleVarExpression :: Parser VarDefinition
+singleVarExpression :: Parser [VarDefinition]
 singleVarExpression = do
-  lhs <- identifier'
+  names <- identifier' `sepBy` symbol ","
   typ <- symbol ":" >> typeName
   semi
-  return $ VarDefinition lhs typ
+  return $ map (flip VarDefinition $ typ) names
 
 constExpressions :: Parser InterfaceExpression
 constExpressions = do
@@ -134,12 +142,12 @@ varExpressions :: Parser InterfaceExpression
 varExpressions = do
   rword "var"
   vars <- many singleVarExpression
-  return $ VarDefinitions vars
+  return $ VarDefinitions $ concat vars
 
 typeExpressions :: Parser InterfaceExpression
 typeExpressions = do
   rword "type"
-  types <- TypeDefinitions <$> many dTypeSpecListP
+  types <- TypeDefinitions <$> many (typeAttribute' <|> typeDefinition)
   return types
 
 forwardClass :: Parser TypeDefinition
@@ -148,7 +156,10 @@ forwardClass = do
   return ForwardClass
 
 dTypeSpecListP :: Parser TypeDefinition
-dTypeSpecListP = do
+dTypeSpecListP = typeDefinition
+
+typeDefinition :: Parser TypeDefinition
+typeDefinition = do
     ident <- pack <$> identifier
     args <- dGenericArgs
     let lhs' =
@@ -318,13 +329,13 @@ statement :: Parser Expression
 statement = choice
   [ try dEqExpression
   , try dIfExpression
+  , try loop'
   , try dBeginEndExpression
   , try dValueExpression
-  , try loop'
   , try with'
   , try delphiTry'
   , try delphiCase'
-  , const EmptyExpression <$> semi
+  , try $ const EmptyExpression <$> semi
   ]
 
 dValueExpression :: Parser Expression
@@ -333,14 +344,14 @@ dValueExpression = ExpressionValue <$> expression
 dBeginEndExpression :: Parser Expression
 dBeginEndExpression = do
   rword "begin"
-  expressions <- many $ statement <* semi
+  expressions <- many (try $ statement <* semi)
   rword "end"
   return $ Begin expressions
 
 dEqExpression :: Parser Expression
 dEqExpression = do
   lhs <- expression
-  rword ":="
+  rword ":=" -- TODO: Ensure that this doesn't require spaces.
   rhs <- expression
   return $ lhs := rhs
 
@@ -361,7 +372,7 @@ terms =
     , Inherited <$> (rword "inherited" >> identifier')
     , Result <$ rword "result"
     , Nil <$ rword "nil"
-    , S . pack  <$> ( char '\'' >> manyTill L.charLiteral (char '\'') )
+    , S . pack  <$> ( char '\'' >> manyTill L.charLiteral (symbol "'") )
     , parens "(" ")" expression
     ]
 
@@ -419,6 +430,7 @@ table =
     , binary Is "is"
     , binary In "in"
     , binary (:<=) "<="
+    , binary (:>=) ">="
     , binary (:<) "<"
     , binary (:>) ">"
     ]
@@ -460,7 +472,11 @@ functionImpl = do
   typ <- symbol ":" *> typeName
   _ <- semi
   annotations <- many annotation
-  nested <- many  ( AdditionalInterface <$> interfaceItems)
+  nested <- many $ choice
+    [ AdditionalInterface <$> try interfaceItems
+    , try procedureImpl
+    , try functionImpl
+    ]
   statements <- dBeginEndExpression
   _ <- semi
   return $ FunctionImpl name args typ annotations nested statements
@@ -472,7 +488,11 @@ procedureImpl = do
   args <- dFunctionOrProcedureArgs'
   _ <- semi
   annotations <- many annotation
-  nested <- many (AdditionalInterface <$> interfaceItems)
+  nested <- many $ choice
+    [ AdditionalInterface <$> try interfaceItems
+    , try procedureImpl
+    , try functionImpl
+    ]
   statements <- dBeginEndExpression
   _ <- semi
   return $ ProcedureImpl name args annotations nested statements
@@ -491,7 +511,11 @@ dMemberImplementationP a b = do
   typ <- optional (symbol ":" *> typeName)
   _ <- semi
   annotations <- many annotation
-  nested <- many (AdditionalInterface <$> interfaceItems)
+  nested <- many $ choice
+    [ AdditionalInterface <$> try interfaceItems
+    , try procedureImpl
+    , try functionImpl
+    ]
   statements <- dBeginEndExpression
   _ <- semi
   return $ b name member args (fromMaybe UnspecifiedType typ) ((catMaybes [s]) <> annotations) nested statements

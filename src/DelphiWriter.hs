@@ -58,19 +58,20 @@ instance ShowDelphi ValueExpression where
   showDelphi (Result) = "Result"
   showDelphi (Not a) = "(not " <> showDelphi a <> ")"
   showDelphi (AddressOf a) = "@" <> showDelphi a
-  showDelphi (Dereference a) = "^" <> showDelphi a
+  showDelphi (Dereference a) = showDelphi a <> "^"
   showDelphi (a :. b) = showDelphi a <> "." <> showDelphi b
   showDelphi (Is a b) = showDelphi a <> " is " <> showDelphi b
   showDelphi (In a b) = showDelphi a <> " in " <> showDelphi b
   showDelphi (a :$ b) = showDelphi a <> _toDelphiCallArgString(b)
   showDelphi (a :+ b) = "(" <> showDelphi a <> " + " <> showDelphi b <> ")"
-  showDelphi (a :== b) = "(" <> showDelphi a <> " == " <> showDelphi b <> ")"
+  showDelphi (a :== b) = "(" <> showDelphi a <> " = " <> showDelphi b <> ")"
   showDelphi (a :- b) = "(" <> showDelphi a <> " - " <> showDelphi b <> ")"
   showDelphi (a :* b) = "(" <> showDelphi a <> " * " <> showDelphi b <> ")"
   showDelphi (a :/ b) = "(" <> showDelphi a <> " / " <> showDelphi b <> ")"
   showDelphi (a :& b) = "(" <> showDelphi a <> " and " <> showDelphi b <> ")"
   showDelphi (a :< b) = "(" <> showDelphi a <> " < " <> showDelphi b <> ")"
   showDelphi (a :<= b) = "(" <> showDelphi a <> " <= " <> showDelphi b <> ")"
+  showDelphi (a :>= b) = "(" <> showDelphi a <> " >= " <> showDelphi b <> ")"
   showDelphi (a :> b) = "(" <> showDelphi a <> " > " <> showDelphi b <> ")"
   showDelphi (a :<> b) = "(" <> showDelphi a <> " <> " <> showDelphi b <> ")"
   showDelphi (a `As` b) = "(" <> showDelphi a <> " as " <> showDelphi b <> ")"
@@ -118,8 +119,8 @@ instance ShowDelphi Expression where
                         <> "\nend"
   showDelphi (ExpressionValue a) = showDelphi a
   showDelphi (EmptyExpression) = ""
-  showDelphi (For a LoopUpTo b c) = "for " <> showDelphi a <> " to " <> showDelphi b <> showDelphi c
-  showDelphi (For a LoopDownTo b c) = "for " <> showDelphi a <> " downto " <> showDelphi b <> showDelphi c
+  showDelphi (For a LoopUpTo b c) = "for " <> showDelphi a <> " to " <> showDelphi b <> " " <> showDelphi c
+  showDelphi (For a LoopDownTo b c) = "for " <> showDelphi a <> " downto " <> showDelphi b <> " " <> showDelphi c
   showDelphi (While a b) = "while (" <> showDelphi a <> ") do\n" <> showDelphi b
   showDelphi (Repeat a b) = "repeat " <> (intercalate "\n" (map showDelphi a) ) <> "\nuntil\n" <> showDelphi b
 
@@ -220,6 +221,7 @@ instance ShowDelphi TypeDefinition where
                                   <> intercalate ", " b
                                   <> ")"
   showDelphi (SetDefinition a b) = showDelphi a <> " = set of " <> showDelphi b
+  showDelphi (TypeAttribute a b) = "[" <> intercalate ", " (map showDelphi a) <> "]\n  " <> showDelphi b
 
 instance ShowDelphi ArrayIndex where
   showDelphi (IndexOf a) = showDelphi a

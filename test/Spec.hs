@@ -21,6 +21,8 @@ import TestLoops (loopTests)
 import TestProperties (propertiesTests)
 import TestTypeArguments (typeArgumentTests)
 import TestDelphiWriter (writerTests)
+import TestTypeDefinitions (typeDefinitionTests)
+import TestProcedureImplementation (procedureImplementationTest)
 
 newtype ParserTestsData = ParserTestsData
   { sharedpointer :: Text
@@ -40,6 +42,8 @@ main = do
     , delphiTryTests
     , caseTests
     , writerTests
+    , typeDefinitionTests
+    , procedureImplementationTest
     ]
 
 stripWhitespace :: Text -> Text

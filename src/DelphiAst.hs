@@ -107,6 +107,9 @@ data Expression -- TODO: Should be 'Statement'
   deriving (Eq, Show)
 
 -- ValueExpression are expressions that result in a value when evaluated
+-- TODO: Ensure that:
+--  1) Spaces aren't required, and
+--  2) That a sensible error is provided if an unrecognised symbol is used.
 data ValueExpression
   = V Text
   | T TypeName
@@ -129,6 +132,7 @@ data ValueExpression
   | ValueExpression :<> ValueExpression -- foo <> bar
   | ValueExpression :< ValueExpression -- foo < bar
   | ValueExpression :<= ValueExpression -- foo <= bar
+  | ValueExpression :>= ValueExpression -- foo >= bar 
   | ValueExpression :> ValueExpression -- foo > bar
   | As ValueExpression ValueExpression -- foo as bar
   | Is ValueExpression ValueExpression -- foo is bar
@@ -168,6 +172,7 @@ data TypeDefinition
   | Record TypeName
            RecordDefinition
   | ForwardClass
+  | TypeAttribute [ValueExpression] TypeDefinition
   | Class TypeName
           [TypeName]
           ClassDefinition
