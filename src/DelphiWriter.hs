@@ -48,6 +48,8 @@ instance ShowDelphi Finalization where
 
 instance ShowDelphi ValueExpression where
   showDelphi (V a) = a
+  showDelphi (L a) = "[" <> intercalate ", " (map showDelphi a) <> "]"
+  showDelphi (P a) = "(" <> intercalate ", " (map showDelphi a) <> ")"
   showDelphi (T a) = showDelphi a
   showDelphi (I a) = pack $ show a
   showDelphi (S a) = pack $ show a
@@ -192,13 +194,15 @@ instance ShowDelphi InterfaceExpression where
                                 <> intercalate ";\n  " (map showDelphi a) <> ";\n"
   showDelphi (VarDefinitions a) = "var\n  "
                                 <> intercalate ";\n  " (map showDelphi a) <> ";\n"
+  showDelphi (Standalone a) = showDelphi a
 
 instance ShowDelphi ConstDefinition where
-  showDelphi (ConstDefinition a (Just b) c) = a <> " : " <> showDelphi b <> " = (" <> intercalate ", " (map showDelphi c) <> ")"
-  showDelphi (ConstDefinition a (Nothing) c) = a <> " = (" <> intercalate ", " (map showDelphi c) <> ")"
+  showDelphi (ConstDefinition a (Just b) c) = a <> " : " <> showDelphi b <> " = " <> showDelphi c
+  showDelphi (ConstDefinition a (Nothing) c) = a <> " = " <> showDelphi c
 
 instance ShowDelphi VarDefinition where
-  showDelphi (VarDefinition a b) = a <> ": " <> showDelphi b
+  showDelphi (VarDefinition a b (Just c)) = a <> ": " <> showDelphi b <> "=" <> showDelphi c
+  showDelphi (VarDefinition a b Nothing) = a <> ": " <> showDelphi b
 
 instance ShowDelphi TypeDefinition where
   showDelphi (TypeDef a b) = showDelphi a <> " = "
@@ -250,7 +254,6 @@ instance ShowDelphi TypeName where
   showDelphi UnspecifiedType = "{ Unspecified Type }"
 
 instance ShowDelphi TypeDefinitionRHS where
-  showDelphi (UnknownTypeDefinition a) = "{ Unknown Type Definition: " <> a <> " }"
   showDelphi (ReferenceToProcedure a) = "{$IFNDEF FPC}reference to{$ENDIF} procedure("
                                       <> intercalate "; " (map showDelphi a)
                                       <> ")"
@@ -260,6 +263,19 @@ instance ShowDelphi TypeDefinitionRHS where
   showDelphi (ProcedureOfObject a) = "procedure("
                                  <> intercalate "; " (map showDelphi a)
                                  <> ") of object"
+  showDelphi (ReferenceToFunction a b) = "{$IFNDEF FPC}reference to{$ENDIF} procedure("
+                                      <> intercalate "; " (map showDelphi a)
+                                      <> "):"
+                                      <> showDelphi b
+  showDelphi (SimpleFunction a b) = "procedure("
+                                 <> intercalate "; " (map showDelphi a)
+                                 <> "):"
+                                 <> showDelphi b
+  showDelphi (FunctionOfObject a b) = "procedure("
+                                 <> intercalate "; " (map showDelphi a)
+                                 <> "):"
+                                 <> showDelphi b
+                                 <> " of object"
 
 instance ShowDelphi Accessibility where
   showDelphi (Private a) = "\n  private\n    " <> intercalate "\n    " (map showDelphi a)

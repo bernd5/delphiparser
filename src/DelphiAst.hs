@@ -115,6 +115,11 @@ data ValueExpression
   | T TypeName
   | I Integer
   | S Text
+  | F Rational
+  | L [ValueExpression] -- [foo, bar, baz]
+  | P [ValueExpression] -- (foo, bar, baz)
+  | LambdaFunction [Argument] TypeName [ImplementationSpec] Expression
+  | LambdaProcedure [Argument] [ImplementationSpec] Expression
   | DTrue
   | DFalse
   | Result
@@ -154,10 +159,12 @@ data Finalization =
 
 -- These Type Definitions can only appear on the RHS.
 data TypeDefinitionRHS
-  = UnknownTypeDefinition Text
-  | ReferenceToProcedure [Argument]
+  = ReferenceToProcedure [Argument]
   | SimpleProcedure [Argument]
   | ProcedureOfObject [Argument]
+  | ReferenceToFunction [Argument] TypeName
+  | SimpleFunction [Argument] TypeName
+  | FunctionOfObject [Argument] TypeName
   deriving (Eq, Show)
 
 data TypeDefinition
@@ -182,17 +189,19 @@ data InterfaceExpression
   = TypeDefinitions [TypeDefinition]
   | ConstDefinitions [ConstDefinition]
   | VarDefinitions [VarDefinition]
+  | Standalone Field -- TODO: Make this more specialised.
   deriving (Eq, Show)
 
 data ConstDefinition =
   ConstDefinition Text
                   (Maybe TypeName)
-                  [ValueExpression]
+                  ValueExpression
   deriving (Eq, Show)
 
 data VarDefinition =
   VarDefinition Text
                 TypeName
+                (Maybe ValueExpression)
   deriving (Eq, Show)
 
 data Accessibility

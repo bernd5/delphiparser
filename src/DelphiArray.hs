@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module DelphiArray ( array ) where
+module DelphiArray ( array, arrayDimension ) where
 
 import DelphiLexer
 import DelphiAst

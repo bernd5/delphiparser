@@ -10,6 +10,7 @@ module DelphiLexer
   , parens'
   , integer
   , hexinteger
+  , float
   , semi
   , rword
   , anyIdentifier
@@ -20,6 +21,7 @@ module DelphiLexer
 
 import Prelude hiding (words)
 import Data.Void
+import Data.Ratio ((%))
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -58,6 +60,18 @@ integer = lexeme L.decimal
 
 hexinteger :: Parser Integer
 hexinteger = (char '#' <|> char '$') *> lexeme L.hexadecimal
+
+float :: Parser Rational
+float = try $ do
+  (a, b, c) <- lookAhead float_
+  skipCount 1 float_
+  return $ ( read (a<>c) ) % (toInteger $ 10 ^ (length c))
+  where
+    float_ = do
+      a <- some digitChar
+      b <- char '.'
+      c <- some digitChar
+      return (a, b, c)
 
 semi :: Parser ()
 semi = (\_ -> ()) <$> symbol ";"

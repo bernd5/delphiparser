@@ -2,7 +2,7 @@
 
 module DelphiParser
   ( dUnitP
-  , expression
+  , expression'
   , uses
   , array'
   , with'
@@ -28,8 +28,8 @@ module DelphiParser
   , dFunctionImplementationP
   , dProcedureImplementationP
   , dFunctionOrProcedureArgs'
+  , singleVarExpression
   , dUnitImplementationP
-  , dTypeSpecListP
   , typeName
   , dValueExpression
   ) where
@@ -46,39 +46,41 @@ import DelphiTry (delphiTry)
 import DelphiCase (delphiCase)
 import DelphiTypeArguments (typeArguments)
 import DelphiTypeDefinition (typeAttribute)
+import DelphiExpressions (expression, functionCall)
 import Text.Megaparsec
-import Text.Megaparsec.Expr
-import qualified Text.Megaparsec.Char.Lexer as L
 import Data.Functor (($>))
 import Text.Megaparsec.Char (char)
 
 loop' :: Parser Expression
-loop' = loop expression statement
+loop' = loop expression' statement
 
 with' :: Parser Expression
-with' = with expression statement
+with' = with expression' statement
+
+expression' :: Parser ValueExpression
+expression' = expression dBeginEndExpression interfaceItems typeName
 
 property' :: Parser Field
-property' = property typeName dArgumentP expression
+property' = property typeName dArgumentP expression'
 
 typeArguments'' :: Char -> Char -> Parser (Maybe [Argument])
-typeArguments'' a b  = optional (parens' a b $ typeArguments typeName expression)
+typeArguments'' a b  = optional (parens' a b $ typeArguments typeName expression')
 
 typeArguments' :: Parser (Maybe [Argument])
 typeArguments' = typeArguments'' '(' ')'
 
 typeAttribute' :: Parser TypeDefinition
-typeAttribute' = typeAttribute expression typeDefinition
+typeAttribute' = typeAttribute expression' typeDefinition
 
 
 delphiTry' :: Parser Expression
-delphiTry' = delphiTry expression statement
+delphiTry' = delphiTry expression' statement
 
 delphiCase' :: Parser Expression
-delphiCase' = delphiCase statement expression
+delphiCase' = delphiCase statement expression'
 
 dArgumentP :: Parser [Argument]
-dArgumentP = typeArguments typeName expression
+dArgumentP = typeArguments typeName expression'
 
 dUnitP :: Parser Unit
 dUnitP = do
@@ -113,15 +115,20 @@ dUnitInterfaceP = do
   return $ Interface (Uses (fromMaybe [] usings)) items
 
 interfaceItems :: Parser InterfaceExpression
-interfaceItems = typeExpressions <|> constExpressions <|> varExpressions
+interfaceItems = choice
+  [ try typeExpressions
+  , try constExpressions 
+  , try varExpressions
+  , Standalone <$> try dProcedureP
+  , Standalone <$> try dFunctionP
+  ] 
 
 singleConstExpression :: Parser ConstDefinition
 singleConstExpression = do
   lhs <- identifier'
-  typ <- optional $ symbol ":" >> array'
+  typ <- optional $ symbol ":" >> typeName
   symbol "="
-  rhs <- choice [ parens "(" ")" (expression `sepBy` symbol ",")
-                , (:[]) <$> expression]
+  rhs <- expression'
   semi
   return $ ConstDefinition lhs typ rhs
 
@@ -129,8 +136,9 @@ singleVarExpression :: Parser [VarDefinition]
 singleVarExpression = do
   names <- identifier' `sepBy` symbol ","
   typ <- symbol ":" >> typeName
+  def <- optional (symbol "=" >> expression')
   semi
-  return $ map (flip VarDefinition $ typ) names
+  return $ map (\x -> VarDefinition x typ def) names
 
 constExpressions :: Parser InterfaceExpression
 constExpressions = do
@@ -141,7 +149,7 @@ constExpressions = do
 varExpressions :: Parser InterfaceExpression
 varExpressions = do
   rword "var"
-  vars <- many singleVarExpression
+  vars <- many $ try singleVarExpression
   return $ VarDefinitions $ concat vars
 
 typeExpressions :: Parser InterfaceExpression
@@ -155,9 +163,6 @@ forwardClass = do
   rword "class"
   return ForwardClass
 
-dTypeSpecListP :: Parser TypeDefinition
-dTypeSpecListP = typeDefinition
-
 typeDefinition :: Parser TypeDefinition
 typeDefinition = do
     ident <- pack <$> identifier
@@ -169,11 +174,12 @@ typeDefinition = do
     symbol "="
     ie <- choice
       [ try $ dReferenceToProcedureP ident 
+      , try $ dReferenceToFunctionP ident 
       , try $ dGenericRecordP lhs' 
       , try $ dClassP lhs' 
       , try $ setDefinition lhs' 
       , try $ enumDefinition lhs'  -- Contains parens
-      , try $ typeAlias lhs'
+      , try $ typeAlias lhs' -- Just for *very* simple type aliases
       , forwardClass
       ]
     semi
@@ -213,6 +219,26 @@ dReferenceToProcedureP ident = do
               then ProcedureOfObject
               else SimpleProcedure
   return $ TypeDef (Type ident) (t args)
+
+dReferenceToFunctionP :: Text -> Parser TypeDefinition
+dReferenceToFunctionP ident = do
+  r <- optional $ do
+    rword "reference"
+    rword "to"
+  rword "function"
+  args <- dFunctionOrProcedureArgs'
+  symbol ":"
+  typ <- typeName
+  o <- optional $ do
+    rword "of"
+    rword "object"
+  let t = if isJust r
+          then ReferenceToFunction
+          else
+            if isJust o
+              then FunctionOfObject
+              else SimpleFunction
+  return $ TypeDef (Type ident) (t args typ)
 
 dGenericRecordP :: TypeName -> Parser TypeDefinition
 dGenericRecordP a = do
@@ -284,7 +310,7 @@ dGenericTypes = many $ do
   return $ Type name
 
 array':: Parser TypeName
-array' = array typeName expression
+array' = array typeName expression'
 
 simplifyTypeName :: Text -> Maybe String -> Maybe [TypeName] -> TypeName
 simplifyTypeName m a b = r a $ t b $ m
@@ -339,7 +365,7 @@ statement = choice
   ]
 
 dValueExpression :: Parser Expression
-dValueExpression = ExpressionValue <$> expression
+dValueExpression = ExpressionValue <$> expression'
 
 dBeginEndExpression :: Parser Expression
 dBeginEndExpression = do
@@ -350,96 +376,16 @@ dBeginEndExpression = do
 
 dEqExpression :: Parser Expression
 dEqExpression = do
-  lhs <- expression
+  lhs <- expression'
   rword ":=" -- TODO: Ensure that this doesn't require spaces.
-  rhs <- expression
+  rhs <- expression'
   return $ lhs := rhs
 
-expression :: Parser ValueExpression
-expression = makeExprParser terms table
-
-comma :: Parser ()
-comma = symbol ","
-
-terms :: Parser ValueExpression
-terms =
-  choice
-    [ V <$> identifier'
-    , I <$> integer
-    , I <$> hexinteger
-    , DTrue <$ rword "true"
-    , DFalse <$ rword "false"
-    , Inherited <$> (rword "inherited" >> identifier')
-    , Result <$ rword "result"
-    , Nil <$ rword "nil"
-    , S . pack  <$> ( char '\'' >> manyTill L.charLiteral (symbol "'") )
-    , parens "(" ")" expression
-    ]
-
--- Lots of inspiration from https://github.com/ilmoeuro/simplescript/blob/master/src/SimpleScript/Parser.hs
--- Thanks to liste on freenode for suggesting this.
-manyPostfixOp :: Parser (a -> a) -> Parser (a -> a)
-manyPostfixOp singleOp = foldr1 (flip (.)) <$> some singleOp
-
-recordAccess :: Parser (ValueExpression -> ValueExpression)
-recordAccess = flip (:.) . V . pack <$> try (symbol "." *> identifier)
-
-functionCall :: Parser (ValueExpression -> ValueExpression)
-functionCall = flip (:$) <$> try (parens "(" ")" (expression `sepBy` comma))
-
-indexCall :: Parser (ValueExpression -> ValueExpression)
-indexCall = flip (:!!) <$> try (parens "[" "]" (expression `sepBy` comma))
-
-void :: a -> ()
-void _ = ()
-
-genericArgs :: Parser (ValueExpression -> ValueExpression)
-genericArgs =
-  flip (:<<>>) <$>
-  try
-    (do p <- parens "<" ">" ((Type <$> identifier') `sepBy1` comma)
-        notFollowedBy $ choice [void <$> identifier]
-        return p)
-
-binary :: (ValueExpression -> ValueExpression -> ValueExpression)
-             -> Text -> Operator Parser ValueExpression
-binary f name = InfixL (f <$ symbol name)
-
-table :: [[Operator Parser ValueExpression]]
-table =
-  [ [ Postfix . manyPostfixOp $ choice
-        [ try recordAccess
-        , try genericArgs
-        , try functionCall
-        , try indexCall
-        ]
-    , Prefix (Not <$ rword "not")
-    , Prefix (Dereference <$ symbol "^")
-    , Postfix (Dereference <$ symbol "^")
-    , Prefix (AddressOf <$ symbol "@")
-    , binary (:<>) "<>"
-    , binary (:+) "+"
-    , binary (:-) "-"
-    , Prefix ((I 0 :-) <$ symbol "-")
-    , binary (:==) "="
-    , binary (:*) "*"
-    , binary (:/) "/"
-    , binary (:&) "and"
-    , binary (:|) "or"
-    , binary As "as"
-    , binary Is "is"
-    , binary In "in"
-    , binary (:<=) "<="
-    , binary (:>=) ">="
-    , binary (:<) "<"
-    , binary (:>) ">"
-    ]
-  ]
 
 dIfExpression :: Parser Expression
 dIfExpression = do
   rword "if"
-  expr <- expression
+  expr <- expression'
   rword "then"
   s <- statement
   elseStatement <- optional (rword "else" *> statement)
@@ -473,9 +419,9 @@ functionImpl = do
   _ <- semi
   annotations <- many annotation
   nested <- many $ choice
-    [ AdditionalInterface <$> try interfaceItems
-    , try procedureImpl
+    [ try procedureImpl
     , try functionImpl
+    , AdditionalInterface <$> try interfaceItems
     ]
   statements <- dBeginEndExpression
   _ <- semi
@@ -489,9 +435,9 @@ procedureImpl = do
   _ <- semi
   annotations <- many annotation
   nested <- many $ choice
-    [ AdditionalInterface <$> try interfaceItems
-    , try procedureImpl
+    [ try procedureImpl
     , try functionImpl
+    , AdditionalInterface <$> try interfaceItems
     ]
   statements <- dBeginEndExpression
   _ <- semi

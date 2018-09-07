@@ -8,7 +8,6 @@ import Test.Tasty.HUnit (testCase, (@=?))
 import Text.Megaparsec (parse)
 import DelphiParser (loop', statement)
 
-import Data.List (intercalate)
 import DelphiAst
 
 loopTests :: TestTree
@@ -28,16 +27,16 @@ loopTests = testGroup "Delphi Loop Tests"
   , testCase "(statement) repeat ...; until foo <= bar" $
     (Right (Repeat [V "A" := V "B",V "B" := V "A"] (V "foo" :<= V "bar")) @=? ) $
     parse statement "" "repeat A := B; B := A; until foo <= bar"
-  , testCase "repeat begin ... end; until foo <= bar" $
-    (Right (Repeat [V "A" := V "B",V "B" := V "A"] (V "foo" :<= V "bar")) @=? ) $
+  , testCase "repeat begin end; until foo <= bar" $
+    (Right (Repeat [Begin []] (V "foo" :<= V "bar")) @=? ) $
     parse loop' "" "repeat begin end; until foo <= bar"
   , testCase "Nested repeat ...; until foo <= bar" $
-    (Right (Repeat [V "A" := V "B",V "B" := V "A"] (V "foo" :<= V "bar")) @=? ) $
+    (Right (Repeat [Repeat [V "A" := V "B"] (V "foo" :<= V "bar")] (V "foo" :<= V "bar")) @=? ) $
     parse loop' "" "repeat repeat A := B; until foo <= bar; until foo <= bar"
   , testCase "Nested repeat ...; until foo <= bar inside begin/end" $
-    (Right (Repeat [V "A" := V "B",V "B" := V "A"] (V "foo" :<= V "bar")) @=? ) $
+    (Right (Repeat [Begin [Repeat [V "A" := V "B"] (V "foo" :<= V "bar")]] (V "foo" :<= V "bar")) @=? ) $
     parse loop' "" "repeat begin repeat A := B; until foo <= bar; end; until foo <= bar"
   , testCase "(statement) Begin repeat end;" $
-    (Right (Repeat [V "A" := V "B",V "B" := V "A"] (V "foo" :<= V "bar")) @=? ) $
+    (Right (Begin [Repeat [V "A" := V "B"] (V "foo" :<= V "bar")]) @=? ) $
     parse statement "" "begin repeat A := B; until foo <= bar; end"
   ]

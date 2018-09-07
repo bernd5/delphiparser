@@ -23,6 +23,8 @@ import TestTypeArguments (typeArgumentTests)
 import TestDelphiWriter (writerTests)
 import TestTypeDefinitions (typeDefinitionTests)
 import TestProcedureImplementation (procedureImplementationTest)
+import TestDelphiFunctions (functionTests)
+import TestLiterals (literalsTests)
 
 newtype ParserTestsData = ParserTestsData
   { sharedpointer :: Text
@@ -44,6 +46,8 @@ main = do
     , writerTests
     , typeDefinitionTests
     , procedureImplementationTest
+    , functionTests
+    , literalsTests
     ]
 
 stripWhitespace :: Text -> Text
@@ -67,18 +71,21 @@ unitTests p = testGroup
   [ testCase "Ensure that show == read (if we ignore spaces)"
     $ roundtrip (sharedpointer p) dUnitP
   , testCase "Ensure that operations showDelphi are correct"
-    $ roundtrip "(23 + 32)" dValueExpression
+    $ roundtrip "23 + 32" dValueExpression
   , testCase
-      "Ensure that function call value expressions showDelphi without a semicolon"
+      "Ensure that function call value expression's showDelphi without a semicolon"
     $ roundtrip "foo(23)" dValueExpression
+  , testCase
+      "Ensure that function call^'s expression's showDelphi without a semicolon"
+    $ roundtrip "(foo(23)^)" dValueExpression
   , testCase "Ensure that IndexCall showDelphi are correct"
-    $ roundtrip "foo[(foo(32) + 32)]" expression
+    $ roundtrip "foo[(foo(32) + 32)]" expression'
   , testCase "Ensure that 'a < b > c' parses"
   $ (Right ((V "a" :< V "b") :> V "c") @=?)
-  $ parse (parens "(" ")" expression) "" "(a < b > c)"
+  $ parse (parens "(" ")" expression') "" "(a < b > c)"
   , testCase "Ensure that 'a < b and b > c' parses"
   $ (Right (((V "a" :< V "b") :& V "b") :> V "c") @=?)
-  $ parse (parens "(" ")" expression) "" "(a < b and b  > c)"
+  $ parse (parens "(" ")" expression') "" "(a < b and b  > c)"
   , testCase "Ensure usings parses"
   $ (Right ["one", "two", "three"] @=?)
   $ parse uses "" "uses one, two, three;"
@@ -143,10 +150,10 @@ unitTests p = testGroup
       "{--\n This file starts with comments\n--}\n// And another comment\n\n\nunit TestUnit; interface type implementation initialization finalization end."
   , testCase "Ensure empty Record parses"
   $ (Right (Class (Type "TFreeTheValue") [Type "TInterfacedObject"] []) @=?)
-  $ parse dTypeSpecListP "" "TFreeTheValue = class(TInterfacedObject) end;"
+  $ parse typeDefinition "" "TFreeTheValue = class(TInterfacedObject) end;"
   , testCase "Ensure Forward Class parses"
   $ (Right (TypeAlias (Type "foo") (Type "class")) @=?)
-  $ parse dTypeSpecListP "" "foo = class;"
+  $ parse typeDefinition "" "foo = class;"
   , testCase "Ensure a Generic Procedure of a Generic Class parses"
   $ (Right
       (MemberProcedureImpl (GenericInstance "TShared" [Type "T"])
@@ -190,50 +197,50 @@ unitTests p = testGroup
   , testCase "Ensure a slightly complex nested function call parses"
   $ (Right (V "SetLength" :$ [V "FList", (V "Length" :$ [V "FList"]) :+ I 1]) @=?
     )
-  $ parse expression "" "SetLength(FList, Length(FList)+1);"
+  $ parse expression' "" "SetLength(FList, Length(FList)+1);"
   , testCase "Ensure a(b)+c parses"
   $ (Right (V "a" :$ [V "b"] :+ V "c") @=?)
-  $ parse expression "" "a(b)+c"
+  $ parse expression' "" "a(b)+c"
   , testCase "Ensure that you can assign to the result of a cast"
   $ (Right
-      (V "FFreeTheValue" `As` V "TFreeTheValue" :. V "FObjectToFree" := Nil) @=?
+      (P [V "FFreeTheValue" `As` V "TFreeTheValue"] :. V "FObjectToFree" := Nil) @=?
     )
   $ parse statement "" "(FFreeTheValue as TFreeTheValue).FObjectToFree := nil;"
   , testCase "Ensure a value involving a generic type member function parses"
   $ (Right (((V "TShared" :<<>> [Type "TT"]) :. V "Create") :$ [Nil]) @=?)
-  $ parse expression "" "TShared<TT>.Create(nil)"
-  , testCase "Ensure a parens'ed value parses" $ (Right Nil @=?) $ parse
-    expression
+  $ parse expression' "" "TShared<TT>.Create(nil)"
+  , testCase "Ensure a parens'ed value parses" $ (Right (P [Nil]) @=?) $ parse
+    expression'
     ""
     "(nil)"
   , testCase "Ensure a trivial reference value works"
   $ (Right (V "one") @=?)
-  $ parse expression "" "one"
+  $ parse expression' "" "one"
   , testCase "Ensure an <> comparison works"
   $ (Right (V "one" :<> V "two") @=?)
-  $ parse expression "" "one <> two"
+  $ parse expression' "" "one <> two"
   , testCase "Ensure an and comparison works"
   $ (Right (V "one" :& V "two") @=?)
-  $ parse expression "" "one and two"
+  $ parse expression' "" "one and two"
   , testCase "Ensure an as cast works"
   $ (Right (V "one" `As` V "two") @=?)
-  $ parse expression "" "one as two"
+  $ parse expression' "" "one as two"
   , testCase "Ensure a < works" $ (Right (V "one" :< V "two") @=?) $ parse
-    expression
+    expression'
     ""
     "one<two"
   , testCase "Ensure dot operator works"
   $ (Right (V "one" :. V "two") @=?)
-  $ parse expression "" "one.two"
+  $ parse expression' "" "one.two"
   , testCase "Ensure a simple function call works"
   $ (Right (V "one" :$ []) @=?)
-  $ parse expression "" "one()"
+  $ parse expression' "" "one()"
   , testCase "Ensure a simple function call with one arg works"
   $ (Right (V "one" :$ [V "two"]) @=?)
-  $ parse expression "" "one(two)"
+  $ parse expression' "" "one(two)"
   , testCase "Ensure a simple function call with two args works"
   $ (Right (V "one" :$ [V "two", V "three"]) @=?)
-  $ parse expression "" "one(two, three)"
+  $ parse expression' "" "one(two, three)"
   , testCase "Ensure that the empty statement works"
   $ (Right EmptyExpression @=?)
   $ parse statement "" ";"
@@ -248,18 +255,19 @@ unitTests p = testGroup
   , testCase "Ensure that ifThenElse works"
   $ (Right
       (If
-        (  (V "FFreeTheValue" :<> Nil)
-        :& (   ((V "FFreeTheValue" `As` V "TFreeTheValue") :. V "FObjectToFree"
-               )
-           :<> Nil
-           )
+        (P [V "FFreeTheValue" :<> Nil] :& P
+          [ (  P [As (V "FFreeTheValue") (V "TFreeTheValue")]
+            :. V "FObjectToFree"
+            )
+              :<> Nil
+          ]
         )
         (Then
-          (  V "Result"
-          := (    (V "FFreeTheValue" `As` V "TFreeTheValue" :. V "FObjectToFree"
-                  )
-             `As` V "T"
-             )
+          (V "Result" := As
+            (  P [As (V "FFreeTheValue") (V "TFreeTheValue")]
+            :. V "FObjectToFree"
+            )
+            (V "T")
           )
         )
         (Else EmptyExpression)
@@ -277,36 +285,46 @@ unitTests p = testGroup
   $ parse statement "" "foo[32];"
   , testCase "Ensure reading an index property parses"
   $ (Right (V "foo" :!! [I 32]) @=?)
-  $ parse expression "" "foo[32];"
+  $ parse expression' "" "foo[32];"
   , testCase "Ensure that foo.bar.baz.fuux is left associative"
   $ (Right (V "foo" :. V "bar" :. V "baz" :. V "fuux") @=?)
-  $ parse expression "" "foo.bar.baz.fuux"
+  $ parse expression' "" "foo.bar.baz.fuux"
   , testCase "Ensure a.b(c) syntax parses"
   $ (Right (V "a" :. V "b" :$ [V "c"]) @=?)
-  $ parse expression "" "a.b(c)"
+  $ parse expression' "" "a.b(c)"
   , testCase "Ensure a.b[c] syntax parses"
   $ (Right (V "a" :. V "b" :!! [V "c"]) @=?)
-  $ parse expression "" "a.b[c]"
+  $ parse expression' "" "a.b[c]"
   , testCase "Ensure index property parses"
   $ (Right (V "foo" :!! [I 32]) @=?)
-  $ parse expression "" "foo[32]"
+  $ parse expression' "" "foo[32]"
   , testCase "Ensure simple type alias parses"
   $ (Right (TypeAlias (Type "foo") (Type "bar")) @=?)
   $ parse (typeAlias (Type "foo")) "" "bar"
+  , testCase "Ensure type function alias parses"
+  $ (Right
+      (TypeDef
+        (Type "bar")
+        (SimpleFunction [Arg ConstArg "foo" (Type "bar") Nothing]
+                        (Type "string")
+        )
+      ) @=?
+    )
+  $ parse typeDefinition "" "bar = function(const foo:bar):string;"
   , testCase "Ensure hex integers parse" $ (Right (I 0x42) @=?) $ parse
-    expression
+    expression'
     ""
     "$42"
   , testCase "Ensure that arrays are a valid type"
   $ (Right (StaticArray (IndexOf $ Type "foo") (Type "bar")) @=?)
   $ parse typeName "" "array [foo] of bar"
-  , testCase "Ensure that const expressions involving arrays parse"
+  , testCase "Ensure that const expression's involving arrays parse"
   $ (Right
       (ConstDefinitions
         [ ConstDefinition
             "foo"
             (Just $ StaticArray (IndexOf $ Type "bar") (Type "baz"))
-            [V "one", V "two", V "three"]
+            (P [V "one", V "two", V "three"])
         ]
       ) @=?
     )
@@ -314,12 +332,12 @@ unitTests p = testGroup
           ""
           "const foo: array [bar] of baz = (one, two, three);"
   , testCase "Ensure foo.bar parses" $ (Right (V "foo" :. V "bar") @=?) $ parse
-    expression
+    expression'
     ""
     "foo.bar"
   , testCase "Ensure a = foo.bar parses"
   $ (Right (V "a" :== (V "foo" :. V "bar")) @=?)
-  $ parse expression "" "a = foo.bar"
+  $ parse expression' "" "a = foo.bar"
   , testCase "Ensure if a = foo.bar then... parses"
   $ (Right
       (If (V "a" :== (V "foo" :. V "bar"))
@@ -330,24 +348,24 @@ unitTests p = testGroup
   $ parse dIfExpression "" "if a = foo.bar then Nil;"
   , testCase "Ensure dereference parses"
   $ (Right (Dereference (V "foo")) @=?)
-  $ parse expression "" "^foo"
+  $ parse expression' "" "^foo"
   , testCase "Ensure address-of parses"
   $ (Right (AddressOf (V "foo")) @=?)
-  $ parse expression "" "@foo"
+  $ parse expression' "" "@foo"
   , testCase "Ensure foo <= bar parses"
   $ (Right (V "foo" :<= V "bar") @=?)
-  $ parse expression "" "foo <= bar"
+  $ parse expression' "" "foo <= bar"
   , testCase "Ensure that function call with indexed args parse"
   $ (Right (V "foo" := (V "bar" :$ [V "baz", DFalse, V "fuux" :!! [V "I"]])) @=?
     )
   $ parse statement "" "foo := bar(baz, false, fuux[I]);"
   , testCase "Ensure that function call with indexed args parse"
   $ (Right (V "bar" :$ [V "baz", DFalse, V "fuux" :!! [V "I"]]) @=?)
-  $ parse expression "" "bar(baz, false, fuux[I])"
+  $ parse expression' "" "bar(baz, false, fuux[I])"
   , testCase "Ensure var works"
   $ (Right
       (VarDefinitions
-        [VarDefinition "foo" (Type "bar"), VarDefinition "baz" (Type "fuux")]
+        [VarDefinition "foo" (Type "bar") Nothing, VarDefinition "baz" (Type "fuux") Nothing]
       ) @=?
     )
   $ parse varExpressions "" "var foo: bar; baz: fuux;"
@@ -360,8 +378,8 @@ unitTests p = testGroup
         []
         [ AdditionalInterface
             (VarDefinitions
-              [ VarDefinition "foo" (Type "bar")
-              , VarDefinition "baz" (Type "fuux")
+              [ VarDefinition "foo" (Type "bar") Nothing
+              , VarDefinition "baz" (Type "fuux") Nothing
               ]
             )
         ]
