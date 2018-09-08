@@ -28,6 +28,7 @@ terms a b c =
     , I <$> hexinteger
     , DTrue <$ rword "true"
     , lambdaExpression a b c
+    , functionExit
     , DFalse <$ rword "false"
     , Inherited <$> (rword "inherited" >> identifier')
     , Result <$ rword "result"
@@ -37,6 +38,12 @@ terms a b c =
     , parens "(" ")" (expression a b c)
     , L <$> parens "[" "]" ((expression a b c) `sepBy` symbol ",")
     ]
+  where
+    functionExit :: Parser ValueExpression
+    functionExit = do
+      rword "exit"
+      e <- optional $ expression a b c
+      return $ Exit e
 
 -- Lots of inspiration from https://github.com/ilmoeuro/simplescript/blob/master/src/SimpleScript/Parser.hs
 -- Thanks to liste on freenode for suggesting this.
@@ -67,6 +74,7 @@ table a b c =
     , binary (:==) "="
     , binary (:*) "*"
     , binary (:/) "/"
+    , binary (:/) "div"
     , binary (:&) "and"
     , binary (:|) "or"
     , binary As "as"

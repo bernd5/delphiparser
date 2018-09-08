@@ -16,7 +16,7 @@ typeArgNames = try $ (do
     o <- optional $ rword "out"
     let m = tmod c v o
 
-    i <- identifier'
+    i <- identifierPlus ["default"]
     return (m, i)
     ) `sepBy` symbol ","
   where

@@ -233,6 +233,7 @@ instance ShowDelphi ArrayIndex where
 
 instance ShowDelphi TypeName where
   showDelphi (Type a)  = a
+  showDelphi (ConstType) = "const"
   showDelphi (StaticArray a b) = "array[" <> showDelphi a <> "] of " <> showDelphi b
   showDelphi (DynamicArray a b) = (pack . concat $ take a' $ repeat "array of ") <> showDelphi b
     where
@@ -358,6 +359,10 @@ instance ShowDelphi FieldAnnotation where
   showDelphi (Default) = "default"
   showDelphi (StdCall) = "stdcall"
   showDelphi (Static) = "class"
+  showDelphi (Overload) = "overload"
+  showDelphi (Reintroduce) = "reintroduce"
+  showDelphi (Abstract) = "abstract"
+  showDelphi (Message a) = "message " <> a
 
 instance ShowDelphi GenericConstraint where
   showDelphi (ClassConstraint) = "class"

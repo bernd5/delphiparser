@@ -43,7 +43,7 @@ dynamicArray typeName _ = do
   dimensions <- fromIntegral . length <$> many (do
     rword "array"
     rword "of")
-  base <- typeName
+  base <- typeName <|> (const ConstType <$> rword "const")
   return $ DynamicArray (dimensions+1) base
 
 variantArray :: Parser TypeName -> Parser ValueExpression -> Parser TypeName

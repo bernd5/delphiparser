@@ -34,6 +34,11 @@ arrayTests = testGroup "Delphi Array Tests"
       (Right (DynamicArray 2 (Type "foo")) @=?) $
       parse array' "" "array of array of foo"
     ]
+  , testGroup "Open Variant Arrays" $
+    [ testCase "array of const" $
+      (Right (VariantArray $ IndexOf $ Type "foo") @=? ) $
+      parse array' "" "array of const"
+    ]
   , testGroup "Variant Arrays" $
     [ testCase "array [foo] of const" $
       (Right (VariantArray $ IndexOf $ Type "foo") @=? ) $

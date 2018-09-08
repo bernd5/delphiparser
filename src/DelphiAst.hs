@@ -123,6 +123,7 @@ data ValueExpression
   | DTrue
   | DFalse
   | Result
+  | Exit (Maybe ValueExpression)
   | Not ValueExpression
   | Inherited Text
   | Dereference ValueExpression -- '^foo'
@@ -255,8 +256,12 @@ data FieldAnnotation
   = Override
   | Static -- Ie, a class function
   | Virtual
+  | Overload
+  | Reintroduce
+  | Abstract
   | Default
   | StdCall
+  | Message Text -- TODO: Encode all known windows messages?
   deriving (Eq, Show)
 
 data ArgModifier
@@ -291,6 +296,7 @@ data TypeName
                  TypeName
   | VariantArray ArrayIndex
   | OpenDynamicArray TypeName
+  | ConstType -- Eg, for an 'array of const'
   | AddressOfType TypeName -- '^'
   | TargetOfPointer TypeName -- '@'
   | Constraint [GenericConstraint]
