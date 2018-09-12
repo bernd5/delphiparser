@@ -37,7 +37,7 @@ sc :: Parser ()
 sc = L.space space1 lineCmnt blockCmnt
   where
     lineCmnt = L.skipLineComment "//"
-    blockCmnt = L.skipBlockComment "{" "}"
+    blockCmnt = L.skipBlockComment "{" "}"  <|> L.skipBlockComment "(*" "*)"
 
 -- Removes all spaces after a lexime.
 lexeme :: Parser a -> Parser a
@@ -63,15 +63,19 @@ hexinteger = (char '#' <|> char '$') *> lexeme L.hexadecimal
 
 float :: Parser Rational
 float = try $ do
-  (a, b, c) <- lookAhead float_
+  (a, c) <- lookAhead float_
   skipCount 1 float_
-  return $ ( read (a<>c) ) % (toInteger $ 10 ^ (length c))
+  return $ nom a c % den c
   where
+    nom :: String -> String -> Integer
+    nom a c = read $ a <> c
+    den :: String -> Integer
+    den c = toInteger $ (10 :: Integer) ^ (length c)
     float_ = do
       a <- some digitChar
-      b <- char '.'
+      _ <- char '.'
       c <- some digitChar
-      return (a, b, c)
+      return (a, c)
 
 semi :: Parser ()
 semi = (\_ -> ()) <$> symbol ";"
@@ -79,10 +83,10 @@ semi = (\_ -> ()) <$> symbol ";"
 reserved :: [Text]
 reserved =
   words $
-  "and array asm begin break case const constructor continue destructor div do downto else end false file for function goto if implementation in inline interface label mod nil not object of on operator or packed procedure program record repeat set shl shr string then to true type unit until uses var while with xor as class dispose except exit exports finalization finally inherited initialization is library new on out property raise self threadvar try absolute abstract alias assembler cdecl cppdecl default export external forward generic index local name nostackframe oldfpccall override pascal private protected public published read register reintroduce safecall softfloat specialize stdcall virtual write far near"
+  "and array asm begin break case const constructor continue destructor div do downto else end false file for function goto if implementation in inline interface label mod nil not object of on operator or packed procedure program record repeat set shl shr string then to true type unit until uses var while with xor as class dispose except exit exports finalization finally inherited initialization is library new on out property raise self threadvar try absolute abstract alias assembler cdecl cppdecl default export external forward generic index local nostackframe oldfpccall override pascal private protected public published read register reintroduce safecall softfloat specialize stdcall virtual write far near"
 
 rword :: String -> Parser ()
-rword w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
+rword w = (lexeme . try) (string' w *> notFollowedBy alphaNumChar)
 
 identifier :: Parser String
 identifier = unpack <$> identifier'
@@ -94,7 +98,7 @@ identifierPlus :: [Text] -> Parser Text
 identifierPlus override = strip <$> (lexeme . try) (p >>= check)
   where
     p :: Parser Text
-    p = pack <$> ((:) <$> letterChar <*> many (alphaNumChar <|> char '_'))
+    p = pack <$> ((:) <$> (letterChar <|> char '_') <*> many (alphaNumChar <|> char '_'))
     check x =
       if x `elem` override
         then return x

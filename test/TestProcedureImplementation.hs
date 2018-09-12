@@ -121,5 +121,16 @@ procedureImplementationTest = testGroup
         functionImpl
         ""
         "function foo: bar;\nvar fuux: TFuux;\n\nfunction bar:bar;\nbegin\nend;\nfunction alpha:beta;\nbegin\nend;\nbegin\nend;"
+    , testCase "Trivial procedure with assignment"
+    $ (Right
+        (ProcedureImpl
+          (Type "foo") [] [] [] EmptyExpression ) @=? )
+    $ parse procedureImpl "" "procedure foo; begin a := b end;"
+    , testCase "Trivial procedure with assignment with semicolon"
+    $ (Right
+        (ProcedureImpl
+          (Type "foo") [] [] [] EmptyExpression ) @=? )
+    $ parse procedureImpl "" "procedure foo; begin a := b; end;"
+
     ]
   ]

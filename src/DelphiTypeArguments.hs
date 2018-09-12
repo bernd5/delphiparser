@@ -16,7 +16,7 @@ typeArgNames = try $ (do
     o <- optional $ rword "out"
     let m = tmod c v o
 
-    i <- identifierPlus ["default"]
+    i <- identifierPlus ["default", "exclude"]
     return (m, i)
     ) `sepBy` symbol ","
   where
@@ -29,8 +29,9 @@ typeArgNames = try $ (do
 typeArguments :: Parser TypeName -> Parser ValueExpression -> Parser [Argument]
 typeArguments typeName expression = concat <$> ( sepBy (do
   l <- typeArgNames
-  _ <- symbol ":"
-  r <- typeName
+  r <- optional $ do
+    _ <- symbol ":"
+    typeName
   d <- optional $ do
     symbol "="
     expression

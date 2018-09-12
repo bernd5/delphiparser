@@ -22,7 +22,7 @@ delphiTryTests = testGroup "Delphi try/finally/except Tests"
     parse statement "" "try\nfoo;\nbar;\nfinally\nbaz;\nfuux;\nend"
 
   , testCase "Complex try/with/case" $
-    (Right (Try [With (V "foo") (Case (V "foo") [CaseBranch [V "one"] (ExpressionValue (V "alpha")),CaseBranch [V "two"] (ExpressionValue (V "beta"))] (Just (Else (V "Result" := V "gamma"))))] (Left [ExceptOn Nothing [ExpressionValue (V "chalk" :$ [])]])) @=? ) $
+    (Right (Try [With [(V "foo")] (Case (V "foo") [CaseBranch [V "one"] (ExpressionValue (V "alpha")),CaseBranch [V "two"] (ExpressionValue (V "beta"))] (Just (Else (V "Result" := V "gamma"))))] (Left [ExceptOn Nothing [ExpressionValue (V "chalk" :$ [])]])) @=? ) $
     parse statement "" $ unpack $ intercalate "\n" 
       [ "try"
       , "with foo do"

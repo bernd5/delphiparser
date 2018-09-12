@@ -10,7 +10,7 @@ import Text.Megaparsec
 typeAttribute:: Parser ValueExpression -> Parser TypeDefinition -> Parser TypeDefinition
 typeAttribute expression typeDefinition= do
   symbol "["
-  exprs <- expression `sepBy` symbol ","
+  exprs <- try expression `sepBy` symbol ","
   symbol "]"
-  typ <- typeDefinition
+  typ <- try typeDefinition
   return $ TypeAttribute exprs typ

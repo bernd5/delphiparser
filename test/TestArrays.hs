@@ -14,8 +14,11 @@ arrayTests :: TestTree
 arrayTests = testGroup "Delphi Array Tests"
   [ testGroup "Static Arrays" [
       testCase "array [foo] of bar" $
-      (Right (StaticArray (IndexOf (Type "foo")) (Type "bar")) @=?) $
+      (Right (StaticArray (IndexOf [Type "foo"]) (Type "bar")) @=?) $
       parse array' "" "array [foo] of bar"
+    , testCase "array [foo, bar] of baz" $
+      (Right (StaticArray (IndexOf [Type "foo", Type "bar"]) (Type "baz")) @=?) $
+      parse array' "" "array [foo, bar] of baz"
     , testCase "array [43..foo-2] of bar" $
       (Right (StaticArray (Range [(I 43, (V "foo" :- I 2))]) (Type "bar")) @=?) $
       parse array' "" "array [43..foo-2] of bar"
@@ -34,14 +37,14 @@ arrayTests = testGroup "Delphi Array Tests"
       (Right (DynamicArray 2 (Type "foo")) @=?) $
       parse array' "" "array of array of foo"
     ]
-  , testGroup "Open Variant Arrays" $
+  , testGroup "Open Dynamic Arrays" $
     [ testCase "array of const" $
-      (Right (VariantArray $ IndexOf $ Type "foo") @=? ) $
+      (Right (DynamicArray 1 ConstType) @=? ) $
       parse array' "" "array of const"
     ]
   , testGroup "Variant Arrays" $
     [ testCase "array [foo] of const" $
-      (Right (VariantArray $ IndexOf $ Type "foo") @=? ) $
+      (Right (VariantArray (IndexOf [Type "foo"])) @=? ) $
       parse array' "" "array [foo] of const"
     ]
   , testGroup "Open Dynamic Arrays"

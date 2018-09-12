@@ -12,6 +12,8 @@ import Text.Megaparsec (parse)
 
 import DelphiAst
 
+import Data.Maybe (Maybe(Just))
+
 typeArgumentTests :: TestTree
 typeArgumentTests =
   testGroup
@@ -21,40 +23,40 @@ typeArgumentTests =
     , testCase "Zero arguments, but has parens" $
       (Right (Just []) @=?) $ parse typeArguments' "" "()"
     , testCase "One simple argument" $
-      (Right (Just [Arg NormalArg "AFoo" (Type "TBar") Nothing]) @=?) $
+      (Right (Just [Arg NormalArg "AFoo" (Just $ Type "TBar") Nothing]) @=?) $
       parse typeArguments' "" "(AFoo: TBar)"
     , testCase "One 'default' argument" $
-      (Right (Just [Arg ConstArg "Default" (Type "TBar") Nothing]) @=?) $
+      (Right (Just [Arg ConstArg "Default" (Just $ Type "TBar") Nothing]) @=?) $
       parse typeArguments' "" "(const Default: TBar)"
     , testCase "One const 'array of const' argument" $
-      (Right (Just [Arg ConstArg "Default" (DynamicArray 1 ConstType) Nothing]) @=?) $
+      (Right (Just [Arg ConstArg "Default" (Just $ DynamicArray 1 ConstType) Nothing]) @=?) $
       parse typeArguments' "" "(const Default: array of const)"
     , testCase "Two simple argument" $
       (Right
          (Just
-            [ Arg NormalArg "AFoo" (Type "TBar") Nothing
-            , Arg NormalArg "ABaz" (Type "TFuux") Nothing
+            [ Arg NormalArg "AFoo" (Just $ Type "TBar") Nothing
+            , Arg NormalArg "ABaz" (Just $ Type "TFuux") Nothing
             ]) @=?) $
       parse typeArguments' "" "(AFoo: TBar; ABaz: TFuux)"
     , testCase "Two simple argument, with shorthand" $
       (Right
          (Just
-            [ Arg NormalArg "AFoo" (Type "TFuux") Nothing
-            , Arg NormalArg "ABaz" (Type "TFuux") Nothing
+            [ Arg NormalArg "AFoo" (Just $ Type "TFuux") Nothing
+            , Arg NormalArg "ABaz" (Just $ Type "TFuux") Nothing
             ]) @=?) $
       parse typeArguments' "" "(AFoo, ABaz: TFuux)"
     , testCase "Ensure that 'class' is a valid argument type" $
-      (Right (Just [Arg NormalArg "foo" (Type "class") Nothing]) @=?) $
+      (Right (Just [Arg NormalArg "foo" (Just $ Type "class") Nothing]) @=?) $
       parse typeArguments' "" "(foo: class)"
     , testCase "Ensure that 'const' is a valid" $
-      (Right (Just [Arg ConstArg "foo" (Type "TFoo") Nothing]) @=?) $
+      (Right (Just [Arg ConstArg "foo" (Just $ Type "TFoo") Nothing]) @=?) $
       parse typeArguments' "" "(const foo: TFoo)"
     , testCase "Slightly complex example" $
       (Right
          (Just
-            [ Arg NormalArg "foo" (Type "TFoo") Nothing
-            , Arg NormalArg "bar" (Type "TFoo") Nothing
-            , Arg ConstArg "baz" (Type "TBaz") Nothing
+            [ Arg NormalArg "foo" (Just $ Type "TFoo") Nothing
+            , Arg NormalArg "bar" (Just $ Type "TFoo") Nothing
+            , Arg ConstArg "baz" (Just $ Type "TBaz") Nothing
             ]) @=?) $
       parse typeArguments' "" "(foo, bar: TFoo; const baz: TBaz)"
     ]

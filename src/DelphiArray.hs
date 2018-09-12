@@ -20,7 +20,7 @@ array p e = rword "array" *> choice
 
 arrayDimension :: Parser TypeName -> Parser ValueExpression-> Parser ArrayIndex
 arrayDimension typeName expression = choice
-  [ IndexOf <$> typeName
+  [ try $ IndexOf <$> (typeName `sepBy1` symbol ",")
   , Range <$> sepBy (do
     lhs <- expression
     symbol ".."

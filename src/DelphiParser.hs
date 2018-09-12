@@ -100,18 +100,18 @@ dUnitNameP = do
   _ <- semi
   return name
 
-uses :: Parser [Text]
+uses :: Parser [[Text]]
 uses = do
   rword "uses"
-  items <- identifier' `sepBy` (symbol ",")
+  items <- identifier' `sepBy` symbol "." `sepBy` symbol ","
   semi
   return items
 
 dUnitInterfaceP :: Parser Interface
-dUnitInterfaceP = label "interface section" $ do
+dUnitInterfaceP = do
   rword "interface"
   usings <- optional uses
-  items <- many interfaceItems
+  items <- try $ many interfaceItems
   return $ Interface (Uses (fromMaybe [] usings)) items
 
 interfaceItems :: Parser InterfaceExpression
@@ -143,7 +143,7 @@ singleVarExpression = do
 constExpressions :: Parser InterfaceExpression
 constExpressions = do
   rword "const"
-  consts <- many singleConstExpression
+  consts <- many $ try singleConstExpression
   return $ ConstDefinitions consts
 
 varExpressions :: Parser InterfaceExpression
@@ -153,9 +153,9 @@ varExpressions = do
   return $ VarDefinitions $ concat vars
 
 typeExpressions :: Parser InterfaceExpression
-typeExpressions = label "type section" $ do
+typeExpressions = do
   rword "type"
-  types <- TypeDefinitions <$> many (typeAttribute' <|> typeDefinition)
+  types <- TypeDefinitions <$> many (try typeAttribute' <|> try typeDefinition)
   return types
 
 forwardClass :: Parser TypeDefinition
@@ -164,9 +164,9 @@ forwardClass = do
   return ForwardClass
 
 typeDefinition :: Parser TypeDefinition
-typeDefinition = label "type definition" $ do
+typeDefinition = do
     ident <- pack <$> identifier
-    args <- dGenericArgs
+    args <- try dGenericArgs
     let lhs' =
           if null args
             then Type ident
@@ -176,29 +176,48 @@ typeDefinition = label "type definition" $ do
       [ try $ dReferenceToProcedureP ident 
       , try $ dReferenceToFunctionP ident 
       , try $ dGenericRecordP lhs' 
-      , try $ dClassP lhs' 
+      , try $ interfaceType lhs' 
       , try $ setDefinition lhs' 
       , try $ enumDefinition lhs'  -- Contains parens
+      , try $ do
+        rword "class"
+        choice 
+          [ try $ metaClassDefinition lhs'
+          , try $ classType lhs'
+          ]
       , try $ typeAlias lhs' -- Just for *very* simple type aliases
-      , forwardClass
+      , try $ newType lhs'
+      , try forwardClass
       ]
     semi
     return ie
 
+newType :: TypeName -> Parser TypeDefinition
+newType lhs = do
+  rword "type"
+  rhs <- typeName
+  return $ TypeDef lhs (NewType rhs)
+
 typeAlias :: TypeName ->  Parser TypeDefinition
-typeAlias lhs = label "type alias" $ do
+typeAlias lhs = do
   rhs <- typeName
   return $ TypeAlias lhs rhs
 
+metaClassDefinition :: TypeName -> Parser TypeDefinition
+metaClassDefinition a = do
+  rword "of"
+  rhs <- ClassOf <$> typeName
+  return $ TypeDef a rhs
+
 setDefinition :: TypeName -> Parser TypeDefinition
-setDefinition a = label "set of" $ do
+setDefinition a = do
   rword "set"
   rword "of"
   rhs <- Type <$> identifier'
   return $ SetDefinition a rhs
 
 enumDefinition :: TypeName -> Parser TypeDefinition
-enumDefinition a = label "enum definition" $ do
+enumDefinition a = do
   rhs <- parens "(" ")" $ identifier' `sepBy` symbol ","
   return $ EnumDefinition a rhs
 
@@ -255,19 +274,28 @@ dArgsPassedP = do
   symbol ")"
   return names
 
-dClassP :: TypeName -> Parser TypeDefinition
-dClassP a = do
-  rword "class"
-  supers <- dArgsPassedP
+interfaceType :: TypeName -> Parser TypeDefinition
+interfaceType a = do
+  rword "interface"
+  supers <- optional dArgsPassedP
+  let supers' = fromMaybe [] supers
   r <- optional $ dRecordDefinitionListP <* rword "end"
   let r' = fromMaybe [] r
-  return $
-    if null supers
-      then Class a supers r'
-      else Class a supers r'
+  return $ InterfaceType a supers' r'
+
+classType :: TypeName -> Parser TypeDefinition
+classType a = do
+  supers <- optional dArgsPassedP
+  let supers' = fromMaybe [] supers
+  r <- optional $ dRecordDefinitionListP <* rword "end"
+  let r' = fromMaybe [] r
+  return $ Class a supers' r'
 
 dRecordDefinitionListP :: Parser [Accessibility]
-dRecordDefinitionListP = many dRecordDefinitionP
+dRecordDefinitionListP = do
+  a <- DefaultAccessibility <$> many dFieldDefinitionP
+  b <- many dRecordDefinitionP
+  return $ a : b
 
 dRecordDefinitionP :: Parser Accessibility
 dRecordDefinitionP = choice
@@ -340,17 +368,22 @@ dFunctionP = do
   let c' = Static <$ c
   rword "function"
   name <- pack <$> identifier
-  generics <- dGenericArgs
-  let name' =
-        if null generics
-          then Type name
-          else GenericDefinition name generics
-  args <- dFunctionOrProcedureArgs'
-  symbol ":"
-  typ <- typeName
-  semi
-  annotations <- many annotation
-  return $ Function name' args typ (catMaybes [c'])
+  desc c' name <|> do
+    semi
+    return $ InheritedFunction name
+  where
+    desc c' name = do
+      generics <- try dGenericArgs
+      let name' =
+            if null generics
+              then Type name
+              else GenericDefinition name generics
+      args <- dFunctionOrProcedureArgs'
+      symbol ":"
+      typ <- typeName
+      semi
+      annotations <- many annotation
+      return $ Function name' args typ $ (catMaybes [c']) ++ annotations
 
 statement :: Parser Expression
 statement = choice
@@ -372,8 +405,9 @@ dBeginEndExpression :: Parser Expression
 dBeginEndExpression = do
   rword "begin"
   expressions <- many (try $ statement <* semi)
+  lastExpression <- optional statement
   rword "end"
-  return $ Begin expressions
+  return $ Begin $ expressions <> catMaybes [lastExpression]
 
 dEqExpression :: Parser Expression
 dEqExpression = do
@@ -477,7 +511,7 @@ dProcedureP' a b = do
   name <- typeName
   args <- dFunctionOrProcedureArgs'
   _ <- semi
-  annotations <- many annotation
+  annotations <- many (try annotation)
   return $ b name args UnspecifiedType ((catMaybes [s])<>annotations)
 
 annotation :: Parser FieldAnnotation
@@ -487,6 +521,7 @@ annotation = choice
   , (rword "reintroduce" *> semi) $> Reintroduce
   , (rword "virtual" *> semi) $> Virtual
   , (rword "default" *> semi) $> Default
+  , (rword "dynamic" *> semi) $> Dynamic
   , (rword "abstract" *> semi) $> Abstract
   , (rword "stdcall" *> semi) $> StdCall
   , do
@@ -514,7 +549,7 @@ dSimpleFieldP = do
   return $ Field (pack name) typ
 
 dUnitImplementationP :: Parser Implementation
-dUnitImplementationP = label "implementation section" $ do
+dUnitImplementationP = do
   rword "implementation"
   u <- optional uses
   functions <-

@@ -14,6 +14,8 @@ import DelphiParser
 import DelphiWriter
 import Text.Megaparsec (parse)
 
+import Data.Maybe (Maybe(Just))
+
 import TestArrays (arrayTests)
 import TestDelphiCase (caseTests)
 import TestDelphiTry (delphiTryTests)
@@ -86,8 +88,11 @@ unitTests p = testGroup
   , testCase "Ensure that 'a < b and b > c' parses"
   $ (Right (((V "a" :< V "b") :& V "b") :> V "c") @=?)
   $ parse (parens "(" ")" expression') "" "(a < b and b  > c)"
+  , testCase "Ensure uses, with dots, parses"
+  $ (Right [["one"], ["two", "alpha"], ["three"]] @=?)
+  $ parse uses "" "uses one, two.alpha, three;"
   , testCase "Ensure usings parses"
-  $ (Right ["one", "two", "three"] @=?)
+  $ (Right [["one"], ["two"], ["three"]] @=?)
   $ parse uses "" "uses one, two, three;"
   , testCase "Underscores are valid as part of an identifier"
   $ (Right "foo_bar" @=?)
@@ -148,29 +153,10 @@ unitTests p = testGroup
       dUnitP
       "testUnit.pas"
       "{--\n This file starts with comments\n--}\n// And another comment\n\n\nunit TestUnit; interface type implementation initialization finalization end."
-  , testCase "Ensure empty Record parses"
-  $ (Right (Class (Type "TFreeTheValue") [Type "TInterfacedObject"] []) @=?)
-  $ parse typeDefinition "" "TFreeTheValue = class(TInterfacedObject) end;"
-  , testCase "Ensure Forward Class parses"
-  $ (Right (TypeAlias (Type "foo") (Type "class")) @=?)
-  $ parse typeDefinition "" "foo = class;"
-  , testCase "Ensure a Generic Procedure of a Generic Class parses"
-  $ (Right
-      (MemberProcedureImpl (GenericInstance "TShared" [Type "T"])
-                           (GenericInstance "Cast" [Type "TT"])
-                           []
-                           []
-                           []
-                           (Begin [])
-      ) @=?
-    )
-  $ parse dProcedureImplementationP ""
-  $ unpack
-  $ intercalate "\n" ["procedure TShared<T>.Cast<TT>;", "begin", "end;"]
   , testCase "Ensure a class function declaration parses"
   $ (Right
       (Function (Type "foo")
-                [Arg NormalArg "bar" (Type "TBar") Nothing]
+                [Arg NormalArg "bar" (Just $ Type "TBar") Nothing]
                 (Type "TBar")
                 [Static]
       ) @=?
@@ -179,7 +165,7 @@ unitTests p = testGroup
   , testCase "Ensure a class function declaration parses - using dFunctionP"
   $ (Right
       (Function (Type "foo")
-                [Arg NormalArg "bar" (Type "TBar") Nothing]
+                [Arg NormalArg "bar" (Just $ Type "TBar") Nothing]
                 (Type "TBar")
                 [Static]
       ) @=?
@@ -301,29 +287,19 @@ unitTests p = testGroup
   , testCase "Ensure simple type alias parses"
   $ (Right (TypeAlias (Type "foo") (Type "bar")) @=?)
   $ parse (typeAlias (Type "foo")) "" "bar"
-  , testCase "Ensure type function alias parses"
-  $ (Right
-      (TypeDef
-        (Type "bar")
-        (SimpleFunction [Arg ConstArg "foo" (Type "bar") Nothing]
-                        (Type "string")
-        )
-      ) @=?
-    )
-  $ parse typeDefinition "" "bar = function(const foo:bar):string;"
   , testCase "Ensure hex integers parse" $ (Right (I 0x42) @=?) $ parse
     expression'
     ""
     "$42"
   , testCase "Ensure that arrays are a valid type"
-  $ (Right (StaticArray (IndexOf $ Type "foo") (Type "bar")) @=?)
+  $ (Right (StaticArray (IndexOf [Type "foo"]) (Type "bar")) @=?)
   $ parse typeName "" "array [foo] of bar"
   , testCase "Ensure that const expression's involving arrays parse"
   $ (Right
       (ConstDefinitions
         [ ConstDefinition
             "foo"
-            (Just $ StaticArray (IndexOf $ Type "bar") (Type "baz"))
+            (Just $ StaticArray (IndexOf [Type "bar"]) (Type "baz"))
             (P [V "one", V "two", V "three"])
         ]
       ) @=?
@@ -365,7 +341,9 @@ unitTests p = testGroup
   , testCase "Ensure var works"
   $ (Right
       (VarDefinitions
-        [VarDefinition "foo" (Type "bar") Nothing, VarDefinition "baz" (Type "fuux") Nothing]
+        [ VarDefinition "foo" (Type "bar")  Nothing
+        , VarDefinition "baz" (Type "fuux") Nothing
+        ]
       ) @=?
     )
   $ parse varExpressions "" "var foo: bar; baz: fuux;"
@@ -378,7 +356,7 @@ unitTests p = testGroup
         []
         [ AdditionalInterface
             (VarDefinitions
-              [ VarDefinition "foo" (Type "bar") Nothing
+              [ VarDefinition "foo" (Type "bar")  Nothing
               , VarDefinition "baz" (Type "fuux") Nothing
               ]
             )
@@ -399,4 +377,17 @@ unitTests p = testGroup
       ) @=?
     )
   $ parse dUnitInterfaceP "" "interface type foo = set of bar;"
+  , testCase "Ensure a Generic Procedure of a Generic Class parses"
+  $ (Right
+      (MemberProcedureImpl (GenericInstance "TShared" [Type "T"])
+                           (GenericInstance "Cast" [Type "TT"])
+                           []
+                           []
+                           []
+                           (Begin [])
+      ) @=?
+    )
+  $ parse dProcedureImplementationP ""
+  $ unpack
+  $ intercalate "\n" ["procedure TShared<T>.Cast<TT>;", "begin", "end;"]
   ]

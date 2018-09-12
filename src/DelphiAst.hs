@@ -16,7 +16,7 @@ data Interface =
   deriving (Eq, Show)
 
 newtype Uses =
-  Uses [Text]
+  Uses [[Text]]
   deriving (Eq, Show)
 
 data Implementation =
@@ -96,7 +96,7 @@ data Expression -- TODO: Should be 'Statement'
         LoopDirection
         ValueExpression
         Expression
-  | With ValueExpression Expression
+  | With [ValueExpression] Expression -- "with" can have multiple names in fpc.
   | While ValueExpression
           Expression
   | Repeat [Expression]
@@ -118,6 +118,7 @@ data ValueExpression
   | F Rational
   | L [ValueExpression] -- [foo, bar, baz]
   | P [ValueExpression] -- (foo, bar, baz)
+  | RecordValue [Expression]
   | LambdaFunction [Argument] TypeName [ImplementationSpec] Expression
   | LambdaProcedure [Argument] [ImplementationSpec] Expression
   | DTrue
@@ -125,7 +126,7 @@ data ValueExpression
   | Result
   | Exit (Maybe ValueExpression)
   | Not ValueExpression
-  | Inherited Text
+  | Inherited (Maybe Text)
   | Dereference ValueExpression -- '^foo'
   | AddressOf ValueExpression -- '@foo'
   | ValueExpression :& ValueExpression -- foo and bar
@@ -135,6 +136,7 @@ data ValueExpression
   | ValueExpression :- ValueExpression -- foo - bar
   | ValueExpression :* ValueExpression -- foo * bar
   | ValueExpression :/ ValueExpression -- foo / bar
+  | ValueExpression :% ValueExpression -- foo mod bar
   | ValueExpression :<> ValueExpression -- foo <> bar
   | ValueExpression :< ValueExpression -- foo < bar
   | ValueExpression :<= ValueExpression -- foo <= bar
@@ -166,6 +168,8 @@ data TypeDefinitionRHS
   | ReferenceToFunction [Argument] TypeName
   | SimpleFunction [Argument] TypeName
   | FunctionOfObject [Argument] TypeName
+  | NewType TypeName -- ie, foo = type bar
+  | ClassOf TypeName -- ie, 'foo = class of bar'
   deriving (Eq, Show)
 
 data TypeDefinition
@@ -181,6 +185,7 @@ data TypeDefinition
            RecordDefinition
   | ForwardClass
   | TypeAttribute [ValueExpression] TypeDefinition
+  | InterfaceType TypeName [TypeName] ClassDefinition
   | Class TypeName
           [TypeName]
           ClassDefinition
@@ -214,8 +219,8 @@ data Accessibility
   deriving (Eq, Show)
 
 data PropertySpecifier
-  = PropertyRead Text
-  | PropertyWrite Text
+  = PropertyRead [Text]
+  | PropertyWrite [Text]
   | PropertyStored
   | PropertyDefault ValueExpression -- TODO: Define a simpler set of "ValueExpression" that are limited to const.
   | PropertyNoDefault
@@ -242,6 +247,8 @@ data Field
              (Maybe ValueExpression)
              [PropertySpecifier]
              Bool
+  | InheritedProperty Text -- Ie, just "property foo;"
+  | InheritedFunction Text -- Ie, just "property foo;"
   | IndexProperty Name
                   (Maybe Argument)
                   TypeName
@@ -256,6 +263,7 @@ data FieldAnnotation
   = Override
   | Static -- Ie, a class function
   | Virtual
+  | Dynamic
   | Overload
   | Reintroduce
   | Abstract
@@ -274,7 +282,7 @@ data ArgModifier
 data Argument =
   Arg ArgModifier
       ArgName
-      TypeName
+      (Maybe TypeName) -- Don't forget that untyped arguments exist!
       (Maybe ValueExpression)
   deriving (Eq, Show)
 
@@ -283,7 +291,7 @@ type RecordDefinition = [Accessibility]
 type ClassDefinition = [Accessibility]
 
 data ArrayIndex
-  = IndexOf TypeName -- ie, Byte.  TODO: Consider how to constrain this to ordinals.
+  = IndexOf [TypeName] -- ie, Byte.  TODO: Consider how to constrain this to ordinals.
   | Range [(ValueExpression, ValueExpression)] -- ie, 34..56
   deriving (Eq, Show)
 

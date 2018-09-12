@@ -10,7 +10,7 @@ import DelphiTypeArguments (typeArguments)
 import Text.Megaparsec
 import Text.Megaparsec.Expr
 import qualified Text.Megaparsec.Char.Lexer as L
-import Text.Megaparsec.Char (char)
+import Text.Megaparsec.Char (char, anyChar)
 
 expression
   :: Parser Expression
@@ -30,11 +30,12 @@ terms a b c =
     , lambdaExpression a b c
     , functionExit
     , DFalse <$ rword "false"
-    , Inherited <$> (rword "inherited" >> identifier')
+    , Inherited <$> (rword "inherited" >> optional identifier')
     , Result <$ rword "result"
     , Nil <$ rword "nil"
-    , S . pack  <$> ( char '\'' >> manyTill L.charLiteral (symbol "'") )
-    , P <$> parens "(" ")" (expression a b c `sepBy1` symbol ",")
+    , S . pack . concat <$> some ( char '\'' >> manyTill anyChar (symbol "'") )
+    , try $  P <$> parens "(" ")" (expression a b c `sepBy1` symbol ",")
+    , try recordExpression
     , parens "(" ")" (expression a b c)
     , L <$> parens "[" "]" ((expression a b c) `sepBy` symbol ",")
     ]
@@ -44,6 +45,16 @@ terms a b c =
       rword "exit"
       e <- optional $ expression a b c
       return $ Exit e
+
+    recordExpression :: Parser ValueExpression
+    recordExpression = try $ RecordValue <$> parens "(" ")" (labelAndValue `sepBy` semi)
+
+    labelAndValue :: Parser Expression
+    labelAndValue = do
+      lbl <- V <$> identifier'
+      symbol ":"
+      value <- expression a b c
+      return $ lbl := value
 
 -- Lots of inspiration from https://github.com/ilmoeuro/simplescript/blob/master/src/SimpleScript/Parser.hs
 -- Thanks to liste on freenode for suggesting this.
@@ -75,6 +86,7 @@ table a b c =
     , binary (:*) "*"
     , binary (:/) "/"
     , binary (:/) "div"
+    , binary (:%) "mod"
     , binary (:&) "and"
     , binary (:|) "or"
     , binary As "as"
