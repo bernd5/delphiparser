@@ -93,6 +93,7 @@ instance ShowDelphi ValueExpression where
   showDelphi (a :- b) = "(" <> showDelphi a <> " - " <> showDelphi b <> ")"
   showDelphi (a :* b) = "(" <> showDelphi a <> " * " <> showDelphi b <> ")"
   showDelphi (a :/ b) = "(" <> showDelphi a <> " / " <> showDelphi b <> ")"
+  showDelphi (a :% b) = "(" <> showDelphi a <> " mod " <> showDelphi b <> ")"
   showDelphi (a :& b) = "(" <> showDelphi a <> " and " <> showDelphi b <> ")"
   showDelphi (a :< b) = "(" <> showDelphi a <> " < " <> showDelphi b <> ")"
   showDelphi (a :<= b) = "(" <> showDelphi a <> " <= " <> showDelphi b <> ")"
