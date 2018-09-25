@@ -46,6 +46,8 @@ executables:
     - delphi
     - text
     - megaparsec
+    - directory
+    - filepath
 
 tests:
   delphi-test:
