@@ -6,6 +6,7 @@ import Data.Text (Text, pack)
 import DelphiAst
 import DelphiLexer
 import DelphiTypeArguments (typeArguments)
+import DelphiArray (arrayIndex)
 
 import Text.Megaparsec
 import Text.Megaparsec.Expr
@@ -37,7 +38,7 @@ terms a b c =
     , try $  P <$> parens "(" ")" (expression a b c `sepBy1` symbol ",")
     , try recordExpression
     , parens "(" ")" (expression a b c)
-    , L <$> parens "[" "]" ((expression a b c) `sepBy` symbol ",")
+    , A <$> arrayIndex c (expression a b c)
     ]
   where
     functionExit :: Parser ValueExpression
@@ -69,8 +70,7 @@ table
   -> [[Operator Parser ValueExpression]]
 table a b c =
   [ [ Postfix . manyPostfixOp $ choice
-        [ try recordAccess
-        , try genericArgs
+        [ try genericArgs
         , try $ functionCall a b c
         , try $ indexCall a b c 
         , try (Dereference <$ symbol "^")
@@ -88,6 +88,8 @@ table a b c =
     , binary (:/) "div"
     , binary (:%) "mod"
     , binary (:&) "and"
+    , binary (:..) ".."
+    , binary (:.) "."
     , binary (:|) "or"
     , binary As "as"
     , binary Is "is"
@@ -113,9 +115,6 @@ genericArgs =
     (do p <- parens "<" ">" ((Type <$> identifier') `sepBy1` comma)
         notFollowedBy $ choice [void <$> identifier]
         return p)
-
-recordAccess :: Parser (ValueExpression -> ValueExpression)
-recordAccess = flip (:.) . V . pack <$> try (symbol "." *> identifier)
 
 functionCall
   :: Parser Expression

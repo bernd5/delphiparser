@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module DelphiArray ( array, arrayDimension ) where
+module DelphiArray ( array, arrayDimension, arrayIndex ) where
 
 import DelphiLexer
 import DelphiAst
@@ -18,14 +18,8 @@ array p e = rword "array" *> choice
     , dynamicArray p e
     , openDynamicArray p e]
 
-arrayDimension :: Parser TypeName -> Parser ValueExpression-> Parser ArrayIndex
-arrayDimension typeName expression = choice
-  [ try $ IndexOf <$> (typeName `sepBy1` symbol ",")
-  , Range <$> sepBy (do
-    lhs <- expression
-    symbol ".."
-    rhs <- expression
-    return (lhs, rhs)) (symbol ",")]
+arrayDimension :: Parser TypeName -> Parser ValueExpression -> Parser ArrayIndex
+arrayDimension typeName expression = try $ IndexOf <$> (expression `sepBy1` symbol ",")
 
 arrayIndex :: Parser TypeName -> Parser ValueExpression -> Parser ArrayIndex
 arrayIndex typeName expression = parens "[" "]" $ arrayDimension typeName expression

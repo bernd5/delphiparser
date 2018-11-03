@@ -28,6 +28,12 @@ typeArgumentTests =
     , testCase "One 'default' argument" $
       (Right (Just [Arg ConstArg "Default" (Just $ Type "TBar") Nothing]) @=?) $
       parse typeArguments' "" "(const Default: TBar)"
+    , testCase "One argument with default" $
+      (Right (Just [Arg ConstArg "aFoo" (Just $ Type "TBar") Nothing]) @=?) $
+      parse typeArguments' "" "(aFoo: TFoo = 32)"
+    , testCase "One argument with default array" $
+      (Right (Just [Arg ConstArg "aFoo" (Just $ Type "TBar") Nothing]) @=?) $
+      parse typeArguments' "" "(aFoo: TFoo = [32, 33])"
     , testCase "One const 'array of const' argument" $
       (Right (Just [Arg ConstArg "Default" (Just $ DynamicArray 1 ConstType) Nothing]) @=?) $
       parse typeArguments' "" "(const Default: array of const)"

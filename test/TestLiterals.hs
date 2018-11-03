@@ -15,10 +15,16 @@ literalsTests :: TestTree
 literalsTests = testGroup
   "Delphi Literal Expressions"
   [ testGroup "Sets and Array Literals"
-    $ [ testCase "[a, b, c]" $ (Right (L [V "a", V "b", V "c"]) @=?) $ parse
+    $ [ testCase "[a, b, c]" 
+      $ (Right (A (IndexOf [V "a",V "b",V "c"])) @=?) $ parse
           expression'
           ""
           "[a, b, c]"
+      , testCase "[1, 2, 3]" 
+      $ (Right (A (IndexOf [I 1, I 2, I 3])) @=?) $ parse
+          expression'
+          ""
+          "[1, 2, 3]"
       ]
   , testGroup "var"
     $ [ testCase "Floating point: 42.56" $ (Right [VarDefinition "A" (Type "float") (Just (F 42.56))] @=?) $ parse
@@ -39,4 +45,21 @@ literalsTests = testGroup
           ""
           "4256"
       ]
+  , testGroup "Literal Array Expressions"
+    [ testCase "[1..5]" $
+      (Right (A $ (IndexOf [I 1 :.. I 5])) @=? ) $
+      parse expression' "" "[1..5]"
+    , testCase "['a'..'f']" $
+      (Right (A $ (IndexOf [S "a" :.. S "f"])) @=? ) $
+      parse expression' "" "['a'..'f']"
+    , testCase "['a'..'f', 'w'..'z']" $
+      (Right (A $ (IndexOf [S "a" :.. S "f", S "w" :.. S "z"])) @=? ) $
+      parse expression' "" "['a'..'f', 'w'..'z']"
+    , testCase "[a]" $
+      (Right (A $ IndexOf [V "a"]) @=? ) $
+      parse expression' "" "[a]"
+    , testCase "[a.b]" $
+      (Right (A $ IndexOf [V "a" :. V "b"]) @=? ) $
+      parse expression' "" "[a.b]"
+    ]
   ]
