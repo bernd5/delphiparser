@@ -124,12 +124,12 @@ procedureImplementationTest = testGroup
     , testCase "Trivial procedure with assignment"
     $ (Right
         (ProcedureImpl
-          (Type "foo") [] [] [] EmptyExpression ) @=? )
+          (Type "foo") [] [] [] (Begin [V "a" := V "b"])) @=? )
     $ parse procedureImpl "" "procedure foo; begin a := b end;"
     , testCase "Trivial procedure with assignment with semicolon"
     $ (Right
         (ProcedureImpl
-          (Type "foo") [] [] [] EmptyExpression ) @=? )
+          (Type "foo") [] [] [] (Begin [V "a" := V "b"])) @=? )
     $ parse procedureImpl "" "procedure foo; begin a := b; end;"
 
     ]

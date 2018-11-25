@@ -23,12 +23,18 @@ typeDefinitionTests = testGroup
           ) @=?
         )
       $ parse typeAttribute' "" "[foo('hello')]\nfoo = bar;"
-      , testCase "Ensure empty Record parses"
+      , testCase "Ensure empty class parses"
       $ (Right (Class (Type "TFreeTheValue") [Type "TInterfacedObject"] []) @=?
         )
       $ parse typeDefinition
               ""
               "TFreeTheValue = class(TInterfacedObject) end;"
+      , testCase "Ensure empty record parses"
+      $ (Right (Record (Type "TFreeTheValue") []) @=?
+        )
+      $ parse typeDefinition
+              ""
+              "TFreeTheValue = record end;"
       , testCase "Ensure Forward Class parses"
       $ (Right (TypeAlias (Type "foo") (Type "class")) @=?)
       $ parse typeDefinition "" "foo = class;"
@@ -48,5 +54,11 @@ typeDefinitionTests = testGroup
           ) @=?
         )
       $ parse typeDefinition "" "foo = class of bar;"
+      , testCase "Ensure 'class helper for' works"
+      $ (Right
+          ( TypeDef (Type "foo") (ClassHelper (Type "bar") [])
+          ) @=?
+        )
+      $ parse typeDefinition "" "foo = class helper for bar end;"
       ]
   ]

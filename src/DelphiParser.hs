@@ -35,7 +35,7 @@ module DelphiParser
   ) where
 
 import Data.Maybe
-import Data.Text (Text, pack, strip)
+import Data.Text (Text, pack, strip, intercalate)
 import DelphiAst
 import DelphiLexer
 import DelphiArray (array)
@@ -118,6 +118,7 @@ interfaceItems :: Parser InterfaceExpression
 interfaceItems = choice
   [ try typeExpressions
   , try constExpressions 
+  , try resourceExpressions 
   , try varExpressions
   , Standalone <$> try dProcedureP
   , Standalone <$> try dFunctionP
@@ -145,6 +146,12 @@ constExpressions = do
   rword "const"
   consts <- many $ try singleConstExpression
   return $ ConstDefinitions consts
+
+resourceExpressions :: Parser InterfaceExpression
+resourceExpressions = do
+  rword "resourcestring"
+  consts <- many $ try singleConstExpression
+  return $ ResourceDefinitions consts
 
 varExpressions :: Parser InterfaceExpression
 varExpressions = do
@@ -183,6 +190,7 @@ typeDefinition = do
         rword "class"
         choice 
           [ try $ metaClassDefinition lhs'
+          , try $ classHelper lhs'
           , try $ classType lhs'
           ]
       , try $ typeAlias lhs' -- Just for *very* simple type aliases
@@ -208,6 +216,15 @@ metaClassDefinition a = do
   rword "of"
   rhs <- ClassOf <$> typeName
   return $ TypeDef a rhs
+
+classHelper :: TypeName -> Parser TypeDefinition
+classHelper a = do
+  rword "helper"
+  rword "for"
+  b <- typeName
+  r <- optional $ dRecordDefinitionListP <* rword "end"
+  let r' = fromMaybe [] r
+  return $ TypeDef a $ ClassHelper b r'
 
 setDefinition :: TypeName -> Parser TypeDefinition
 setDefinition a = do
@@ -261,18 +278,28 @@ dReferenceToFunctionP ident = do
 
 dGenericRecordP :: TypeName -> Parser TypeDefinition
 dGenericRecordP a = do
+  p <- optional $ rword "packed"
   rword "record"
-  d <- many dFieldDefinitionP
-  r <- dRecordDefinitionListP
-  rword "end"
-  return $ Record a ((DefaultAccessibility d):r)
+  r <- optional $ dRecordDefinitionListP <* rword "end"
+  let r' = fromMaybe [] r
+  return $ if isNothing r
+           then TypeAlias a (Type "record")
+           else Record a r'
+
+-- TODO: Fix this so that it's expressed in the type system.
+dottedIdentifier :: Parser Text
+dottedIdentifier = do
+  parts <- identifier' `sepBy` symbol "."
+  return $ intercalate "." parts
 
 dArgsPassedP :: Parser [TypeName]
 dArgsPassedP = do
   symbol "("
-  names <- ((Type . strip . pack) <$>) <$> sepBy identifier (symbol ",")
+  -- names <- ((Type . strip . pack) <$>) <$> sepBy identifier (symbol ",")
+  names <- sepBy dottedIdentifier (symbol ",")
   symbol ")"
-  return names
+  return $ map Type names
+
 
 interfaceType :: TypeName -> Parser TypeDefinition
 interfaceType a = do
@@ -289,13 +316,17 @@ classType a = do
   let supers' = fromMaybe [] supers
   r <- optional $ dRecordDefinitionListP <* rword "end"
   let r' = fromMaybe [] r
-  return $ Class a supers' r'
+  return $ if isNothing r
+           then TypeAlias a (Type "class")
+           else Class a supers' r'
 
 dRecordDefinitionListP :: Parser [Accessibility]
 dRecordDefinitionListP = do
-  a <- DefaultAccessibility <$> many dFieldDefinitionP
+  a <- many dFieldDefinitionP
   b <- many dRecordDefinitionP
-  return $ a : b
+  return $ if null a
+           then b
+           else (DefaultAccessibility a) : b
 
 dRecordDefinitionP :: Parser Accessibility
 dRecordDefinitionP = choice
@@ -318,6 +349,7 @@ dFieldDefinitionP = choice
   , try dConstructorFieldP
   , try dDestructorFieldP
   , try dProcedureP
+  , try classVar
   , try dFunctionP
   , try property'
   ]
@@ -391,6 +423,7 @@ statement = choice
   , try dIfExpression
   , try loop'
   , try dBeginEndExpression
+  , try $ Break <$ rword "break"
   , try dValueExpression
   , try with'
   , try delphiTry'
@@ -422,10 +455,11 @@ dIfExpression = do
   rword "if"
   expr <- expression'
   rword "then"
-  s <- statement
+  s <- optional statement
+  let s' = fromMaybe EmptyExpression s
   elseStatement <- optional (rword "else" *> statement)
-  return $ If expr (Then s) (Else 
-    (fromMaybe EmptyExpression elseStatement))
+  let elseStatement' = fromMaybe EmptyExpression elseStatement
+  return $ If expr (Then s') (Else elseStatement')
     
 
 dProcedureImplementationP :: Parser ImplementationSpec
@@ -539,6 +573,9 @@ dDestructorFieldP = dProcedureP' "destructor" (\a _ _ d -> Destructor a d)
 
 dProcedureP :: Parser Field
 dProcedureP = dProcedureP' "procedure" (\a b _ d -> Procedure a b d)
+
+classVar :: Parser Field
+classVar = dProcedureP' "var" (\a b c d -> ClassVar a c)
 
 dSimpleFieldP :: Parser Field
 dSimpleFieldP = do

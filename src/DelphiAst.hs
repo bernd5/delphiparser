@@ -29,12 +29,12 @@ data ImplementationSpec
                  [Argument]
                  TypeName
                  [FieldAnnotation]
-                 [ImplementationSpec] -- Nested implementation specs.
+                 [ImplementationSpec] -- Nested implementation specs
                  Expression
   | ProcedureImpl TypeName
                   [Argument]
                   [FieldAnnotation]
-                  [ImplementationSpec] -- Nested implementation specs.
+                  [ImplementationSpec] -- Nested implementation specs
                   Expression
   | AdditionalInterface InterfaceExpression
   | MemberFunctionImpl TypeName
@@ -42,24 +42,24 @@ data ImplementationSpec
                        [Argument]
                        TypeName
                        [FieldAnnotation]
-                       [ImplementationSpec] -- Nested implementation specs.
+                       [ImplementationSpec] -- Nested implementation specs
                        Expression
   | MemberConstructorImpl TypeName
                           TypeName
                           [Argument]
                           [FieldAnnotation]
-                          [ImplementationSpec] -- Nested implementation specs.
+                          [ImplementationSpec] -- Nested implementation specs
                           Expression
   | MemberDestructorImpl TypeName
                          TypeName
                          [FieldAnnotation]
-                         [ImplementationSpec] -- Nested implementation specs.
+                         [ImplementationSpec] -- Nested implementation specs
                          Expression
   | MemberProcedureImpl TypeName
                         TypeName
                         [Argument]
                         [FieldAnnotation]
-                        [ImplementationSpec] -- Nested implementation specs.
+                        [ImplementationSpec] -- Nested implementation specs
                         Expression
   deriving (Eq, Show)
 
@@ -96,7 +96,8 @@ data Expression -- TODO: Should be 'Statement'
         LoopDirection
         ValueExpression
         Expression
-  | With [ValueExpression] Expression -- "with" can have multiple names in fpc.
+  | Break
+  | With [ValueExpression] Expression -- "with" can have multiple names in fpc
   | While ValueExpression
           Expression
   | Repeat [Expression]
@@ -109,7 +110,7 @@ data Expression -- TODO: Should be 'Statement'
 -- ValueExpression are expressions that result in a value when evaluated
 -- TODO: Ensure that:
 --  1) Spaces aren't required, and
---  2) That a sensible error is provided if an unrecognised symbol is used.
+--  2) That a sensible error is provided if an unrecognised symbol is used
 data ValueExpression
   = V Text
   | T TypeName
@@ -118,6 +119,7 @@ data ValueExpression
   | F Rational
   | L [ValueExpression] -- [foo, bar, baz]
   | P [ValueExpression] -- (foo, bar, baz)
+  | A ArrayIndex
   | RecordValue [Expression]
   | LambdaFunction [Argument] TypeName [ImplementationSpec] Expression
   | LambdaProcedure [Argument] [ImplementationSpec] Expression
@@ -160,7 +162,7 @@ data Finalization =
   Finalization
   deriving (Eq, Show)
 
--- These Type Definitions can only appear on the RHS.
+-- These Type Definitions can only appear on the RHS
 data TypeDefinitionRHS
   = ReferenceToProcedure [Argument]
   | SimpleProcedure [Argument]
@@ -170,6 +172,7 @@ data TypeDefinitionRHS
   | FunctionOfObject [Argument] TypeName
   | NewType TypeName -- ie, foo = type bar
   | ClassOf TypeName -- ie, 'foo = class of bar'
+  | ClassHelper TypeName ClassDefinition
   deriving (Eq, Show)
 
 data TypeDefinition
@@ -194,8 +197,9 @@ data TypeDefinition
 data InterfaceExpression
   = TypeDefinitions [TypeDefinition]
   | ConstDefinitions [ConstDefinition]
+  | ResourceDefinitions [ConstDefinition]
   | VarDefinitions [VarDefinition]
-  | Standalone Field -- TODO: Make this more specialised.
+  | Standalone Field -- TODO: Make this more specialised
   deriving (Eq, Show)
 
 data ConstDefinition =
@@ -222,7 +226,7 @@ data PropertySpecifier
   = PropertyRead [Text]
   | PropertyWrite [Text]
   | PropertyStored
-  | PropertyDefault ValueExpression -- TODO: Define a simpler set of "ValueExpression" that are limited to const.
+  | PropertyDefault ValueExpression -- TODO: Define a simpler set of "ValueExpression" that are limited to const
   | PropertyNoDefault
   deriving (Eq, Show)
 
@@ -232,6 +236,7 @@ data Field
                 [FieldAnnotation]
   | Field Name
           TypeName
+  | ClassVar TypeName TypeName
   | Destructor TypeName
                [FieldAnnotation]
   | Procedure TypeName
@@ -291,7 +296,8 @@ type RecordDefinition = [Accessibility]
 type ClassDefinition = [Accessibility]
 
 data ArrayIndex
-  = IndexOf [TypeName] -- ie, Byte.  TODO: Consider how to constrain this to ordinals.
+  = IndexOf [TypeName] -- ie, Byte.  TODO: Consider how to constrain this to ordinals
+  | IndexOfE [ValueExpression] -- ie, Byte.  TODO: Consider how to constrain this to ordinals
   | Range [(ValueExpression, ValueExpression)] -- ie, 34..56
   deriving (Eq, Show)
 

@@ -27,6 +27,7 @@ import TestTypeDefinitions (typeDefinitionTests)
 import TestProcedureImplementation (procedureImplementationTest)
 import TestDelphiFunctions (functionTests)
 import TestLiterals (literalsTests)
+import TestIfThen (ifThenTests)
 
 newtype ParserTestsData = ParserTestsData
   { sharedpointer :: Text
@@ -50,6 +51,7 @@ main = do
     , procedureImplementationTest
     , functionTests
     , literalsTests
+    , ifThenTests
     ]
 
 stripWhitespace :: Text -> Text
@@ -230,39 +232,6 @@ unitTests p = testGroup
   , testCase "Ensure that the empty statement works"
   $ (Right EmptyExpression @=?)
   $ parse statement "" ";"
-  , testCase "Ensure that if-function-then works"
-  $ (Right
-      (If (V "Assigned" :$ [V "FObjectToFree"])
-          (Then EmptyExpression)
-          (Else EmptyExpression)
-      ) @=?
-    )
-  $ parse dIfExpression "" "if Assigned(FObjectToFree) then ;"
-  , testCase "Ensure that ifThenElse works"
-  $ (Right
-      (If
-        (P [V "FFreeTheValue" :<> Nil] :& P
-          [ (  P [As (V "FFreeTheValue") (V "TFreeTheValue")]
-            :. V "FObjectToFree"
-            )
-              :<> Nil
-          ]
-        )
-        (Then
-          (V "Result" := As
-            (  P [As (V "FFreeTheValue") (V "TFreeTheValue")]
-            :. V "FObjectToFree"
-            )
-            (V "T")
-          )
-        )
-        (Else EmptyExpression)
-      ) @=?
-    )
-  $ parse
-      statement
-      ""
-      "if ( FFreeTheValue <> nil) and ((FFreeTheValue as TFreeTheValue).FObjectToFree <> nil) then Result := (FFreeTheValue as TFreeTheValue).FObjectToFree as T;"
   , testCase "Ensure assign to an index property parses"
   $ (Right (V "foo" :!! [I 32] := V "blah") @=?)
   $ parse statement "" "foo[32] := blah;"

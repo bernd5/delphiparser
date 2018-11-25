@@ -6,6 +6,7 @@ import Data.Text (Text, pack)
 import DelphiAst
 import DelphiLexer
 import DelphiTypeArguments (typeArguments)
+import DelphiArray (arrayIndex)
 
 import Text.Megaparsec
 import Text.Megaparsec.Expr
@@ -37,7 +38,7 @@ terms a b c =
     , try $  P <$> parens "(" ")" (expression a b c `sepBy1` symbol ",")
     , try recordExpression
     , parens "(" ")" (expression a b c)
-    , L <$> parens "[" "]" ((expression a b c) `sepBy` symbol ",")
+    , A <$> arrayIndex c (expression a b c)
     ]
   where
     functionExit :: Parser ValueExpression
