@@ -19,18 +19,7 @@ array p e = rword "array" *> choice
     , openDynamicArray p e]
 
 arrayDimension :: Parser TypeName -> Parser ValueExpression -> Parser ArrayIndex
-arrayDimension typeName expression = choice
-  [ try $ IndexOf <$> (typeName `sepBy1` symbol ",")
-  , try $ Range <$> sepBy
-    (do
-      lhs <- expression
-      symbol ".."
-      rhs <- expression
-      return (lhs, rhs)
-    )
-    (symbol ",")
-  , try $ IndexOfE <$> (expression `sepBy1` symbol ",")
-  ]
+arrayDimension typeName expression = try $ IndexOf <$> (expression `sepBy1` symbol ",")
 
 arrayIndex :: Parser TypeName -> Parser ValueExpression -> Parser ArrayIndex
 arrayIndex typeName expression = parens "[" "]" $ arrayDimension typeName expression

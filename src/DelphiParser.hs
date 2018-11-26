@@ -385,8 +385,8 @@ simplifyTypeName m a b = r a $ t b $ m
     t Nothing = Type
 
 typeName :: Parser TypeName
-typeName = choice [ try array',
-  do
+typeName = choice [ try array'
+  , do
     -- TODO: Distinguish between the different sorts of identifiers, especially class.
     pointer <- optional $ (symbol' "^" <|> symbol' "@")
     name <- identifierPlus ["string", "boolean", "cardinal", "class"]

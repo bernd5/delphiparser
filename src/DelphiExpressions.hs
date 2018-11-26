@@ -70,8 +70,7 @@ table
   -> [[Operator Parser ValueExpression]]
 table a b c =
   [ [ Postfix . manyPostfixOp $ choice
-        [ try recordAccess
-        , try genericArgs
+        [ try genericArgs
         , try $ functionCall a b c
         , try $ indexCall a b c 
         , try (Dereference <$ symbol "^")
@@ -89,6 +88,8 @@ table a b c =
     , binary (:/) "div"
     , binary (:%) "mod"
     , binary (:&) "and"
+    , binary (:..) ".."
+    , binary (:.) "."
     , binary (:|) "or"
     , binary As "as"
     , binary Is "is"
@@ -114,9 +115,6 @@ genericArgs =
     (do p <- parens "<" ">" ((Type <$> identifier') `sepBy1` comma)
         notFollowedBy $ choice [void <$> identifier]
         return p)
-
-recordAccess :: Parser (ValueExpression -> ValueExpression)
-recordAccess = flip (:.) . V . pack <$> try (symbol "." *> identifier)
 
 functionCall
   :: Parser Expression

@@ -16,12 +16,12 @@ literalsTests = testGroup
   "Delphi Literal Expressions"
   [ testGroup "Sets and Array Literals"
     $ [ testCase "[a, b, c]" 
-      $ (Right (A (IndexOf [Type "a",Type "b",Type "c"])) @=?) $ parse
+      $ (Right (A (IndexOf [V "a",V "b",V "c"])) @=?) $ parse
           expression'
           ""
           "[a, b, c]"
       , testCase "[1, 2, 3]" 
-      $ (Right (A (IndexOfE [I 1, I 2, I 3])) @=?) $ parse
+      $ (Right (A (IndexOf [I 1, I 2, I 3])) @=?) $ parse
           expression'
           ""
           "[1, 2, 3]"
@@ -47,16 +47,19 @@ literalsTests = testGroup
       ]
   , testGroup "Literal Array Expressions"
     [ testCase "[1..5]" $
-      (Right (A $ Range [(I 1, I 5)]) @=? ) $
+      (Right (A $ (IndexOf [I 1 :.. I 5])) @=? ) $
       parse expression' "" "[1..5]"
     , testCase "['a'..'f']" $
-      (Right (A $ Range [(S "a", S "f")]) @=? ) $
+      (Right (A $ (IndexOf [S "a" :.. S "f"])) @=? ) $
       parse expression' "" "['a'..'f']"
     , testCase "['a'..'f', 'w'..'z']" $
-      (Right (A $ Range [(S "a", S "f"), (S "w", S "z")]) @=? ) $
+      (Right (A $ (IndexOf [S "a" :.. S "f", S "w" :.. S "z"])) @=? ) $
       parse expression' "" "['a'..'f', 'w'..'z']"
+    , testCase "[a]" $
+      (Right (A $ IndexOf [V "a"]) @=? ) $
+      parse expression' "" "[a]"
     , testCase "[a.b]" $
-      (Right (A $ IndexOf [Type "a.b"]) @=? ) $
-      parse expression' "" "[a.b"
+      (Right (A $ IndexOf [V "a" :. V "b"]) @=? ) $
+      parse expression' "" "[a.b]"
     ]
   ]

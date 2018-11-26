@@ -150,6 +150,7 @@ data ValueExpression
   | ValueExpression :$ [ValueExpression] -- foo(bar, baz)
   | ValueExpression :!! [ValueExpression] -- foo[bar,baz]
   | ValueExpression :. ValueExpression -- foo.bar
+  | ValueExpression :.. ValueExpression -- foo..bar
   | ValueExpression :<<>> [TypeName] -- For generics
   | Nil -- nil
   deriving (Eq, Show)
@@ -296,9 +297,7 @@ type RecordDefinition = [Accessibility]
 type ClassDefinition = [Accessibility]
 
 data ArrayIndex
-  = IndexOf [TypeName] -- ie, Byte.  TODO: Consider how to constrain this to ordinals
-  | IndexOfE [ValueExpression] -- ie, Byte.  TODO: Consider how to constrain this to ordinals
-  | Range [(ValueExpression, ValueExpression)] -- ie, 34..56
+  = IndexOf [ValueExpression]
   deriving (Eq, Show)
 
 data TypeName

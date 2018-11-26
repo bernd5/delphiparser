@@ -253,7 +253,6 @@ instance ShowDelphi TypeDefinition where
 
 instance ShowDelphi ArrayIndex where
   showDelphi (IndexOf a) = intercalate ", " (map showDelphi a)
-  showDelphi (Range a) = intercalate "," $ map (\(x, y) -> showDelphi x <> ".." <> showDelphi y) a
 
 instance ShowDelphi TypeName where
   showDelphi (Type a)  = a

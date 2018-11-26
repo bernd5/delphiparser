@@ -261,14 +261,14 @@ unitTests p = testGroup
     ""
     "$42"
   , testCase "Ensure that arrays are a valid type"
-  $ (Right (StaticArray (IndexOf [Type "foo"]) (Type "bar")) @=?)
+  $ (Right (StaticArray (IndexOf [V "foo"]) (Type "bar")) @=?)
   $ parse typeName "" "array [foo] of bar"
   , testCase "Ensure that const expression's involving arrays parse"
   $ (Right
       (ConstDefinitions
         [ ConstDefinition
             "foo"
-            (Just $ StaticArray (IndexOf [Type "bar"]) (Type "baz"))
+            (Just $ StaticArray (IndexOf [V "bar"]) (Type "baz"))
             (P [V "one", V "two", V "three"])
         ]
       ) @=?
