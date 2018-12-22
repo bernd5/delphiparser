@@ -10,7 +10,6 @@ import DelphiArray (arrayIndex)
 
 import Text.Megaparsec
 import Text.Megaparsec.Expr
-import qualified Text.Megaparsec.Char.Lexer as L
 import Text.Megaparsec.Char (char, anyChar)
 
 expression
@@ -69,27 +68,33 @@ table
   -> Parser TypeName
   -> [[Operator Parser ValueExpression]]
 table a b c =
-  [ [ Postfix . manyPostfixOp $ choice
+  [ [ binary' (:.) "." "." ]
+  , [ Postfix . manyPostfixOp $ choice
         [ try genericArgs
-        , try $ functionCall a b c
+        , try (Dereference <$ symbol "^")
+        ]
+    ]
+  , [ Postfix . manyPostfixOp $ choice
+        [ try $ functionCall a b c
         , try $ indexCall a b c 
         , try (Dereference <$ symbol "^")
         ]
-    , Prefix (Not <$ rword "not")
+      , binary' (:.) "." "." 
+    ]
+  , [ Prefix (Not <$ rword "not")
     , Prefix (Dereference <$ symbol "^")
     , Prefix (AddressOf <$ symbol "@")
-    , binary (:<>) "<>"
+    ]
+  , [ binary (:*) "*"
+    , binary (:/) "/"
+    , binary (:/) "div"
+    ]
+  , [ binary (:<>) "<>"
     , binary (:+) "+"
     , binary (:-) "-"
     , Prefix ((I 0 :-) <$ symbol "-")
-    , binary (:==) "="
-    , binary (:*) "*"
-    , binary (:/) "/"
-    , binary (:/) "div"
     , binary (:%) "mod"
     , binary (:&) "and"
-    , binary (:..) ".."
-    , binary (:.) "."
     , binary (:|) "or"
     , binary As "as"
     , binary Is "is"
@@ -99,14 +104,24 @@ table a b c =
     , binary (:<) "<"
     , binary (:>) ">"
     ]
+  , [ binary (:..) ".."
+    , binary (:==) "="
+    ]
   ]
 
 void :: a -> ()
 void _ = ()
 
+op :: Text -> Text -> Parser ()
+op a b = (lexeme . try) (symbol a <* notFollowedBy (symbol b) )
+
 binary :: (ValueExpression -> ValueExpression -> ValueExpression)
              -> Text -> Operator Parser ValueExpression
 binary f name = InfixL (f <$ symbol name)
+
+binary' :: (ValueExpression -> ValueExpression -> ValueExpression)
+             -> Text -> Text -> Operator Parser ValueExpression
+binary' f name n = InfixL (f <$ op name n)
 
 genericArgs :: Parser (ValueExpression -> ValueExpression)
 genericArgs =

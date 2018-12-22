@@ -28,6 +28,7 @@ import TestProcedureImplementation (procedureImplementationTest)
 import TestDelphiFunctions (functionTests)
 import TestLiterals (literalsTests)
 import TestIfThen (ifThenTests)
+import TestExpression(expressionTests)
 
 newtype ParserTestsData = ParserTestsData
   { sharedpointer :: Text
@@ -45,6 +46,7 @@ main = do
     , propertiesTests
     , typeArgumentTests
     , delphiTryTests
+    , expressionTests
     , caseTests
     , writerTests
     , typeDefinitionTests
