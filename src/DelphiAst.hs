@@ -2,12 +2,12 @@ module DelphiAst where
 
 import Data.Text (Text)
 
-data Unit =
-  Unit Text
-       Interface
-       Implementation
-       Initialization
-       Finalization
+data Unit = Unit Text
+             Interface
+             Implementation
+             Initialization
+             Finalization
+          | Program Text [Expression]
   deriving (Eq, Show)
 
 data Interface =

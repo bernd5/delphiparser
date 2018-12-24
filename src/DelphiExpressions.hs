@@ -17,15 +17,18 @@ expression
   -> Parser InterfaceExpression
   -> Parser TypeName
   -> Parser ValueExpression
-expression a b c = makeExprParser (termWithPrefixAndPostfix a b c) (table a b c)
+expression a b c = makeExprParser (termWithPrefixAndPostfix a b c) table
 
-parseOperator :: Operator Parser ValueExpression -> Parser (ValueExpression -> ValueExpression)
-parseOperator (Prefix m) = m
-parseOperator (Postfix m) = m
+data Operator' m a =  Prefix' (m (a -> a)) | Postfix' (m (a -> a))
 
-prefixes = [ prefix Dereference  "^"
-           , prefix AddressOf  "@"
-           , prefix Not  "not"
+parseOperator :: Operator' Parser ValueExpression -> Parser (ValueExpression -> ValueExpression)
+parseOperator (Prefix' m) = m
+parseOperator (Postfix' m) = m
+
+prefixes :: [Operator' Parser ValueExpression]
+prefixes = [ prefix' Dereference  "^"
+           , prefix' AddressOf  "@"
+           , prefix' Not  "not"
            ]
 
 
@@ -33,12 +36,12 @@ termWithPrefixAndPostfix :: Parser Expression -> Parser InterfaceExpression -> P
 termWithPrefixAndPostfix a b c = do
   s <- termWithPrefixAndPostfix' a b c
 
-  let postfixes = [ postfix AddressOf  "@"
-                  , postfix Dereference  "^"
-                  , Postfix (functionCall a b c)
-                  , Postfix (indexCall a b c)
-                  , Postfix genericArgs
-                  , Prefix (do
+  let postfixes = [ postfix' AddressOf  "@"
+                  , postfix' Dereference  "^"
+                  , Postfix' (functionCall a b c)
+                  , Postfix' (indexCall a b c)
+                  , Postfix' genericArgs
+                  , Prefix' (do
                      _ <- try $ symbol "." <* notFollowedBy "."
                      term' <- terms a b c
                      return ( :. term'))
@@ -52,9 +55,7 @@ termWithPrefixAndPostfix a b c = do
 termWithPrefixAndPostfix' :: Parser Expression -> Parser InterfaceExpression -> Parser TypeName -> Parser ValueExpression
 termWithPrefixAndPostfix' a b c = do
   pr <- many $ choice $ parseOperator <$> prefixes
-  s <- choice [ terms a b c
-    --, choice $ parseOperator <$> table a b c
-    ]
+  s <- choice [ terms a b c ]
   return $ foldr (\f n -> f n) s pr
 
 terms :: Parser Expression -> Parser InterfaceExpression -> Parser TypeName -> Parser ValueExpression
@@ -95,11 +96,8 @@ terms a b c =
       return $ lbl := value
 
 table
-  :: Parser Expression
-  -> Parser InterfaceExpression
-  -> Parser TypeName
-  -> [[Operator Parser ValueExpression]]
-table a b c = [ [ infixL (:*)  "*"
+  :: [[Operator Parser ValueExpression]]
+table = [ [ infixL (:*)  "*"
     , infixL (:/)  "/"
     , infixL (:%) "mod"
     , infixL (:/)  "div"
@@ -125,13 +123,13 @@ void :: a -> ()
 void _ = ()
 
 
-postfix :: (ValueExpression -> ValueExpression)
-             -> Text -> Operator Parser ValueExpression
-postfix f name = Postfix (f <$ symbol name)
+postfix' :: (ValueExpression -> ValueExpression)
+             -> Text -> Operator' Parser ValueExpression
+postfix' f name = Postfix' (f <$ symbol name)
 
-prefix :: (ValueExpression -> ValueExpression)
-             -> Text -> Operator Parser ValueExpression
-prefix f name = Prefix (f <$ symbol name)
+prefix' :: (ValueExpression -> ValueExpression)
+             -> Text -> Operator' Parser ValueExpression
+prefix' f name = Prefix' (f <$ symbol name)
 
 infixL :: (ValueExpression -> ValueExpression -> ValueExpression)
              -> Text -> Operator Parser ValueExpression

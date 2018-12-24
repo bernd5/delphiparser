@@ -20,6 +20,8 @@ instance ShowDelphi Unit where
     (showDelphi d) <>
     (showDelphi e) <>
     "end.\n"
+  showDelphi (Program a b) =
+    "program " <> a <> ";\nbegin\n" <> intercalate ";\n" (map showDelphi b) <> "\nend."
 
 instance ShowDelphi Interface where
   showDelphi (Interface (Uses []) b)
@@ -99,6 +101,8 @@ instance ShowDelphi ValueExpression where
   showDelphi (a :<= b) = showDelphi a <> " <= " <> showDelphi b
   showDelphi (a :>= b) = showDelphi a <> " >= " <> showDelphi b
   showDelphi (a :> b) = showDelphi a <> " > " <> showDelphi b
+  showDelphi (a :.. b) = showDelphi a <> " .. " <> showDelphi b
+  showDelphi (A a) = showDelphi a
   showDelphi (a :<> b) = showDelphi a <> " <> " <> showDelphi b
   showDelphi (a `As` b) = showDelphi a <> " as " <> showDelphi b
   showDelphi (a :<<>> b) = showDelphi a <> "<" <> intercalate "," (map showDelphi b) <> ">"
@@ -119,6 +123,7 @@ instance ShowDelphi CaseBranches where
 
 instance ShowDelphi Expression where
   showDelphi (Expr a) = a
+  showDelphi (Break) = "break"
   showDelphi (Raise a) = "raise " <> showDelphi a
   showDelphi (With a b) = "with " <> intercalate "," (map showDelphi a) <> " do\n" <> showDelphi b
   showDelphi (Try a (Left b)) = intercalate "\n"
@@ -213,6 +218,8 @@ instance ShowDelphi ImplementationSpec where
 
 instance ShowDelphi InterfaceExpression where
   showDelphi (TypeDefinitions a) = "type\n  "
+                                 <> intercalate ";\n  " (map showDelphi a) <> ";\n"
+  showDelphi (ResourceDefinitions a) = "resource\n  "
                                  <> intercalate ";\n  " (map showDelphi a) <> ";\n"
   showDelphi (ConstDefinitions a) = "const\n  "
                                 <> intercalate ";\n  " (map showDelphi a) <> ";\n"

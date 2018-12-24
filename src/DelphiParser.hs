@@ -2,6 +2,7 @@
 
 module DelphiParser
   ( dUnitP
+  , program
   , expression'
   , uses
   , array'
@@ -92,6 +93,19 @@ dUnitP = do
   initialization <- dUnitInitializationP
   finalization <- dUnitFinalizationP
   return $ Unit unitName interface implementation initialization finalization
+
+program :: Parser Unit
+program = do
+  _ <- optional $ char '\xFEFF'
+  _ <- optional sc
+  rword "program"
+  s <- pack <$> identifier
+  semi
+  rword "begin"
+  expressions <- many (try $ statement <* semi)
+  lastExpression <- optional statement
+  rword "end."
+  return $ Program s (expressions <> catMaybes [lastExpression])
 
 dUnitNameP :: Parser Text
 dUnitNameP = do
@@ -575,7 +589,7 @@ dProcedureP :: Parser Field
 dProcedureP = dProcedureP' "procedure" (\a b _ d -> Procedure a b d)
 
 classVar :: Parser Field
-classVar = dProcedureP' "var" (\a b c d -> ClassVar a c)
+classVar = dProcedureP' "var" (\a _ c _ -> ClassVar a c)
 
 dSimpleFieldP :: Parser Field
 dSimpleFieldP = do

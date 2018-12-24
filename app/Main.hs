@@ -13,6 +13,8 @@ import Data.Text (unpack, pack)
 import Control.Monad (filterM)
 import Control.Exception (handle, SomeException)
 import System.FilePath ((</>), isExtensionOf)
+import Control.Applicative ((<|>))
+import DelphiWriter
 
 main :: IO ()
 main = do
@@ -34,12 +36,13 @@ main = do
     h <- openBinaryFile x ReadMode
     hSetEncoding h localeEncoding
     sp <- hGetContents h
-    let p = runParser dUnitP x (unpack sp)
+    let p = runParser (dUnitP <|> program) x (unpack sp)
     case p of
       Left a -> do
         putStrLn . pack $ show a
         return False
-      Right !_ -> do
+      Right !a -> do
+        putStrLn $ showDelphi a
         return True
 
   putStrLn . pack $ "Total files: " <> show (length r)
