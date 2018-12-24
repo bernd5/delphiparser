@@ -17,7 +17,45 @@ expression
   -> Parser InterfaceExpression
   -> Parser TypeName
   -> Parser ValueExpression
-expression a b c = makeExprParser (terms a b c) (table a b c)
+expression a b c = makeExprParser (termWithPrefixAndPostfix a b c) (table a b c)
+
+parseOperator :: Operator Parser ValueExpression -> Parser (ValueExpression -> ValueExpression)
+parseOperator (Prefix m) = m
+parseOperator (Postfix m) = m
+
+prefixes = [ prefix Dereference  "^"
+           , prefix AddressOf  "@"
+           , prefix Not  "not"
+           ]
+
+
+termWithPrefixAndPostfix :: Parser Expression -> Parser InterfaceExpression -> Parser TypeName -> Parser ValueExpression
+termWithPrefixAndPostfix a b c = do
+  s <- termWithPrefixAndPostfix' a b c
+
+  let postfixes = [ postfix AddressOf  "@"
+                  , postfix Dereference  "^"
+                  , Postfix (functionCall a b c)
+                  , Postfix (indexCall a b c)
+                  , Postfix genericArgs
+                  , Prefix (do
+                     _ <- try $ symbol "." <* notFollowedBy "."
+                     term' <- terms a b c
+                     return ( :. term'))
+                  ]
+
+  px <- many $ choice $ parseOperator <$> postfixes
+  let px' = foldl (\n f -> f n) s px
+
+  return $ px'
+
+termWithPrefixAndPostfix' :: Parser Expression -> Parser InterfaceExpression -> Parser TypeName -> Parser ValueExpression
+termWithPrefixAndPostfix' a b c = do
+  pr <- many $ choice $ parseOperator <$> prefixes
+  s <- choice [ terms a b c
+    --, choice $ parseOperator <$> table a b c
+    ]
+  return $ foldr (\f n -> f n) s pr
 
 terms :: Parser Expression -> Parser InterfaceExpression -> Parser TypeName -> Parser ValueExpression
 terms a b c =
@@ -34,7 +72,7 @@ terms a b c =
     , Result <$ rword "result"
     , Nil <$ rword "nil"
     , S . pack . concat <$> some ( char '\'' >> manyTill anyChar (symbol "'") )
-    , try $  P <$> parens "(" ")" (expression a b c `sepBy1` symbol ",")
+    , try $ P <$> parens "(" ")" (expression a b c `sepBy1` symbol ",")
     , try recordExpression
     , parens "(" ")" (expression a b c)
     , A <$> arrayIndex c (expression a b c)
@@ -56,72 +94,48 @@ terms a b c =
       value <- expression a b c
       return $ lbl := value
 
--- Lots of inspiration from https://github.com/ilmoeuro/simplescript/blob/master/src/SimpleScript/Parser.hs
--- Thanks to liste on freenode for suggesting this.
-manyPostfixOp :: Parser (a -> a) -> Parser (a -> a)
-manyPostfixOp singleOp = foldr1 (flip (.)) <$> some singleOp
-
-
 table
   :: Parser Expression
   -> Parser InterfaceExpression
   -> Parser TypeName
   -> [[Operator Parser ValueExpression]]
-table a b c =
-  [ [ binary' (:.) "." "." ]
-  , [ Postfix . manyPostfixOp $ choice
-        [ try genericArgs
-        , try (Dereference <$ symbol "^")
-        ]
+table a b c = [ [ infixL (:*)  "*"
+    , infixL (:/)  "/"
+    , infixL (:%) "mod"
+    , infixL (:/)  "div"
     ]
-  , [ Postfix . manyPostfixOp $ choice
-        [ try $ functionCall a b c
-        , try $ indexCall a b c 
-        , try (Dereference <$ symbol "^")
-        ]
-      , binary' (:.) "." "." 
+  , [ infixL (:<>) "<>"
+    , infixL (:+) "+"
+    , infixL (:-) "-"
+    , infixL (:&) "and"
+    , infixL (:+) "or"
+    , infixL As  "as"
+    , infixL Is  "is"
+    , infixL In  "in"
+    , infixL (:<=) "<="
+    , infixL (:>=) ">="
+    , infixL (:<) "<"
+    , infixL (:>) ">"
+    , infixL (:==) "="
     ]
-  , [ Prefix (Not <$ rword "not")
-    , Prefix (Dereference <$ symbol "^")
-    , Prefix (AddressOf <$ symbol "@")
-    ]
-  , [ binary (:*) "*"
-    , binary (:/) "/"
-    , binary (:/) "div"
-    ]
-  , [ binary (:<>) "<>"
-    , binary (:+) "+"
-    , binary (:-) "-"
-    , Prefix ((I 0 :-) <$ symbol "-")
-    , binary (:%) "mod"
-    , binary (:&) "and"
-    , binary (:|) "or"
-    , binary As "as"
-    , binary Is "is"
-    , binary In "in"
-    , binary (:<=) "<="
-    , binary (:>=) ">="
-    , binary (:<) "<"
-    , binary (:>) ">"
-    ]
-  , [ binary (:..) ".."
-    , binary (:==) "="
-    ]
+  , [ infixL (:..) ".."
   ]
-
+  ]
 void :: a -> ()
 void _ = ()
 
-op :: Text -> Text -> Parser ()
-op a b = (lexeme . try) (symbol a <* notFollowedBy (symbol b) )
 
-binary :: (ValueExpression -> ValueExpression -> ValueExpression)
+postfix :: (ValueExpression -> ValueExpression)
              -> Text -> Operator Parser ValueExpression
-binary f name = InfixL (f <$ symbol name)
+postfix f name = Postfix (f <$ symbol name)
 
-binary' :: (ValueExpression -> ValueExpression -> ValueExpression)
-             -> Text -> Text -> Operator Parser ValueExpression
-binary' f name n = InfixL (f <$ op name n)
+prefix :: (ValueExpression -> ValueExpression)
+             -> Text -> Operator Parser ValueExpression
+prefix f name = Prefix (f <$ symbol name)
+
+infixL :: (ValueExpression -> ValueExpression -> ValueExpression)
+             -> Text -> Operator Parser ValueExpression
+infixL f name = InfixL (f <$ symbol name)
 
 genericArgs :: Parser (ValueExpression -> ValueExpression)
 genericArgs =
@@ -136,8 +150,7 @@ functionCall
   -> Parser InterfaceExpression
   -> Parser TypeName
   -> Parser (ValueExpression -> ValueExpression)
-functionCall a b c =
-  flip (:$) <$> try (parens "(" ")" ((expression a b c) `sepBy` comma))
+functionCall a b c = flip (:$) <$> try (parens "(" ")" ((expression a b c) `sepBy` comma))
 
 indexCall :: Parser Expression -> Parser InterfaceExpression -> Parser TypeName -> Parser (ValueExpression -> ValueExpression)
 indexCall a b c = flip (:!!) <$> try (parens "[" "]" ((expression a b c) `sepBy` comma))

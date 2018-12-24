@@ -52,7 +52,7 @@ expressionTests = testGroup
   , testGroup
     "Prefixes, Postfixes and infixes"
     [ testCase "^a.b^.c"
-    $ (Right (Dereference (V "a") :. Dereference (V "b") :. V "c") @=?)
+    $ (Right (Dereference (Dereference (V "a") :. V "b") :. V "c") @=?)
     $ parse expression' "" "^a.b^.c"
     , testCase "a and b.c"
     $ (Right (V "a" :& (V "b" :. V "c") ) @=?)
@@ -69,6 +69,9 @@ expressionTests = testGroup
     , testCase "a(b).c.d"
     $ (Right ((V "a" :$ [V "b"]) :. V "c" :. V "d") @=?)
     $ parse expression' "" "a(b).c.d"
+    , testCase "(a(b)).c.d"
+    $ (Right (P [(V "a" :$ [V "b"])] :. V "c" :. V "d") @=?)
+    $ parse expression' "" "(a(b)).c.d"
     , testCase "a<b>.c.d"
     $ (Right ((V "a" :<<>> [Type "b"]) :. V "c" :. V "d") @=?)
     $ parse expression' "" "a<b>.c.d"

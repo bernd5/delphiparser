@@ -278,7 +278,7 @@ dReferenceToFunctionP ident = do
 
 dGenericRecordP :: TypeName -> Parser TypeDefinition
 dGenericRecordP a = do
-  p <- optional $ rword "packed"
+  _ <- optional $ rword "packed"
   rword "record"
   r <- optional $ dRecordDefinitionListP <* rword "end"
   let r' = fromMaybe [] r

@@ -88,19 +88,19 @@ instance ShowDelphi ValueExpression where
   showDelphi (Is a b) = showDelphi a <> " is " <> showDelphi b
   showDelphi (In a b) = showDelphi a <> " in " <> showDelphi b
   showDelphi (a :$ b) = showDelphi a <> _toDelphiCallArgString(b)
-  showDelphi (a :+ b) = "(" <> showDelphi a <> " + " <> showDelphi b <> ")"
-  showDelphi (a :== b) = "(" <> showDelphi a <> " = " <> showDelphi b <> ")"
-  showDelphi (a :- b) = "(" <> showDelphi a <> " - " <> showDelphi b <> ")"
-  showDelphi (a :* b) = "(" <> showDelphi a <> " * " <> showDelphi b <> ")"
-  showDelphi (a :/ b) = "(" <> showDelphi a <> " / " <> showDelphi b <> ")"
-  showDelphi (a :% b) = "(" <> showDelphi a <> " mod " <> showDelphi b <> ")"
-  showDelphi (a :& b) = "(" <> showDelphi a <> " and " <> showDelphi b <> ")"
-  showDelphi (a :< b) = "(" <> showDelphi a <> " < " <> showDelphi b <> ")"
-  showDelphi (a :<= b) = "(" <> showDelphi a <> " <= " <> showDelphi b <> ")"
-  showDelphi (a :>= b) = "(" <> showDelphi a <> " >= " <> showDelphi b <> ")"
-  showDelphi (a :> b) = "(" <> showDelphi a <> " > " <> showDelphi b <> ")"
-  showDelphi (a :<> b) = "(" <> showDelphi a <> " <> " <> showDelphi b <> ")"
-  showDelphi (a `As` b) = "(" <> showDelphi a <> " as " <> showDelphi b <> ")"
+  showDelphi (a :+ b) = showDelphi a <> " + " <> showDelphi b
+  showDelphi (a :== b) = showDelphi a <> " = " <> showDelphi b
+  showDelphi (a :- b) = showDelphi a <> " - " <> showDelphi b
+  showDelphi (a :* b) = showDelphi a <> " * " <> showDelphi b
+  showDelphi (a :/ b) = showDelphi a <> " / " <> showDelphi b
+  showDelphi (a :% b) = showDelphi a <> " mod " <> showDelphi b
+  showDelphi (a :& b) = showDelphi a <> " and " <> showDelphi b
+  showDelphi (a :< b) = showDelphi a <> " < " <> showDelphi b
+  showDelphi (a :<= b) = showDelphi a <> " <= " <> showDelphi b
+  showDelphi (a :>= b) = showDelphi a <> " >= " <> showDelphi b
+  showDelphi (a :> b) = showDelphi a <> " > " <> showDelphi b
+  showDelphi (a :<> b) = showDelphi a <> " <> " <> showDelphi b
+  showDelphi (a `As` b) = showDelphi a <> " as " <> showDelphi b
   showDelphi (a :<<>> b) = showDelphi a <> "<" <> intercalate "," (map showDelphi b) <> ">"
   showDelphi (a :!! b) = showDelphi a <> "[" <> intercalate "," (map showDelphi b) <> "]"
   showDelphi (Nil) = "nil"
