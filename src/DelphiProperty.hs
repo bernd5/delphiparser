@@ -39,6 +39,12 @@ property typeName arrayParameter expression = do
         rword "default"
         semi
       return $ Property name (concat <$> indexes) typ index specifiers (isJust def)
+
+listOrExpression :: Parser ValueExpression -> Parser ValueExpression
+listOrExpression expression = choice
+  [ L <$> (parens "[" "]" (expression `sepBy` symbol ","))
+  , expression
+  ]
   
 specifier :: Parser ValueExpression -> Parser PropertySpecifier
 specifier expression = do
@@ -46,7 +52,7 @@ specifier expression = do
     [ try $ PropertyRead <$> (rword "read" >> (identifier' `sepBy` symbol "."))
     , try $ PropertyWrite <$> (rword "write" >> (identifier' `sepBy` symbol "."))
     , try $ PropertyStored <$ (rword "stored" >> optional expression)
-    , try $ PropertyDefault <$> (rword "default" >> expression)
+    , try $ PropertyDefault <$> (rword "default" >> listOrExpression expression)
     , try $ PropertyNoDefault <$ rword "nodefault"
     --, rword "implements"
     ]

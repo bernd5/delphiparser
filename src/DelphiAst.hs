@@ -128,6 +128,7 @@ data ValueExpression
   | Result
   | Exit (Maybe ValueExpression)
   | Not ValueExpression
+  | Negate ValueExpression
   | Inherited (Maybe Text)
   | Dereference ValueExpression -- '^foo'
   | AddressOf ValueExpression -- '@foo'

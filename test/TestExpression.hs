@@ -30,6 +30,10 @@ expressionTests = testGroup
       expression'
       ""
       "a * b + c"
+    , testCase "-a * b + c" $ (Right ((Negate $ V "a") :* (V "b") :+ (V "c")) @=?) $ parse
+      expression'
+      ""
+      "-a * b + c"
     ]
   , testGroup
     "Right Precedence"

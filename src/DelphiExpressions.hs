@@ -29,6 +29,7 @@ prefixes :: [Operator' Parser ValueExpression]
 prefixes = [ prefix' Dereference  "^"
            , prefix' AddressOf  "@"
            , prefix' Not  "not"
+           , prefix' Negate "-"
            ]
 
 

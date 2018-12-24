@@ -19,6 +19,9 @@ propertiesTests = testGroup "Delphi Property Tests"
   , testCase "property Items[I: Integer]: T<E> read GetItem" $
     (Right (Property "Items" (Just [Arg NormalArg "I" (Just $ Type "Integer") Nothing]) (GenericInstance "T" [Type "E"]) Nothing [PropertyRead ["GetItem"]] True) @=? )$
     parse property' "" "property Items[I: Integer]: T<E> read GetItem; default;"
+  , testCase "property Left: Integer read FLeft write FLeft default []" $
+    (Right (Property "Left" Nothing (Type "Integer") Nothing [PropertyRead ["FLeft"], PropertyWrite ["FLeft"], PropertyDefault (L [])] False) @=? ) $
+    parse property' "" "property Left: Integer read FLeft write FLeft default [];"
   , testCase "property Left: Integer read FLeft write FLeft default 0" $
     (Right (Property "Left" Nothing (Type "Integer") Nothing [PropertyRead ["FLeft"], PropertyWrite ["FLeft"], PropertyDefault (I 0)] False) @=? ) $
     parse property' "" "property Left: Integer read FLeft write FLeft default 0;"

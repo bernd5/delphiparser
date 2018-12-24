@@ -6,7 +6,7 @@ import Prelude hiding (putStrLn)
 import DelphiParser
 import System.Environment (getArgs)
 import System.Directory (getDirectoryContents, doesFileExist)
-import Text.Megaparsec (runParser)
+import Text.Megaparsec (runParser, ParseError(..))
 import Data.Text.IO (putStrLn, hGetContents)
 import System.IO (hSetEncoding, localeEncoding, openBinaryFile, IOMode(ReadMode))
 import Data.Text (unpack, pack)
@@ -38,13 +38,19 @@ main = do
     sp <- hGetContents h
     let p = runParser (dUnitP <|> program) x (unpack sp)
     case p of
-      Left a -> do
-        putStrLn . pack $ show a
-        return False
+      Left a -> case a of
+        TrivialError o (Just e) s -> do
+          putStrLn . pack $ "O: " <> show o
+          return False
+        otherwise -> do
+          putStrLn . pack $ "A: " <> show a
+          return False
       Right !a -> do
-        putStrLn $ showDelphi a
+        --putStrLn $ showDelphi a
         return True
 
+
+  putStrLn . pack $ "Total types: " <> show (length r)
   putStrLn . pack $ "Total files: " <> show (length r)
   putStrLn . pack $ "Parsed:      " <> show (length $ filter id r)
 
