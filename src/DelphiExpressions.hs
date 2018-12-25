@@ -1,8 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 module DelphiExpressions ( expression
+  , lambdaExpression
+  , lambdaFunction
+  , lambdaProcedure
+  , lambdaArgs
   , functionCall) where
 
 import Data.Text (Text, pack)
+import Data.Char (chr)
+import Data.Maybe (fromMaybe)
 import DelphiAst
 import DelphiLexer
 import DelphiTypeArguments (typeArguments)
@@ -32,7 +38,6 @@ prefixes = [ prefix' Dereference  "^"
            , prefix' Negate "-"
            ]
 
-
 termWithPrefixAndPostfix :: Parser Expression -> Parser InterfaceExpression -> Parser TypeName -> Parser ValueExpression
 termWithPrefixAndPostfix a b c = do
   s <- termWithPrefixAndPostfix' a b c
@@ -59,6 +64,19 @@ termWithPrefixAndPostfix' a b c = do
   s <- choice [ terms a b c ]
   return $ foldr (\f n -> f n) s pr
 
+stringLiteral :: Parser ValueExpression
+stringLiteral = do
+  strings <- some ((S . pack <$> (char '\'' >> manyTill anyChar (symbol "'")))
+    <|> (symbol "#" *> (ToChar <$> I <$> integer)))
+  return $ foldr f (S"") strings
+  where
+    f (S a) (S b) = S (a <> b)
+    f (S a) (ToChar (I b)) = S (a <> c b)
+    f (ToChar (I a)) (S b)= S (c a <> b)
+    f (ToChar (I a)) (ToChar (I b))= S (c a <> c b)
+
+    c a = pack ( [chr ( fromIntegral a ) ])
+
 terms :: Parser Expression -> Parser InterfaceExpression -> Parser TypeName -> Parser ValueExpression
 terms a b c =
   choice
@@ -73,8 +91,9 @@ terms a b c =
     , Inherited <$> (rword "inherited" >> optional identifier')
     , Result <$ rword "result"
     , Nil <$ rword "nil"
-    , S . pack . concat <$> some ( char '\'' >> manyTill anyChar (symbol "'") )
+    , stringLiteral
     , try $ P <$> parens "(" ")" (expression a b c `sepBy1` symbol ",")
+    , try $ L <$> parens "[" "]" (expression a b c `sepBy` symbol ",")
     , try recordExpression
     , parens "(" ")" (expression a b c)
     , A <$> arrayIndex c (expression a b c)
@@ -175,20 +194,22 @@ lambdaArgs a b c = typeArguments c (expression a b c)
 lambdaFunction :: Parser Expression -> Parser InterfaceExpression -> Parser TypeName -> Parser ValueExpression
 lambdaFunction beginEnd interfaceItems typeName = do
   rword "function"
-  args <- lambdaArgs beginEnd interfaceItems typeName
+  args <- optional $ parens "(" ")" $ lambdaArgs beginEnd interfaceItems typeName
+  let args' = fromMaybe [] args
   typ <- symbol ":" *> typeName
   nested <- many $ choice
     [ AdditionalInterface <$> try interfaceItems
     ]
   statements <- beginEnd
-  return $ LambdaFunction args typ nested statements
+  return $ LambdaFunction args' typ nested statements
 
 lambdaProcedure :: Parser Expression -> Parser InterfaceExpression -> Parser TypeName -> Parser ValueExpression
 lambdaProcedure beginEnd interfaceItems typeName = do
   rword "procedure"
-  args <- lambdaArgs beginEnd interfaceItems typeName
+  args <- optional $ parens "(" ")" $ lambdaArgs beginEnd interfaceItems typeName
+  let args' = fromMaybe [] args
   nested <- many $ choice
     [ AdditionalInterface <$> try interfaceItems
     ]
   statements <- beginEnd
-  return $ LambdaProcedure args nested statements
+  return $ LambdaProcedure args' nested statements

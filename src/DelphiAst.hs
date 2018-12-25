@@ -132,6 +132,7 @@ data ValueExpression
   | Inherited (Maybe Text)
   | Dereference ValueExpression -- '^foo'
   | AddressOf ValueExpression -- '@foo'
+  | ToChar ValueExpression -- #42
   | ValueExpression :& ValueExpression -- foo and bar
   | ValueExpression :| ValueExpression -- foo or bar
   | ValueExpression :== ValueExpression -- foo = bar

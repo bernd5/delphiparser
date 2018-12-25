@@ -59,7 +59,7 @@ integer :: Parser Integer
 integer = lexeme L.decimal
 
 hexinteger :: Parser Integer
-hexinteger = (char '#' <|> char '$') *> lexeme L.hexadecimal
+hexinteger = (char '$') *> lexeme L.hexadecimal
 
 float :: Parser Rational
 float = try $ do

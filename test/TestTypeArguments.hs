@@ -32,7 +32,7 @@ typeArgumentTests =
       (Right (Just [Arg NormalArg "aFoo" (Just $ Type "TFoo") (Just (I 32))]) @=?) $
       parse typeArguments' "" "(aFoo: TFoo = 32)"
     , testCase "One argument with default array" $
-      (Right (Just [Arg NormalArg "aFoo" (Just $ Type "TFoo") (Just $ A $ IndexOf [I 32, I 33])]) @=?) $
+      (Right (Just [Arg NormalArg "aFoo" (Just $ Type "TFoo") (Just $ L [I 32, I 33])]) @=?) $
       parse typeArguments' "" "(aFoo: TFoo = [32, 33])"
     , testCase "One const 'array of const' argument" $
       (Right (Just [Arg ConstArg "Default" (Just $ DynamicArray 1 ConstType) Nothing]) @=?) $

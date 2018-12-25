@@ -31,6 +31,8 @@ module DelphiParser
   , dFunctionOrProcedureArgs'
   , singleVarExpression
   , dUnitImplementationP
+  , interfaceItems
+  , dBeginEndExpression
   , typeName
   , dValueExpression
   ) where
@@ -589,7 +591,13 @@ dProcedureP :: Parser Field
 dProcedureP = dProcedureP' "procedure" (\a b _ d -> Procedure a b d)
 
 classVar :: Parser Field
-classVar = dProcedureP' "var" (\a _ c _ -> ClassVar a c)
+classVar = do
+  rword "class"
+  rword "var"
+  name <- Type <$> identifier'
+  typ <- symbol ":" >> typeName
+  semi
+  return $ ClassVar name typ
 
 dSimpleFieldP :: Parser Field
 dSimpleFieldP = do

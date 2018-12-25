@@ -166,6 +166,13 @@ unitTests p = testGroup
       ) @=?
     )
   $ parse dFieldDefinitionP "" "class function foo(bar: TBar): TBar;"
+  , testCase "Ensure a class var declaration parses"
+  $ (Right
+      (ClassVar (Type "foo")
+                (Type "TBar")
+      ) @=?
+    )
+  $ parse dFieldDefinitionP "" "class var foo: TBar;"
   , testCase "Ensure a class function declaration parses - using dFunctionP"
   $ (Right
       (Function (Type "foo")
