@@ -19,13 +19,21 @@ for :: Parser ValueExpression -> Parser Expression -> Parser Expression
 for expression statement = do
   rword "for"
   var <- identifier'
-  symbol ":="
-  from <- expression
-  dir <-(LoopUpTo <$ rword "to") <|> (LoopDownTo <$ rword "downto")
-  to <- expression
-  rword "do"
-  b <- statement
-  return $ For (V var := from) dir to b
+  choice [ (do
+              symbol ":="
+              from <- expression
+              dir <- (LoopUpTo <$ rword "to") <|> (LoopDownTo <$ rword "downto")
+              to <- expression
+              rword "do"
+              b <- statement
+              return ( For (V var := from) dir to b )
+    ) , (do
+        rword "in"
+        from <- expression
+        rword "do"
+        b <- statement
+        return ( ForIn (V var) from b )
+    ) ]
 
 while :: Parser ValueExpression -> Parser Expression -> Parser Expression
 while expression statement = do

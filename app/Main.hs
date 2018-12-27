@@ -41,6 +41,8 @@ main = do
       Left a -> case a of
         TrivialError o (Just e) s -> do
           putStrLn . pack $ "O: " <> show o
+          putStrLn . pack $ "E: " <> show e
+          putStrLn . pack $ "S: " <> show s
           return False
         otherwise -> do
           putStrLn . pack $ "A: " <> show a

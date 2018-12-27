@@ -29,6 +29,7 @@ module DelphiParser
   , dFunctionImplementationP
   , dProcedureImplementationP
   , dFunctionOrProcedureArgs'
+  , dConstructorImplementationP
   , singleVarExpression
   , dUnitImplementationP
   , interfaceItems
@@ -49,7 +50,7 @@ import DelphiTry (delphiTry)
 import DelphiCase (delphiCase)
 import DelphiTypeArguments (typeArguments)
 import DelphiTypeDefinition (typeAttribute)
-import DelphiExpressions (expression, functionCall)
+import DelphiExpressions (expression, functionCall, stringLiteral)
 import Text.Megaparsec
 import Data.Functor (($>))
 import Text.Megaparsec.Char (char)
@@ -77,7 +78,7 @@ typeAttribute' = typeAttribute expression' typeDefinition
 
 
 delphiTry' :: Parser Expression
-delphiTry' = delphiTry expression' statement
+delphiTry' = delphiTry typeName expression' statement
 
 delphiCase' :: Parser Expression
 delphiCase' = delphiCase statement expression'
@@ -199,7 +200,7 @@ typeDefinition = do
       [ try $ dReferenceToProcedureP ident 
       , try $ dReferenceToFunctionP ident 
       , try $ dGenericRecordP lhs' 
-      , try $ interfaceType lhs' 
+      , try $ interfaceType lhs' stringLiteral
       , try $ setDefinition lhs' 
       , try $ enumDefinition lhs'  -- Contains parens
       , try $ do
@@ -317,9 +318,10 @@ dArgsPassedP = do
   return $ map Type names
 
 
-interfaceType :: TypeName -> Parser TypeDefinition
-interfaceType a = do
+interfaceType :: TypeName -> Parser ValueExpression -> Parser TypeDefinition
+interfaceType a guid = do
   rword "interface"
+  optional $ parens "[" "]" guid
   supers <- optional dArgsPassedP
   let supers' = fromMaybe [] supers
   r <- optional $ dRecordDefinitionListP <* rword "end"
@@ -338,7 +340,7 @@ classType a = do
 
 dRecordDefinitionListP :: Parser [Accessibility]
 dRecordDefinitionListP = do
-  a <- many dFieldDefinitionP
+  a <- concat <$> many dFieldDefinitionP
   b <- many dRecordDefinitionP
   return $ if null a
            then b
@@ -356,18 +358,25 @@ dRecordDefinitionP' ::
      String -> ([Field] -> Accessibility) -> Parser Accessibility
 dRecordDefinitionP' a b = do
   rword a
-  fields <- many dFieldDefinitionP
+  fields <- concat <$> many dFieldDefinitionP
   return $ b fields
 
-dFieldDefinitionP :: Parser Field
+dFieldDefinitionP :: Parser [Field]
 dFieldDefinitionP = choice
   [ try dSimpleFieldP
-  , try dConstructorFieldP
-  , try dDestructorFieldP
-  , try dProcedureP
-  , try classVar
-  , try dFunctionP
-  , try property'
+  , try $ pure <$> dConstructorFieldP
+  , try $ pure <$> dDestructorFieldP
+  , try $ pure <$> dProcedureP
+  , try $ pure <$> dFunctionP
+  , try $ pure <$> property'
+  , try $ rword "class" *> choice [classVar
+                                  , try dSimpleFieldP
+                                  , try $ pure <$> dConstructorFieldP
+                                  , try $ pure <$> dDestructorFieldP
+                                  , try $ pure <$> dProcedureP
+                                  , try $ pure <$> staticFunction
+                                  , try $ pure <$> property'
+                                  ]
   ]
 
 dFunctionOrProcedureArgs' :: Parser [Argument]
@@ -378,12 +387,11 @@ dGenericArgs :: Parser [Argument]
 dGenericArgs = fromMaybe [] <$> typeArguments'' '<' '>'
 
 dGenericTypes :: Parser [TypeName]
-dGenericTypes = many $ do
+dGenericTypes = do
   symbol "<"
-  -- TODO: This should be 'typeName', rather than identifier
-  name <- strip . pack <$> identifier
+  name <- typeName `sepBy1` symbol ","
   symbol ">"
-  return $ Type name
+  return $ name
 
 array':: Parser TypeName
 array' = array typeName expression'
@@ -400,8 +408,8 @@ simplifyTypeName m a b = r a $ t b $ m
     t (Just (x:xs)) = flip GenericInstance (x:xs)
     t Nothing = Type
 
-typeName :: Parser TypeName
-typeName = choice [ try array'
+singleTypeName :: Parser TypeName
+singleTypeName = choice [ try array'
   , do
     -- TODO: Distinguish between the different sorts of identifiers, especially class.
     pointer <- optional $ (symbol' "^" <|> symbol' "@")
@@ -410,17 +418,41 @@ typeName = choice [ try array'
     return $ simplifyTypeName name pointer args
   ]
 
+typeName :: Parser TypeName
+typeName = choice [ try array'
+  , do
+    -- TODO: Distinguish between the different sorts of identifiers, especially class.
+    pointer <- optional $ (symbol' "^" <|> symbol' "@")
+    name <- (identifierPlus ["string", "boolean", "cardinal", "class"]) `sepBy1` symbol "."
+    let name' = intercalate "." name
+    args <- optional dGenericTypes
+    return $ simplifyTypeName name' pointer args
+  ]
+
+staticFunction :: Parser Field
+staticFunction = a <$> dFunctionP
+  where
+    a (Function name args typ annotations) =
+      Function name args typ (annotations <> [Static])
+    a b = b
+
 dFunctionP :: Parser Field
 dFunctionP = do
-  c <- optional $ rword "class"
-  let c' = Static <$ c
   rword "function"
-  name <- pack <$> identifier
-  desc c' name <|> do
+  name <- identifier' `sepBy1` symbol "."
+  let name' = intercalate "." name
+  eq <- optional $ ((symbol "=") *> identifier')
+  if isJust eq then do
+    -- Is a redirect
     semi
-    return $ InheritedFunction name
+    return $ RedirectedFunction name' (fromJust eq)
+  else do
+    -- Regular function
+    desc name' <|> do
+      semi
+      return $ InheritedFunction name'
   where
-    desc c' name = do
+    desc name = do
       generics <- try dGenericArgs
       let name' =
             if null generics
@@ -431,7 +463,7 @@ dFunctionP = do
       typ <- typeName
       semi
       annotations <- many annotation
-      return $ Function name' args typ $ (catMaybes [c']) ++ annotations
+      return $ Function name' args typ annotations
 
 statement :: Parser Expression
 statement = choice
@@ -445,6 +477,7 @@ statement = choice
   , try delphiTry'
   , try delphiCase'
   , try $ const EmptyExpression <$> semi
+  , Continue <$ rword "continue"
   ]
 
 dValueExpression :: Parser Expression
@@ -533,11 +566,10 @@ dMemberImplementationP ::
   -> (TypeName -> TypeName -> [Argument] -> TypeName -> [FieldAnnotation] -> [ImplementationSpec] -> Expression -> ImplementationSpec)
   -> Parser ImplementationSpec
 dMemberImplementationP a b = do
-  s <- optional $ (Static <$ rword "class")
   rword a
-  name <- typeName
+  name <- singleTypeName
   _ <- symbol "."
-  member <- typeName
+  member <- singleTypeName
   args <- dFunctionOrProcedureArgs'
   typ <- optional (symbol ":" *> typeName)
   _ <- semi
@@ -549,20 +581,19 @@ dMemberImplementationP a b = do
     ]
   statements <- dBeginEndExpression
   _ <- semi
-  return $ b name member args (fromMaybe UnspecifiedType typ) ((catMaybes [s]) <> annotations) nested statements
+  return $ b name member args (fromMaybe UnspecifiedType typ) annotations nested statements
 
 dProcedureP' ::
      String
   -> (TypeName -> [Argument] -> TypeName -> [FieldAnnotation] -> Field)
   -> Parser Field
 dProcedureP' a b = do
-  s <- optional $ (Static <$ rword "class")
   rword a
   name <- typeName
   args <- dFunctionOrProcedureArgs'
   _ <- semi
   annotations <- many (try annotation)
-  return $ b name args UnspecifiedType ((catMaybes [s])<>annotations)
+  return $ b name args UnspecifiedType annotations
 
 annotation :: Parser FieldAnnotation
 annotation = choice
@@ -590,22 +621,21 @@ dDestructorFieldP = dProcedureP' "destructor" (\a _ _ d -> Destructor a d)
 dProcedureP :: Parser Field
 dProcedureP = dProcedureP' "procedure" (\a b _ d -> Procedure a b d)
 
-classVar :: Parser Field
+classVar :: Parser [Field]
 classVar = do
-  rword "class"
   rword "var"
-  name <- Type <$> identifier'
+  name <- (Type <$> identifier') `sepBy1` symbol ","
   typ <- symbol ":" >> typeName
   semi
-  return $ ClassVar name typ
+  return $ map (\x -> ClassVar x typ) name
 
-dSimpleFieldP :: Parser Field
+dSimpleFieldP :: Parser [Field]
 dSimpleFieldP = do
-  name <- identifier
+  name <- identifier' `sepBy1` symbol ","
   _ <- symbol ":"
   typ <- typeName
   _ <- semi
-  return $ Field (pack name) typ
+  return $ map (\x -> Field x typ) name
 
 dUnitImplementationP :: Parser Implementation
 dUnitImplementationP = do
@@ -615,10 +645,16 @@ dUnitImplementationP = do
     many $ choice 
       [ try functionImpl
       , try procedureImpl
-      , dFunctionImplementationP
-      , dProcedureImplementationP
-      , dConstructorImplementationP
-      , dDestructorImplementationP
+      , try dFunctionImplementationP
+      , try dProcedureImplementationP
+      , try dConstructorImplementationP
+      , try dDestructorImplementationP
+      , rword "class" *> choice [
+          dFunctionImplementationP
+        , dProcedureImplementationP
+        , dConstructorImplementationP
+        , dDestructorImplementationP
+        ]
       , AdditionalInterface <$> interfaceItems
       ]
   return $ Implementation (Uses (fromMaybe [] u)) functions

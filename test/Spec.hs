@@ -159,29 +159,41 @@ unitTests p = testGroup
       "{--\n This file starts with comments\n--}\n// And another comment\n\n\nunit TestUnit; interface type implementation initialization finalization end."
   , testCase "Ensure a class function declaration parses"
   $ (Right
-      (Function (Type "foo")
+      [Function (Type "foo")
                 [Arg NormalArg "bar" (Just $ Type "TBar") Nothing]
                 (Type "TBar")
                 [Static]
-      ) @=?
+      ] @=?
     )
   $ parse dFieldDefinitionP "" "class function foo(bar: TBar): TBar;"
   , testCase "Ensure a class var declaration parses"
   $ (Right
-      (ClassVar (Type "foo")
+      [ClassVar (Type "foo")
                 (Type "TBar")
-      ) @=?
+      ] @=?
     )
   $ parse dFieldDefinitionP "" "class var foo: TBar;"
-  , testCase "Ensure a class function declaration parses - using dFunctionP"
+  , testCase "Ensure a class var declaration that has a generic type parses"
   $ (Right
-      (Function (Type "foo")
+      [ClassVar (Type "foo")
+                (GenericInstance "TBar" [Type "TFoo",Type "TBaz"])
+      ] @=?
+    )
+  $ parse dFieldDefinitionP "" "class var foo: TBar<TFoo, TBaz>;"
+  , testCase "Ensure a class function redirection parses - using dFieldDefinitionP" 
+  $ (Right
+      [RedirectedFunction "foo.bar" "baz"] @=?
+    )
+  $ parse dFieldDefinitionP "" "class function foo.bar= baz;"
+  , testCase "Ensure a class function declaration parses - using dFieldDefinitionP" 
+  $ (Right
+      [Function (Type "foo")
                 [Arg NormalArg "bar" (Just $ Type "TBar") Nothing]
                 (Type "TBar")
                 [Static]
-      ) @=?
+      ] @=?
     )
-  $ parse dFunctionP "" "class function foo(bar: TBar): TBar;"
+  $ parse dFieldDefinitionP "" "class function foo(bar: TBar): TBar;"
   , testCase "Ensure a simple function call parses using statement"
   $ (Right (ExpressionValue (V "SetLength" :$ [V "FList", V "FList"])) @=?)
   $ parse statement "" "SetLength(FList, FList);"
@@ -368,4 +380,9 @@ unitTests p = testGroup
   $ parse dProcedureImplementationP ""
   $ unpack
   $ intercalate "\n" ["procedure TShared<T>.Cast<TT>;", "begin", "end;"]
+  , testCase "Ensure a static constructor implementation parses"
+  $ (Right (Implementation (Uses []) [MemberConstructorImpl (Type "TShared") (Type "Create") [] [] [] (Begin [])]) @=? )
+  $ parse dUnitImplementationP ""
+  $ unpack
+  $ intercalate "\n" ["implementation class constructor TShared.Create;", "begin", "end;"]
   ]

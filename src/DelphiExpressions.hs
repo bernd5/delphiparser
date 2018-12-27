@@ -4,6 +4,7 @@ module DelphiExpressions ( expression
   , lambdaFunction
   , lambdaProcedure
   , lambdaArgs
+  , stringLiteral
   , functionCall) where
 
 import Data.Text (Text, pack)

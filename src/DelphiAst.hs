@@ -96,7 +96,11 @@ data Expression -- TODO: Should be 'Statement'
         LoopDirection
         ValueExpression
         Expression
+  | ForIn ValueExpression
+        ValueExpression
+        Expression
   | Break
+  | Continue
   | With [ValueExpression] Expression -- "with" can have multiple names in fpc
   | While ValueExpression
           Expression
@@ -257,6 +261,7 @@ data Field
              Bool
   | InheritedProperty Text -- Ie, just "property foo;"
   | InheritedFunction Text -- Ie, just "property foo;"
+  | RedirectedFunction Text Text -- ie, "function IFoo.bar= newBar"
   | IndexProperty Name
                   (Maybe Argument)
                   TypeName

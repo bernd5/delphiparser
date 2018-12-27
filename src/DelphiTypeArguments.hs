@@ -11,13 +11,13 @@ import Data.Text (Text)
 
 typeArgNames :: Parser [(ArgModifier, Text)]
 typeArgNames = try $ (do
-    c <- optional $ rword "const"
-    v <- optional $ rword "var"
-    o <- optional $ rword "out"
-    let m = tmod c v o
+      c <- optional $ rword "const"
+      v <- optional $ rword "var"
+      o <- optional $ rword "out"
+      let m = tmod c v o
 
-    i <- identifierPlus ["default", "exclude"]
-    return (m, i)
+      i <- identifierPlus ["default", "exclude"]
+      return (m, i)
     ) `sepBy` symbol ","
   where
     tmod (Just _) _ _ = ConstArg

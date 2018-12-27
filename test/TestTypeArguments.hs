@@ -62,7 +62,7 @@ typeArgumentTests =
          (Just
             [ Arg NormalArg "foo" (Just $ Type "TFoo") Nothing
             , Arg NormalArg "bar" (Just $ Type "TFoo") Nothing
-            , Arg ConstArg "baz" (Just $ Type "TBaz") Nothing
+            , Arg ConstArg "baz" (Just $ Type "TBaz.TBang") Nothing
             ]) @=?) $
-      parse typeArguments' "" "(foo, bar: TFoo; const baz: TBaz)"
+      parse typeArguments' "" "(foo, bar: TFoo; const baz: TBaz.TBang)"
     ]
