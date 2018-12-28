@@ -81,7 +81,7 @@ delphiTry' :: Parser Expression
 delphiTry' = delphiTry typeName expression' statement
 
 delphiCase' :: Parser Expression
-delphiCase' = delphiCase statement expression'
+delphiCase' = delphiCase typeName statement expression'
 
 dArgumentP :: Parser [Argument]
 dArgumentP = typeArguments typeName expression'
@@ -189,7 +189,7 @@ forwardClass = do
 
 typeDefinition :: Parser TypeDefinition
 typeDefinition = do
-    ident <- pack <$> identifier
+    ident <- identifier'
     args <- try dGenericArgs
     let lhs' =
           if null args
@@ -214,7 +214,7 @@ typeDefinition = do
       , try $ newType lhs'
       , try forwardClass
       ]
-    semi
+    optional semi
     return ie
 
 newType :: TypeName -> Parser TypeDefinition
@@ -295,7 +295,7 @@ dReferenceToFunctionP ident = do
 
 dGenericRecordP :: TypeName -> Parser TypeDefinition
 dGenericRecordP a = do
-  _ <- optional $ rword "packed"
+  p <- optional $ rword "packed"
   rword "record"
   r <- optional $ dRecordDefinitionListP <* rword "end"
   let r' = fromMaybe [] r
@@ -363,12 +363,13 @@ dRecordDefinitionP' a b = do
 
 dFieldDefinitionP :: Parser [Field]
 dFieldDefinitionP = choice
-  [ try dSimpleFieldP
+  [ try $ pure <$> recordCase
   , try $ pure <$> dConstructorFieldP
   , try $ pure <$> dDestructorFieldP
   , try $ pure <$> dProcedureP
   , try $ pure <$> dFunctionP
   , try $ pure <$> property'
+  , try dSimpleFieldP
   , try $ rword "class" *> choice [classVar
                                   , try dSimpleFieldP
                                   , try $ pure <$> dConstructorFieldP
@@ -378,6 +379,29 @@ dFieldDefinitionP = choice
                                   , try $ pure <$> property'
                                   ]
   ]
+
+recordCase :: Parser Field
+recordCase = do
+  rword "case"
+  c <- expression'
+  t <- optional (symbol ":" *> typeName)
+  rword "of"
+  items <- many (do
+    notFollowedBy $ rword "end"
+    ordinal <- identifier' `sepBy1` symbol ","
+    let ordinal' = map V ordinal
+    symbol ":"
+    s <- parens "(" ")" (simpleField `sepBy` semi)
+    optional semi
+    return $ (ordinal', concat s))
+  e <- optional $ do
+    rword "else"
+    s <- parens "(" ")" (simpleField `sepBy` semi)
+    _ <- optional semi
+    return $ concat s
+
+  return $ CaseField c items e
+  
 
 dFunctionOrProcedureArgs' :: Parser [Argument]
 dFunctionOrProcedureArgs' =
@@ -631,10 +655,15 @@ classVar = do
 
 dSimpleFieldP :: Parser [Field]
 dSimpleFieldP = do
+  sf <- simpleField
+  _ <- semi
+  return $ sf
+
+simpleField :: Parser [Field]
+simpleField = do
   name <- identifier' `sepBy1` symbol ","
   _ <- symbol ":"
   typ <- typeName
-  _ <- semi
   return $ map (\x -> Field x typ) name
 
 dUnitImplementationP :: Parser Implementation

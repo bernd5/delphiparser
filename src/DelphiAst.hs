@@ -260,7 +260,7 @@ data Field
              [PropertySpecifier]
              Bool
   | InheritedProperty Text -- Ie, just "property foo;"
-  | InheritedFunction Text -- Ie, just "property foo;"
+  | InheritedFunction Text -- Ie, just "function foo;"
   | RedirectedFunction Text Text -- ie, "function IFoo.bar= newBar"
   | IndexProperty Name
                   (Maybe Argument)
@@ -270,6 +270,9 @@ data Field
                   (Maybe Name)
                   (Maybe ValueExpression)
                   [FieldAnnotation]
+  | CaseField ValueExpression
+         [([ValueExpression], [Field])]
+         (Maybe [Field])
   deriving (Eq, Show)
 
 data FieldAnnotation

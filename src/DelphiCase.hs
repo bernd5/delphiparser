@@ -7,10 +7,14 @@ import Text.Megaparsec
 import DelphiLexer
 import DelphiAst
 
-delphiCase :: Parser Expression -> Parser ValueExpression -> Parser Expression
-delphiCase statement expression = do
+delphiCase :: Parser TypeName
+           -> Parser Expression
+           -> Parser ValueExpression
+           -> Parser Expression
+delphiCase typeName statement expression = do
   rword "case"
   c <- expression
+  t <- optional (symbol ":" *> typeName)
   rword "of"
   items <- many $ do
     ordinal <- expression `sepBy` symbol ","

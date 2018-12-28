@@ -83,6 +83,8 @@ instance ShowDelphi ValueExpression where
   showDelphi (DTrue) = "True"
   showDelphi (DFalse) = "False"
   showDelphi (Result) = "Result"
+  showDelphi (ToChar a) = "#" <> showDelphi a
+  showDelphi (Negate a) = "-" <> showDelphi a
   showDelphi (Not a) = "(not " <> showDelphi a <> ")"
   showDelphi (AddressOf a) = "@" <> showDelphi a
   showDelphi (Dereference a) = showDelphi a <> "^"
@@ -257,6 +259,10 @@ instance ShowDelphi TypeDefinition where
                                   <> ")"
   showDelphi (SetDefinition a b) = showDelphi a <> " = set of " <> showDelphi b
   showDelphi (TypeAttribute a b) = "[" <> intercalate ", " (map showDelphi a) <> "]\n  " <> showDelphi b
+  showDelphi (InterfaceType a b c) = "interface"
+                                   <> showDelphi a <> "\n"
+                                   <> intercalate ";\n" (map showDelphi b)
+                                   <> intercalate " " (map showDelphi c)
 
 instance ShowDelphi ArrayIndex where
   showDelphi (IndexOf a) = intercalate ", " (map showDelphi a)
@@ -309,6 +315,8 @@ instance ShowDelphi TypeDefinitionRHS where
                                  <> " of object"
   showDelphi (NewType a) = "type " <> showDelphi a
   showDelphi (ClassOf a) = "class of " <> showDelphi a
+  showDelphi (ClassHelper a b) = "class helper for " <> showDelphi a <> " "
+                               <> intercalate " " (map showDelphi b) <> "\nend;"
 
 instance ShowDelphi Accessibility where
   showDelphi (Private a) = "\n  private\n    " <> intercalate "\n    " (map showDelphi a)
@@ -333,10 +341,13 @@ _toDelphiAnnotations _ = ""
 instance ShowDelphi Field where
   showDelphi (Constructor a b c) = "constructor " <> showDelphi a <> _toDelphiArgString b <> ";" <> _toDelphiAnnotations c
   showDelphi (Field a b) = a <> ": " <> showDelphi b <> ";"
+  showDelphi (ClassVar a b) = "var" <> showDelphi a <> ": " <> showDelphi b <> ";"
   showDelphi (Destructor a b) = "destructor " <> showDelphi a <> ";" <> _toDelphiAnnotations b
   showDelphi (Procedure a b c) = "procedure " <> showDelphi a <> _toDelphiArgString b <> ";"
                                <> _toDelphiAnnotations c
   showDelphi (InheritedProperty a) = "property " <> a <> ";"
+  showDelphi (InheritedFunction a) = "function " <> a <> ";"
+  showDelphi (RedirectedFunction a b) = "function " <> a <> "= " <> b <> ";"
   showDelphi (Function a b c d) =
     let static      = if Static `elem` d then "class " else ""
         annotations = _toDelphiAnnotations $ filter (\x -> x /= Static) d
@@ -412,4 +423,6 @@ instance ShowDelphi ArgModifier where
 instance ShowDelphi Argument where
   showDelphi (Arg m a (Just b) (Just c)) = showDelphi m <> a <> ": " <> (showDelphi b) <> " = " <> showDelphi c
   showDelphi (Arg m a (Just b) Nothing) = showDelphi m <> a <> ": " <> (showDelphi b)
+  showDelphi (Arg m a (Nothing) (Just c)) = showDelphi m <> a <> " = " <> showDelphi c <> ";"
+  showDelphi (Arg m a (Nothing) (Nothing)) = showDelphi m <> a <> ";"
 
