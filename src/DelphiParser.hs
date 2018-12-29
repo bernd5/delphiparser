@@ -111,11 +111,7 @@ program = do
   return $ Program s (expressions <> catMaybes [lastExpression])
 
 dUnitNameP :: Parser Text
-dUnitNameP = do
-  rword "unit"
-  name <- strip . pack <$> identifier
-  _ <- semi
-  return name
+dUnitNameP = rword "unit" *> dottedIdentifier <* semi
 
 uses :: Parser [[Text]]
 uses = do
@@ -321,8 +317,8 @@ dArgsPassedP = do
 interfaceType :: TypeName -> Parser ValueExpression -> Parser TypeDefinition
 interfaceType a guid = do
   rword "interface"
-  optional $ parens "[" "]" guid
   supers <- optional dArgsPassedP
+  optional $ parens "[" "]" guid
   let supers' = fromMaybe [] supers
   r <- optional $ dRecordDefinitionListP <* rword "end"
   let r' = fromMaybe [] r
@@ -370,6 +366,7 @@ dFieldDefinitionP = choice
   , try $ pure <$> dFunctionP
   , try $ pure <$> property'
   , try dSimpleFieldP
+  , try $ pure [] <* typeExpressions
   , try $ rword "class" *> choice [classVar
                                   , try dSimpleFieldP
                                   , try $ pure <$> dConstructorFieldP
@@ -391,7 +388,7 @@ recordCase = do
     ordinal <- identifier' `sepBy1` symbol ","
     let ordinal' = map V ordinal
     symbol ":"
-    s <- parens "(" ")" (simpleField `sepBy` semi)
+    s <- parens "(" ")" (many (simpleField <* optional semi))
     optional semi
     return $ (ordinal', concat s))
   e <- optional $ do
@@ -661,9 +658,13 @@ dSimpleFieldP = do
 
 simpleField :: Parser [Field]
 simpleField = do
+  optional $ rword "const"
   name <- identifier' `sepBy1` symbol ","
   _ <- symbol ":"
   typ <- typeName
+  e <- optional $ symbol "="
+  v <- if isJust e then optional $ expression'
+                   else pure $ Nothing
   return $ map (\x -> Field x typ) name
 
 dUnitImplementationP :: Parser Implementation

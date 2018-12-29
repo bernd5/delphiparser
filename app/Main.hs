@@ -9,9 +9,11 @@ import DelphiAst
 import System.Environment (getArgs)
 import System.Directory (getDirectoryContents, doesFileExist)
 import Text.Megaparsec (runParser, ParseError(..))
-import Data.Text.IO (putStrLn, hGetContents)
-import System.IO (hSetEncoding, localeEncoding, openBinaryFile, IOMode(ReadMode))
+import Data.Text.IO (putStrLn)
+import Data.ByteString (hGetContents)
+import System.IO (hSetEncoding, latin1, localeEncoding, openBinaryFile, IOMode(ReadMode))
 import Data.Text (unpack, pack, intercalate)
+import Data.Text.Encoding (decodeUtf8', decodeLatin1)
 import Control.Monad (filterM)
 import Control.Exception (handle, SomeException)
 import System.FilePath ((</>), isExtensionOf)
@@ -36,8 +38,10 @@ main = do
   r <- flip mapM pasfiles $ \x -> handle onError $ do
     putStrLn . pack $ "Parsing file: " <> x
     h <- openBinaryFile x ReadMode
-    hSetEncoding h localeEncoding
-    sp <- hGetContents h
+    bs <- hGetContents h
+    let sp = case decodeUtf8' bs of
+              Left _ -> decodeLatin1 bs
+              Right t -> t
     let p = runParser (dUnitP <|> program) x (unpack sp)
     case p of
       Left a -> case a of

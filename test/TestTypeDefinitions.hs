@@ -67,5 +67,17 @@ typeDefinitionTests = testGroup
           , "abbr: Char)"
           , "end"
           ]
+      , testCase "Ensure another record with a case parses"
+      $ (Right (Record (Type "TFoo") [DefaultAccessibility [Field "name" (Type "string"),Field "desc" (Type "string"),CaseField (V "kind") [([V "kpFloat"],[]),([V "kpStr",V "kpPath"],[]),([V "kpInteger"],[Field "intvalue" (Type "longint")]),([V "kpDouble"],[Field "floatvalue" (Type "extended"),Field "abbr" (Type "Char")])] Nothing]]) @=? )
+      $ parse typeDefinition ""
+      $ unpack $ intercalate
+          "\n"
+          [ "TFoo=record"
+          , "name,desc:string;"
+          , "case Boolean of"
+          , "True: (Char: String;);"
+          , "False: ();"
+          , "end;"
+          ]
       ]
   ]
