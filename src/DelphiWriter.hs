@@ -13,15 +13,15 @@ class ShowDelphi a where
   showDelphi :: a -> Text
 
 instance ShowDelphi Unit where
-  showDelphi (Unit a b c d e) =
-    "unit " <> a <> ";\n{$mode delphi}\n\n" <>
+  showDelphi (Unit f a b c d e) =
+    showDelphi f <> "\nunit " <> showDelphi a <> ";\n{$mode delphi}\n\n" <>
     (showDelphi b) <>
     (showDelphi c) <>
     (showDelphi d) <>
     (showDelphi e) <>
     "end.\n"
   showDelphi (Program a b) =
-    "program " <> a <> ";\nbegin\n" <> intercalate ";\n" (map showDelphi b) <> "\nend."
+    "program " <> showDelphi a <> ";\nbegin\n" <> intercalate ";\n" (map showDelphi b) <> "\nend."
 
 instance ShowDelphi Interface where
   showDelphi (Interface (Uses []) b)
@@ -36,7 +36,7 @@ instance ShowDelphi Uses where
   showDelphi (Uses []) = ""
   showDelphi (Uses a) =
     let
-      a' = map (intercalate ".") a
+      a' = map (\x -> intercalate "." (map showDelphi x)) a
     in
       "uses\n    " <> intercalate ",\n    " a' <> ";\n"
 
@@ -51,13 +51,16 @@ instance ShowDelphi Initialization where
 instance ShowDelphi Finalization where
   showDelphi (Finalization) = "\n\n"
 
+instance ShowDelphi Integer where
+  showDelphi (i) = pack $ show i
+
 instance ShowDelphi ValueExpression where
-  showDelphi (V a) = a
+  showDelphi (V a) = showDelphi a
   showDelphi (L a) = "[" <> intercalate ", " (map showDelphi a) <> "]"
   showDelphi (P a) = "(" <> intercalate ", " (map showDelphi a) <> ")"
   showDelphi (F a) = pack $ show a
   showDelphi (T a) = showDelphi a
-  showDelphi (I a) = pack $ show a
+  showDelphi (I a) = showDelphi a
   showDelphi (S a) = pack $ show a
   showDelphi (RecordValue a) = "("
                             <> intercalate ";n\n  " (map showDelphi a)
@@ -77,7 +80,7 @@ instance ShowDelphi ValueExpression where
                             <> intercalate "\n" (map showDelphi b)
                             <> " begin\n  "
                             <> showDelphi c
-  showDelphi (Inherited (Just a)) = "inherited " <> a
+  showDelphi (Inherited (Just a)) = "inherited " <> showDelphi a
   showDelphi (Inherited Nothing) = "inherited"
   showDelphi (a :| b) = "(" <> showDelphi a <> " or " <> showDelphi b <> ")"
   showDelphi (DTrue) = "True"
@@ -230,17 +233,20 @@ instance ShowDelphi InterfaceExpression where
   showDelphi (Standalone a) = showDelphi a
 
 instance ShowDelphi ConstDefinition where
-  showDelphi (ConstDefinition a (Just b) c) = a <> " : " <> showDelphi b <> " = " <> showDelphi c
-  showDelphi (ConstDefinition a (Nothing) c) = a <> " = " <> showDelphi c
+  showDelphi (ConstDefinition a (Just b) c) = showDelphi  a <> " : " <> showDelphi b <> " = " <> showDelphi c
+  showDelphi (ConstDefinition a (Nothing) c) = showDelphi a <> " = " <> showDelphi c
 
 instance ShowDelphi VarDefinition where
-  showDelphi (VarDefinition a b (Just c)) = a <> ": " <> showDelphi b <> "=" <> showDelphi c
-  showDelphi (VarDefinition a b Nothing) = a <> ": " <> showDelphi b
+  showDelphi (VarDefinition a b (Just c)) =
+    showDelphi a <> ": " <> showDelphi b <> "=" <> showDelphi c
+  showDelphi (VarDefinition a b Nothing) =
+    showDelphi a <> ": " <> showDelphi b
 
 instance ShowDelphi TypeDefinition where
   showDelphi (TypeDef a b) = showDelphi a <> " = "
                            <> showDelphi b
-  showDelphi (ForwardClass) = "class"
+  showDelphi (ForwardClass a) = showDelphi a
+                              <> " = class"
   showDelphi (Record a b) = showDelphi a
                            <> " = record\n  "
                            <> intercalate "\n  " (
@@ -255,7 +261,7 @@ instance ShowDelphi TypeDefinition where
                            <> "\n  end"
   showDelphi (TypeAlias a b) = showDelphi a <> " = " <> showDelphi b
   showDelphi (EnumDefinition a b) = showDelphi a <> " = ("
-                                  <> intercalate ", " b
+                                  <> intercalate ", " (map showDelphi b)
                                   <> ")"
   showDelphi (SetDefinition a b) = showDelphi a <> " = set of " <> showDelphi b
   showDelphi (TypeAttribute a b) = "[" <> intercalate ", " (map showDelphi a) <> "]\n  " <> showDelphi b
@@ -268,7 +274,7 @@ instance ShowDelphi ArrayIndex where
   showDelphi (IndexOf a) = intercalate ", " (map showDelphi a)
 
 instance ShowDelphi TypeName where
-  showDelphi (Type a)  = a
+  showDelphi (Type a)  = showDelphi a
   showDelphi (ConstType) = "const"
   showDelphi (StaticArray a b) = "array[" <> showDelphi a <> "] of " <> showDelphi b
   showDelphi (DynamicArray a b) = (pack . concat $ take a' $ repeat "array of ") <> showDelphi b
@@ -276,15 +282,15 @@ instance ShowDelphi TypeName where
       a' = fromInteger a
   showDelphi (VariantArray a) = "array[" <> showDelphi a <> "] of const"
   showDelphi (OpenDynamicArray a) = "array of " <> showDelphi a
-  showDelphi (AddressOfType a) = "^" <> showDelphi a
-  showDelphi (TargetOfPointer a) = "@" <> showDelphi a
+  showDelphi (AddressOfType cmt a) = "^" <> showDelphi a <> showDelphi cmt
+  showDelphi (TargetOfPointer cmt a) = "@" <> showDelphi a <> showDelphi cmt
   showDelphi (Constraint a) = "Constraint "
                              <> intercalate "\n" ( map showDelphi a)
-  showDelphi (GenericDefinition a b) = a <> "<"
+  showDelphi (GenericDefinition a b) = showDelphi a <> "<"
                                       <> intercalate ", " (map showDelphi b)
                                       <> ">"
   showDelphi (GenericMethodOfType a b) = showDelphi a <> "<" <> showDelphi b <> ">"
-  showDelphi (GenericInstance a b) = a
+  showDelphi (GenericInstance a b) = showDelphi a
                                     <> "<"
                                     <> intercalate ", "(map showDelphi b) 
                                     <> ">"
@@ -340,14 +346,14 @@ _toDelphiAnnotations _ = ""
 
 instance ShowDelphi Field where
   showDelphi (Constructor a b c) = "constructor " <> showDelphi a <> _toDelphiArgString b <> ";" <> _toDelphiAnnotations c
-  showDelphi (Field a b) = a <> ": " <> showDelphi b <> ";"
+  showDelphi (Field a b) = showDelphi a <> ": " <> showDelphi b <> ";"
   showDelphi (ClassVar a b) = "var" <> showDelphi a <> ": " <> showDelphi b <> ";"
   showDelphi (Destructor a b) = "destructor " <> showDelphi a <> ";" <> _toDelphiAnnotations b
   showDelphi (Procedure a b c) = "procedure " <> showDelphi a <> _toDelphiArgString b <> ";"
                                <> _toDelphiAnnotations c
-  showDelphi (InheritedProperty a) = "property " <> a <> ";"
-  showDelphi (InheritedFunction a) = "function " <> a <> ";"
-  showDelphi (RedirectedFunction a b) = "function " <> a <> "= " <> b <> ";"
+  showDelphi (InheritedProperty a) = "property " <> showDelphi a <> ";"
+  showDelphi (InheritedFunction a) = "function " <> showDelphi a <> ";"
+  showDelphi (RedirectedFunction a b) = "function " <> showDelphi a <> "= " <> showDelphi b <> ";"
   showDelphi (Function a b c d) =
     let static      = if Static `elem` d then "class " else ""
         annotations = _toDelphiAnnotations $ filter (\x -> x /= Static) d
@@ -359,23 +365,35 @@ instance ShowDelphi Field where
         <> (showDelphi c)
         <> ";"
         <> annotations
-  showDelphi (IndexProperty a (Just b) c d e f g h) = "property " <> a
+  showDelphi (IndexProperty a (Just b) c d e f g h) = "property " <> showDelphi a
                                             <> "[" <> showDelphi b <> "]: "
                                             <> showDelphi c
-                                            <> fromMaybe "" ((\x -> " index " <> x) <$> d)
-                                            <> fromMaybe "" ((\x -> " read " <> x) <$> e)
-                                            <> fromMaybe "" ((\x -> " write " <> x) <$> f)
-                                            <> fromMaybe "" ((\x -> " default " <> showDelphi x) <$> g)
+                                            <> " index " <> showDelphi (tos d)
+                                            <> " read " <> showDelphi (tos e)
+                                            <> " write " <> showDelphi (tos f)
+                                            <> " default " <> tose g
                                             <> ";"
                                             <> _toDelphiAnnotations h
-  showDelphi (IndexProperty a (Nothing) c d e f g h) = "property " <> a
+                                            where
+                                              tos (Just x) = x
+                                              tos Nothing = Lexeme "" ""
+
+                                              tose (Just x) = showDelphi x
+                                              tose Nothing = ""
+  showDelphi (IndexProperty a (Nothing) c d e f g h) = "property " <> showDelphi a
                                             <> showDelphi c
-                                            <> fromMaybe "" ((\x -> " index " <> x) <$> d)
-                                            <> fromMaybe "" ((\x -> " read " <> x) <$> e)
-                                            <> fromMaybe "" ((\x -> " write " <> x) <$> f)
-                                            <> fromMaybe "" ((\x -> " default " <> showDelphi x) <$> g)
+                                            <> " index " <> showDelphi (tos d)
+                                            <> " read " <> showDelphi (tos e)
+                                            <> " write " <> showDelphi (tos f)
+                                            <> " default " <> tose g
                                             <> ";"
                                             <> _toDelphiAnnotations h
+                                            where
+                                              tos (Just x) = x
+                                              tos Nothing = Lexeme "" ""
+
+                                              tose (Just x) = showDelphi x
+                                              tose Nothing = ""
   showDelphi (Property a b c d e f) = let arg = fromMaybe
                                                   ""
                                                   $ (\x -> "[" <> intercalate "," (map showDelphi x) <> "]")
@@ -388,13 +406,13 @@ instance ShowDelphi Field where
                                           def (True) = "; default"
                                           def (False) = ""
                                       in
-                                        "property " <> a <> arg <> ": " <> showDelphi c <> index <> " " <> specs <> def f <> ";"
+                                        "property " <> showDelphi a <> arg <> ": " <> showDelphi c <> index <> " " <> specs <> def f <> ";"
 
 instance ShowDelphi PropertySpecifier where
-  showDelphi (PropertyRead a) = "read " <> intercalate "." a
-  showDelphi (PropertyWrite a) = "write " <> intercalate "." a
+  showDelphi (PropertyRead a) = "read " <> (intercalate "." $ map showDelphi a)
+  showDelphi (PropertyWrite a) = "write " <> (intercalate "." $ map showDelphi a)
   showDelphi (PropertyStored) = "stored"
-  showDelphi (PropertyDefault a) = "default " <> showDelphi a
+  showDelphi (PropertyDefault a) = "default " <> (showDelphi $ showDelphi a)
   showDelphi (PropertyNoDefault) = "nodefault"
 
 instance ShowDelphi FieldAnnotation where
@@ -407,7 +425,7 @@ instance ShowDelphi FieldAnnotation where
   showDelphi (Overload) = "overload"
   showDelphi (Reintroduce) = "reintroduce"
   showDelphi (Abstract) = "abstract"
-  showDelphi (Message a) = "message " <> a
+  showDelphi (Message a) = "message " <> showDelphi a
 
 instance ShowDelphi GenericConstraint where
   showDelphi (ClassConstraint) = "class"
@@ -418,11 +436,17 @@ instance ShowDelphi ArgModifier where
   showDelphi (VarArg) = "var "
   showDelphi (OutArg) = "out "
   showDelphi (NormalArg) = ""
-  
+
+instance ShowDelphi Text where
+  showDelphi a = a
+
+instance ShowDelphi a => ShowDelphi (Lexeme a) where
+  showDelphi (Lexeme "" b) = showDelphi b
+  showDelphi (Lexeme a b) = showDelphi b <> "{" <> a <> "}"
 
 instance ShowDelphi Argument where
-  showDelphi (Arg m a (Just b) (Just c)) = showDelphi m <> a <> ": " <> (showDelphi b) <> " = " <> showDelphi c
-  showDelphi (Arg m a (Just b) Nothing) = showDelphi m <> a <> ": " <> (showDelphi b)
-  showDelphi (Arg m a (Nothing) (Just c)) = showDelphi m <> a <> " = " <> showDelphi c <> ";"
-  showDelphi (Arg m a (Nothing) (Nothing)) = showDelphi m <> a <> ";"
+  showDelphi (Arg m a (Just b) (Just c)) = showDelphi m <> showDelphi a <> ": " <> (showDelphi b) <> " = " <> showDelphi c
+  showDelphi (Arg m a (Just b) Nothing) = showDelphi m <> showDelphi a <> ": " <> (showDelphi b)
+  showDelphi (Arg m a (Nothing) (Just c)) = showDelphi m <> showDelphi a <> " = " <> showDelphi c <> ";"
+  showDelphi (Arg m a (Nothing) (Nothing)) = showDelphi m <> showDelphi a <> ";"
 

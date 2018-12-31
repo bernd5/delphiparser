@@ -14,27 +14,27 @@ arrayTests :: TestTree
 arrayTests = testGroup "Delphi Array Tests"
   [ testGroup "Static Arrays" [
       testCase "array [foo] of bar" $
-      (Right (StaticArray (IndexOf [V "foo"]) (Type "bar")) @=?) $
+      (Right (StaticArray (IndexOf [V $ Lexeme "" "foo"]) (Type $ Lexeme "" "bar")) @=?) $
       parse array' "" "array [foo] of bar"
     , testCase "array [foo, bar] of baz" $
-      (Right (StaticArray (IndexOf [V "foo", V "bar"]) (Type "baz")) @=?) $
+      (Right (StaticArray (IndexOf [V $ Lexeme "" "foo", V $ Lexeme "" "bar"]) (Type $ Lexeme "" "baz")) @=?) $
       parse array' "" "array [foo, bar] of baz"
     , testCase "array [43..foo-2] of bar" $
-      (Right (StaticArray (IndexOf [I 43 :.. (V "foo" :- I 2)]) (Type "bar")) @=?) $
+      (Right (StaticArray (IndexOf [I (Lexeme "" 43) :.. (V (Lexeme "" "foo") :- I (Lexeme "" 2))]) (Type $ Lexeme "" "bar")) @=?) $
       parse array' "" "array [43..foo-2] of bar"
     , testCase "array [43..25] of bar" $
-      (Right (StaticArray (IndexOf [I 43 :.. I 25]) (Type "bar")) @=?) $
+      (Right (StaticArray (IndexOf [I (Lexeme "" 43) :.. I (Lexeme "" 25)]) (Type $ Lexeme "" "bar")) @=?) $
       parse array' "" "array [43..25] of bar"
     , testCase "array [43..25,5..6] of bar" $
-      (Right (StaticArray (IndexOf [I 43 :.. I 25, I 5 :.. I 6]) (Type "bar")) @=?) $
+      (Right (StaticArray (IndexOf [I (Lexeme "" 43) :.. I (Lexeme "" 25), I (Lexeme "" 5) :.. I (Lexeme "" 6)]) (Type $ Lexeme "" "bar")) @=?) $
       parse array' "" "array [43..25,5..6] of bar"
     ]
   , testGroup "Dynamic Arrays"
     [ testCase "array of foo" $
-      (Right (DynamicArray 1 (Type "foo")) @=?) $
+      (Right (DynamicArray 1 (Type $ Lexeme "" "foo")) @=?) $
       parse array' "" "array of foo"
     , testCase "array of array of foo" $
-      (Right (DynamicArray 2 (Type "foo")) @=?) $
+      (Right (DynamicArray 2 (Type $ Lexeme "" "foo")) @=?) $
       parse array' "" "array of array of foo"
     ]
   , testGroup "Open Dynamic Arrays" $
@@ -44,12 +44,12 @@ arrayTests = testGroup "Delphi Array Tests"
     ]
   , testGroup "Variant Arrays" $
     [ testCase "array [foo] of const" $
-      (Right (VariantArray (IndexOf [V "foo"])) @=? ) $
+      (Right (VariantArray (IndexOf [V $ Lexeme "" "foo"])) @=? ) $
       parse array' "" "array [foo] of const"
     ]
   , testGroup "Open Dynamic Arrays"
     [ testCase "array foo" $
-      (Right (OpenDynamicArray $ Type "foo") @=? ) $
+      (Right (OpenDynamicArray $ Type $ Lexeme "" "foo") @=? ) $
       parse array' "" "array foo"
     ]
   ]

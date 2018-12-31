@@ -67,16 +67,19 @@ termWithPrefixAndPostfix' a b c = do
 
 stringLiteral :: Parser ValueExpression
 stringLiteral = do
-  strings <- some ((S . pack <$> (char '\'' >> manyTill anyChar (symbol "'")))
+  c <- comment
+  strings <- some ((S  . (Lexeme c) . pack <$> (char '\'' >> manyTill anyChar (symbol "'")))
     <|> (symbol "#" *> (ToChar <$> I <$> integer)))
-  return $ foldr f (S"") strings
+  return $ foldr f (S (Lexeme "" "")) strings
   where
+    f :: ValueExpression -> ValueExpression -> ValueExpression
     f (S a) (S b) = S (a <> b)
     f (S a) (ToChar (I b)) = S (a <> c b)
     f (ToChar (I a)) (S b)= S (c a <> b)
     f (ToChar (I a)) (ToChar (I b))= S (c a <> c b)
 
-    c a = pack ( [chr ( fromIntegral a ) ])
+    c :: Lexeme Integer -> Lexeme Text
+    c (Lexeme cmt a) = Lexeme cmt (pack ( [chr ( fromIntegral a ) ]))
 
 terms :: Parser Expression -> Parser InterfaceExpression -> Parser TypeName -> Parser ValueExpression
 terms a b c =

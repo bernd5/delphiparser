@@ -13,19 +13,19 @@ import DelphiAst
 functionTests :: TestTree
 functionTests = testGroup
   "Delphi Function Expression Tests"
-  [ testCase "Very simple: foo(bar)" $ (Right (V "foo" :$ [V "bar"]) @=?) $ parse
+  [ testCase "Very simple: foo(bar)" $ (Right (V (Lexeme "" "foo") :$ [V $ Lexeme "" "bar"]) @=?) $ parse
       expression'
       ""
       "foo(bar)"
-  , testCase "Very simple: foo()" $ (Right (V "foo" :$ []) @=?) $ parse
+  , testCase "Very simple: foo()" $ (Right (V (Lexeme "" "foo") :$ []) @=?) $ parse
       expression'
       ""
       "foo()"
-  , testCase "Very simple: foo" $ (Right (V "foo") @=?) $ parse
+  , testCase "Very simple: foo" $ (Right (V (Lexeme "" "foo")) @=?) $ parse
       expression'
       ""
       "foo"
-  , testCase "Cast: string(foo)" $ (Right (V "string" :$ [V "foo"]) @=?) $ parse
+  , testCase "Cast: string(foo)" $ (Right (V (Lexeme "" "string") :$ [V $ Lexeme "" "foo"]) @=?) $ parse
       expression'
       ""
       "string(foo)"

@@ -32,6 +32,7 @@ library:
   - megaparsec
   ghc-options:
   - -Wall
+  - -O0
 
 executables:
   delphi-exe:
@@ -42,6 +43,7 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     - -Wall
+    - -O0
     dependencies:
     - delphi
     - text
@@ -59,6 +61,7 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     - -Wall
+    - -O0
     dependencies:
     - text
     - delphi

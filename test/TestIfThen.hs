@@ -9,12 +9,14 @@ import DelphiAst
 import DelphiParser (dIfExpression, statement)
 import Text.Megaparsec (parse)
 
+v a = V $ Lexeme "" a
+
 ifThenTests :: TestTree
 ifThenTests = testGroup
   "Delphi if/then/else tests"
   [ testCase "Ensure that if-function-then works"
   $ (Right
-      (If (V "Assigned" :$ [V "FObjectToFree"])
+      (If (v "Assigned" :$ [v "FObjectToFree"])
           (Then EmptyExpression)
           (Else EmptyExpression)
       ) @=?
@@ -26,19 +28,19 @@ ifThenTests = testGroup
   , testCase "Ensure that ifThenElse works"
   $ (Right
       (If
-        (P [V "FFreeTheValue" :<> Nil] :& P
-          [ (  P [As (V "FFreeTheValue") (V "TFreeTheValue")]
-            :. V "FObjectToFree"
+        (P [v "FFreeTheValue" :<> Nil] :& P
+          [ (  P [As (v "FFreeTheValue") (v "TFreeTheValue")]
+            :. v "FObjectToFree"
             )
               :<> Nil
           ]
         )
         (Then
-          (V "Result" := As
-            (  P [As (V "FFreeTheValue") (V "TFreeTheValue")]
-            :. V "FObjectToFree"
+          (v "Result" := As
+            (  P [As (v "FFreeTheValue") (v "TFreeTheValue")]
+            :. v "FObjectToFree"
             )
-            (V "T")
+            (v "T")
           )
         )
         (Else EmptyExpression)

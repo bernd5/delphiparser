@@ -12,20 +12,22 @@ import DelphiParser (statement, delphiTry')
 
 import DelphiAst
 
+v a = V $ Lexeme "" a
+
 delphiTryTests :: TestTree
 delphiTryTests = testGroup
   "Delphi try/finally/except Tests"
   [ testCase "try finally"
   $ (Right
-      (Try [ExpressionValue (V "foo"), ExpressionValue (V "bar")]
-           (Right [ExpressionValue (V "baz"), ExpressionValue (V "fuux")])
+      (Try [ExpressionValue (v "foo"), ExpressionValue (v "bar")]
+           (Right [ExpressionValue (v "baz"), ExpressionValue (v "fuux")])
       ) @=?
     )
   $ parse delphiTry' "" "try\nfoo;\nbar;\nfinally\nbaz;\nfuux;\nend"
   , testCase "try finally - statement"
   $ (Right
-      (Try [ExpressionValue (V "foo"), ExpressionValue (V "bar")]
-           (Right [ExpressionValue (V "baz"), ExpressionValue (V "fuux")])
+      (Try [ExpressionValue (v "foo"), ExpressionValue (v "bar")]
+           (Right [ExpressionValue (v "baz"), ExpressionValue (v "fuux")])
       ) @=?
     )
   $ parse statement "" "try\nfoo;\nbar;\nfinally\nbaz;\nfuux;\nend"
@@ -33,16 +35,16 @@ delphiTryTests = testGroup
   $ (Right
       (Try
         [ With
-            [(V "foo")]
+            [(v "foo")]
             (Case
-              (V "foo")
-              [ CaseBranch [V "one"] (ExpressionValue (V "alpha"))
-              , CaseBranch [V "two"] (ExpressionValue (V "beta"))
+              (v "foo")
+              [ CaseBranch [v "one"] (ExpressionValue (v "alpha"))
+              , CaseBranch [v "two"] (ExpressionValue (v "beta"))
               ]
-              (Just (Else (V "Result" := V "gamma")))
+              (Just (Else (v "Result" := v "gamma")))
             )
         ]
-        (Left [ExceptOn Nothing [ExpressionValue (V "chalk" :$ [])]])
+        (Left [ExceptOn Nothing [ExpressionValue (v "chalk" :$ [])]])
       ) @=?
     )
   $ parse statement ""
@@ -66,16 +68,16 @@ delphiTryTests = testGroup
   $ (Right
       (Try
         [ With
-            [(V "foo")]
+            [(v "foo")]
             (Case
-              (V "foo")
-              [ CaseBranch [V "one"] (ExpressionValue (V "alpha"))
-              , CaseBranch [V "two"] (ExpressionValue (V "beta"))
+              (v "foo")
+              [ CaseBranch [v "one"] (ExpressionValue (v "alpha"))
+              , CaseBranch [v "two"] (ExpressionValue (v "beta"))
               ]
-              (Just (Else (V "Result" := V "gamma")))
+              (Just (Else (v "Result" := v "gamma")))
             )
         ]
-        (Left [ExceptOn Nothing [ExpressionValue (V "chalk" :$ [])]])
+        (Left [ExceptOn Nothing [ExpressionValue (v "chalk" :$ [])]])
       ) @=?
     )
   $ parse statement ""

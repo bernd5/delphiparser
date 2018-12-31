@@ -17,28 +17,33 @@ lambdaFunction' = lambdaFunction dBeginEndExpression interfaceItems typeName
 lambdaArgs' :: Parser [Argument]
 lambdaArgs' = lambdaArgs dBeginEndExpression interfaceItems typeName
 
+v a = V $ Lexeme ""  a
+s a = S $ Lexeme ""  a
+i a = I $ Lexeme "" a
+typ a = Type $ Lexeme "" a
+
 expressionTests :: TestTree
 expressionTests = testGroup
   "Delphi Expressions and Precedence Tests"
   [ testGroup
     "Left Precedence"
-    [ testCase "a + b + c" $ (Right ((V "a") :+ (V "b") :+ (V "c")) @=?) $ parse
+    [ testCase "a + b + c" $ (Right ((v "a") :+ (v "b") :+ (v "c")) @=?) $ parse
       expression'
       ""
       "a + b + c"
-    , testCase "a - b + c" $ (Right ((V "a") :- (V "b") :+ (V "c")) @=?) $ parse
+    , testCase "a - b + c" $ (Right ((v "a") :- (v "b") :+ (v "c")) @=?) $ parse
       expression'
       ""
       "a - b + c"
-    , testCase "a / b + c" $ (Right ((V "a") :/ (V "b") :+ (V "c")) @=?) $ parse
+    , testCase "a / b + c" $ (Right ((v "a") :/ (v "b") :+ (v "c")) @=?) $ parse
       expression'
       ""
       "a / b + c"
-    , testCase "a * b + c" $ (Right ((V "a") :* (V "b") :+ (V "c")) @=?) $ parse
+    , testCase "a * b + c" $ (Right ((v "a") :* (v "b") :+ (v "c")) @=?) $ parse
       expression'
       ""
       "a * b + c"
-    , testCase "-a * b + c" $ (Right ((Negate $ V "a") :* (V "b") :+ (V "c")) @=?) $ parse
+    , testCase "-a * b + c" $ (Right ((Negate $ v "a") :* (v "b") :+ (v "c")) @=?) $ parse
       expression'
       ""
       "-a * b + c"
@@ -46,49 +51,49 @@ expressionTests = testGroup
   , testGroup
     "Right Precedence"
     [ testCase "a + b / c"
-    $ (Right ((V "a") :+ ((V "b") :/ (V "c"))) @=?)
+    $ (Right ((v "a") :+ ((v "b") :/ (v "c"))) @=?)
     $ parse expression' "" "a + b / c"
     , testCase "a + b * c"
-    $ (Right ((V "a") :+ ((V "b") :* (V "c"))) @=?)
+    $ (Right ((v "a") :+ ((v "b") :* (v "c"))) @=?)
     $ parse expression' "" "a + b * c"
     , testCase "a .. b * c"
-    $ (Right ((V "a") :.. ((V "b") :* (V "c"))) @=?)
+    $ (Right ((v "a") :.. ((v "b") :* (v "c"))) @=?)
     $ parse expression' "" "a .. b * c"
     ]
   , testGroup
     "Middle precedence"
     [ testCase "a + b * c + d"
-    $ (Right (V "a" :+ (V "b" :* V "c") :+ V "d") @=?)
+    $ (Right (v "a" :+ (v "b" :* v "c") :+ v "d") @=?)
     $ parse expression' "" "a + b * c + d"
     ]
   , testGroup
     "Prefixes, Postfixes and infixes"
     [ testCase "^a.b^.c"
-    $ (Right (Dereference (Dereference (V "a") :. V "b") :. V "c") @=?)
+    $ (Right (Dereference (Dereference (v "a") :. v "b") :. v "c") @=?)
     $ parse expression' "" "^a.b^.c"
     , testCase "a and b.c"
-    $ (Right (V "a" :& (V "b" :. V "c") ) @=?)
+    $ (Right (v "a" :& (v "b" :. v "c") ) @=?)
     $ parse expression' "" "a and b.c"
     ]
   , testGroup
     "Dots..."
     [ testCase "a.b"
-    $ (Right (V "a" :. V "b") @=?)
+    $ (Right (v "a" :. v "b") @=?)
     $ parse expression' "" "a.b"
     , testCase "a.b.c"
-    $ (Right (V "a" :. V "b" :. V "c") @=?)
+    $ (Right (v "a" :. v "b" :. v "c") @=?)
     $ parse expression' "" "a.b.c"
     , testCase "a(b).c.d"
-    $ (Right ((V "a" :$ [V "b"]) :. V "c" :. V "d") @=?)
+    $ (Right ((v "a" :$ [v "b"]) :. v "c" :. v "d") @=?)
     $ parse expression' "" "a(b).c.d"
     , testCase "(a(b)).c.d"
-    $ (Right (P [(V "a" :$ [V "b"])] :. V "c" :. V "d") @=?)
+    $ (Right (P [(v "a" :$ [v "b"])] :. v "c" :. v "d") @=?)
     $ parse expression' "" "(a(b)).c.d"
     , testCase "a<b>.c.d"
-    $ (Right ((V "a" :<<>> [Type "b"]) :. V "c" :. V "d") @=?)
+    $ (Right ((v "a" :<<>> [typ "b"]) :. v "c" :. v "d") @=?)
     $ parse expression' "" "a<b>.c.d"
     , testCase "a.b(c).d"
-    $ (Right ((V "a" :. V "b" :$ [V "c"]) :. V "d") @=?)
+    $ (Right ((v "a" :. v "b" :$ [v "c"]) :. v "d") @=?)
     $ parse expression' "" "a.b(c).d"
     ]
   , testGroup
@@ -97,25 +102,25 @@ expressionTests = testGroup
     $ (Right (L []) @=?)
     $ parse expression' "" "[]"
     , testCase "[1]"
-    $ (Right (L [I 1]) @=?)
+    $ (Right (L [i 1]) @=?)
     $ parse expression' "" "[1]"
     , testCase "[1, 2]"
-    $ (Right (L [I 1, I 2]) @=?)
+    $ (Right (L [i 1, i 2]) @=?)
     $ parse expression' "" "[1, 2]"
     ]
   , testGroup
     "Lambda..."
     [ testCase "function():Boolean begin end"
-    $ (Right (LambdaFunction [] (Type "Boolean") [] (Begin [])) @=?)
+    $ (Right (LambdaFunction [] (typ "Boolean") [] (Begin [])) @=?)
     $ parse expression' "" "function(): Boolean begin end"
     , testCase "function ():Boolean begin end"
-    $ (Right (LambdaFunction [] (Type "Boolean") [] (Begin [])) @=?)
+    $ (Right (LambdaFunction [] (typ "Boolean") [] (Begin [])) @=?)
     $ parse lambdaFunction' "" "function(): Boolean begin end"
     , testCase "Lambda arguments: ()"
     $ (Right ([]) @=?)
     $ parse lambdaArgs' "" "()"
     , testCase ":Boolean;"
-    $ (Right (Type "Boolean") @=?)
+    $ (Right (typ "Boolean") @=?)
     $ parse (symbol ":" *> typeName <* semi) "" ": Boolean;"
     , testCase "Interface Items: <empty>"
     $ (Right [] @=?)
@@ -127,16 +132,16 @@ expressionTests = testGroup
   , testGroup
     "Strings..."
     [ testCase "'foo'"
-    $ (Right (S "foo") @=?)
+    $ (Right (s "foo") @=?)
     $ parse expression' "" "'foo'"
     , testCase "'foo''bar'"
-    $ (Right (S "foobar") @=?)
+    $ (Right (s "foobar") @=?)
     $ parse expression' "" "'foo''bar'"
     , testCase "'foo'#42'bar'"
-    $ (Right (S "foo*bar") @=?)
+    $ (Right (s "foo*bar") @=?)
     $ parse expression' "" "'foo'#42'bar'"
     , testCase "#42#42"
-    $ (Right (S "**") @=?)
+    $ (Right (s "**") @=?)
     $ parse expression' "" "#42#42"
     ]
   ]

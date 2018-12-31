@@ -9,20 +9,24 @@ import DelphiAst
 import DelphiParser (procedureImpl, functionImpl)
 import Text.Megaparsec (parse)
 
+v a = V $ Lexeme "" a
+typ a = Type $ Lexeme "" a
+varDefinition a b c = VarDefinition (Lexeme "" a) b c
+
 procedureImplementationTest :: TestTree
 procedureImplementationTest = testGroup
   "Delphi Procedure and Function Implementation Tests"
   [ testGroup
     "Procedure Implementation Tests"
     [ testCase "Regular Procedure - simplest case"
-    $ (Right (ProcedureImpl (Type "foo") [] [] [] (Begin [])) @=?)
+    $ (Right (ProcedureImpl (typ "foo") [] [] [] (Begin [])) @=?)
     $ parse procedureImpl "" "procedure foo;\nbegin end;"
     , testCase "Nested procedure"
     $ (Right
-        (ProcedureImpl (Type "foo")
+        (ProcedureImpl (typ "foo")
                        []
                        []
-                       [ProcedureImpl (Type $ "bar") [] [] [] (Begin [])]
+                       [ProcedureImpl (typ "bar") [] [] [] (Begin [])]
                        (Begin [])
         ) @=?
       )
@@ -32,12 +36,12 @@ procedureImplementationTest = testGroup
     , testCase "Nested procedure after vars"
     $ (Right
         (ProcedureImpl
-          (Type "foo")
+          (typ "foo")
           []
           []
           [ AdditionalInterface
-            $ VarDefinitions [VarDefinition "fuux" (Type $ "TFuux") Nothing]
-          , ProcedureImpl (Type "bar") [] [] [] (Begin [])
+            $ VarDefinitions [varDefinition "fuux" (typ $ "TFuux") Nothing]
+          , ProcedureImpl (typ "bar") [] [] [] (Begin [])
           ]
           (Begin [])
         ) @=?
@@ -49,13 +53,13 @@ procedureImplementationTest = testGroup
     , testCase "Nested procedures (multiple) after vars"
     $ (Right
         (ProcedureImpl
-          (Type "foo")
+          (typ "foo")
           []
           []
           [ AdditionalInterface
-            $ VarDefinitions [VarDefinition "fuux" (Type "TFuux") Nothing]
-          , ProcedureImpl (Type $ "bar") [] [] [] (Begin [])
-          , ProcedureImpl (Type "alpha") [] [] [] (Begin [])
+            $ VarDefinitions [varDefinition "fuux" (typ "TFuux") Nothing]
+          , ProcedureImpl (typ $ "bar") [] [] [] (Begin [])
+          , ProcedureImpl (typ "alpha") [] [] [] (Begin [])
           ]
           (Begin [])
         ) @=?
@@ -68,16 +72,16 @@ procedureImplementationTest = testGroup
   , testGroup
     "Function Implementation Tests"
     [ testCase "Regular Function - simplest case"
-    $ (Right (FunctionImpl (Type "foo") [] (Type "bar") [] [] (Begin [])) @=?)
+    $ (Right (FunctionImpl (typ "foo") [] (typ "bar") [] [] (Begin [])) @=?)
     $ parse functionImpl "" "function foo: bar;\nbegin end;"
     , testCase "Nested function"
     $ (Right
         (FunctionImpl
-          (Type "foo")
+          (typ "foo")
           []
-          (Type "bar")
+          (typ "bar")
           []
-          [FunctionImpl (Type "bar") [] (Type "bar") [] [] (Begin [])]
+          [FunctionImpl (typ "bar") [] (typ "bar") [] [] (Begin [])]
           (Begin [])
         ) @=?
       )
@@ -87,13 +91,13 @@ procedureImplementationTest = testGroup
     , testCase "Nested function after vars"
     $ (Right
         (FunctionImpl
-          (Type "foo")
+          (typ "foo")
           []
-          (Type "bar")
+          (typ "bar")
           []
           [ AdditionalInterface
-            (VarDefinitions [VarDefinition "fuux" (Type "TFuux") Nothing])
-          , FunctionImpl (Type "bar") [] (Type "bar") [] [] (Begin [])
+            (VarDefinitions [varDefinition "fuux" (typ "TFuux") Nothing])
+          , FunctionImpl (typ "bar") [] (typ "bar") [] [] (Begin [])
           ]
           (Begin [])
         ) @=?
@@ -105,14 +109,14 @@ procedureImplementationTest = testGroup
     , testCase "Nested functions (multiple) after vars"
     $ (Right
         (FunctionImpl
-          (Type "foo")
+          (typ "foo")
           []
-          (Type "bar")
+          (typ "bar")
           []
           [ AdditionalInterface
-            (VarDefinitions [VarDefinition "fuux" (Type "TFuux") Nothing])
-          , FunctionImpl (Type "bar")   [] (Type "bar")  [] [] (Begin [])
-          , FunctionImpl (Type "alpha") [] (Type "beta") [] [] (Begin [])
+            (VarDefinitions [varDefinition "fuux" (typ "TFuux") Nothing])
+          , FunctionImpl (typ "bar")   [] (typ "bar")  [] [] (Begin [])
+          , FunctionImpl (typ "alpha") [] (typ "beta") [] [] (Begin [])
           ]
           (Begin [])
         ) @=?
@@ -124,12 +128,12 @@ procedureImplementationTest = testGroup
     , testCase "Trivial procedure with assignment"
     $ (Right
         (ProcedureImpl
-          (Type "foo") [] [] [] (Begin [V "a" := V "b"])) @=? )
+          (typ "foo") [] [] [] (Begin [v "a" := v "b"])) @=? )
     $ parse procedureImpl "" "procedure foo; begin a := b end;"
     , testCase "Trivial procedure with assignment with semicolon"
     $ (Right
         (ProcedureImpl
-          (Type "foo") [] [] [] (Begin [V "a" := V "b"])) @=? )
+          (typ "foo") [] [] [] (Begin [v "a" := v "b"])) @=? )
     $ parse procedureImpl "" "procedure foo; begin a := b; end;"
 
     ]

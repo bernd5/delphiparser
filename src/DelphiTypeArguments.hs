@@ -9,14 +9,14 @@ import DelphiAst
 
 import Data.Text (Text)
 
-typeArgNames :: Parser [(ArgModifier, Text)]
+typeArgNames :: Parser [(ArgModifier, Lexeme Text)]
 typeArgNames = try $ (do
       c <- optional $ rword "const"
       v <- optional $ rword "var"
       o <- optional $ rword "out"
       let m = tmod c v o
 
-      i <- identifierPlus ["default", "exclude"]
+      i <- identifierPlus ["default", "exclude", "index", "new"]
       return (m, i)
     ) `sepBy` symbol ","
   where

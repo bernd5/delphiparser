@@ -2,12 +2,26 @@ module DelphiAst where
 
 import Data.Text (Text)
 
-data Unit = Unit Text
+-- This is the crude lexeme - a single "word" in the delphi code.
+type Comment = Text
+data Lexeme a = Lexeme Comment a
+  deriving (Eq, Show)
+
+instance (Functor Lexeme) where
+  --fmap :: (a -> b) -> f a -> f b
+  fmap f (Lexeme a b) = Lexeme a (f b)
+
+instance Semigroup a => (Semigroup (Lexeme a)) where
+  (Lexeme a b) <> (Lexeme c d) = Lexeme (a <> c) (b <> d)
+
+data Unit = Unit
+             Comment
+             (Lexeme Text)
              Interface
              Implementation
              Initialization
              Finalization
-          | Program Text [Expression]
+          | Program (Lexeme Text) [Expression]
   deriving (Eq, Show)
 
 data Interface =
@@ -16,7 +30,7 @@ data Interface =
   deriving (Eq, Show)
 
 newtype Uses =
-  Uses [[Text]]
+  Uses [[Lexeme Text]]
   deriving (Eq, Show)
 
 data Implementation =
@@ -116,10 +130,10 @@ data Expression -- TODO: Should be 'Statement'
 --  1) Spaces aren't required, and
 --  2) That a sensible error is provided if an unrecognised symbol is used
 data ValueExpression
-  = V Text
+  = V (Lexeme Text)
   | T TypeName
-  | I Integer
-  | S Text
+  | I (Lexeme Integer)
+  | S (Lexeme Text)
   | F Rational
   | L [ValueExpression] -- [foo, bar, baz]
   | P [ValueExpression] -- (foo, bar, baz)
@@ -133,7 +147,7 @@ data ValueExpression
   | Exit (Maybe ValueExpression)
   | Not ValueExpression
   | Negate ValueExpression
-  | Inherited (Maybe Text)
+  | Inherited (Maybe (Lexeme Text))
   | Dereference ValueExpression -- '^foo'
   | AddressOf ValueExpression -- '@foo'
   | ToChar ValueExpression -- #42
@@ -188,12 +202,12 @@ data TypeDefinition
   | TypeAlias TypeName
               TypeName -- Simple type alias: type foo = bar;
   | EnumDefinition TypeName
-                   [Text]
+                   [Lexeme Text]
   | SetDefinition TypeName
                   TypeName
   | Record TypeName
            RecordDefinition
-  | ForwardClass
+  | ForwardClass TypeName
   | TypeAttribute [ValueExpression] TypeDefinition
   | InterfaceType TypeName [TypeName] ClassDefinition
   | Class TypeName
@@ -210,13 +224,13 @@ data InterfaceExpression
   deriving (Eq, Show)
 
 data ConstDefinition =
-  ConstDefinition Text
+  ConstDefinition (Lexeme Text)
                   (Maybe TypeName)
                   ValueExpression
   deriving (Eq, Show)
 
 data VarDefinition =
-  VarDefinition Text
+  VarDefinition (Lexeme Text)
                 TypeName
                 (Maybe ValueExpression)
   deriving (Eq, Show)
@@ -230,8 +244,8 @@ data Accessibility
   deriving (Eq, Show)
 
 data PropertySpecifier
-  = PropertyRead [Text]
-  | PropertyWrite [Text]
+  = PropertyRead [Lexeme Text]
+  | PropertyWrite [Lexeme Text]
   | PropertyStored
   | PropertyDefault ValueExpression -- TODO: Define a simpler set of "ValueExpression" that are limited to const
   | PropertyNoDefault
@@ -253,15 +267,15 @@ data Field
              [Argument]
              TypeName
              [FieldAnnotation]
-  | Property Text
+  | Property (Lexeme Text)
              (Maybe [Argument])
              TypeName
              (Maybe ValueExpression)
              [PropertySpecifier]
              Bool
-  | InheritedProperty Text -- Ie, just "property foo;"
-  | InheritedFunction Text -- Ie, just "function foo;"
-  | RedirectedFunction Text Text -- ie, "function IFoo.bar= newBar"
+  | InheritedProperty (Lexeme Text) -- Ie, just "property foo;"
+  | InheritedFunction (Lexeme Text) -- Ie, just "function foo;"
+  | RedirectedFunction (Lexeme Text) (Lexeme Text) -- ie, "function IFoo.bar= newBar"
   | IndexProperty Name
                   (Maybe Argument)
                   TypeName
@@ -285,7 +299,7 @@ data FieldAnnotation
   | Abstract
   | Default
   | StdCall
-  | Message Text -- TODO: Encode all known windows messages?
+  | Message (Lexeme Text) -- TODO: Encode all known windows messages?
   deriving (Eq, Show)
 
 data ArgModifier
@@ -311,7 +325,7 @@ data ArrayIndex
   deriving (Eq, Show)
 
 data TypeName
-  = Type Text
+  = Type (Lexeme Text)
   -- Arrays
   | StaticArray ArrayIndex
                 TypeName
@@ -320,14 +334,14 @@ data TypeName
   | VariantArray ArrayIndex
   | OpenDynamicArray TypeName
   | ConstType -- Eg, for an 'array of const'
-  | AddressOfType TypeName -- '^'
-  | TargetOfPointer TypeName -- '@'
+  | AddressOfType Comment TypeName -- '^'
+  | TargetOfPointer Comment TypeName -- '@'
   | Constraint [GenericConstraint]
-  | GenericDefinition Text
+  | GenericDefinition (Lexeme Text)
                       [Argument]
   | GenericMethodOfType TypeName
                         TypeName
-  | GenericInstance Text
+  | GenericInstance (Lexeme Text)
                     [TypeName]
   | UnspecifiedType
   deriving (Eq, Show)
@@ -336,9 +350,9 @@ data GenericConstraint =
   ClassConstraint
   deriving (Eq, Show)
 
-type ArgName = Text
+type ArgName = Lexeme Text
 
-type Name = Text
+type Name = Lexeme Text
 
 newtype Else =
   Else Expression

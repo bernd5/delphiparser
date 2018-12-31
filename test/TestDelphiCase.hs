@@ -19,10 +19,10 @@ caseTests =
     [ testCase "simple case" $
       (Right
          (Case
-            (V "foo")
-            [ CaseBranch [V "bar"] (ExpressionValue (V "baz"))
-            , CaseBranch [V "fuux"] (ExpressionValue (V "bar"))
+            (V $ Lexeme "" "foo")
+            [ CaseBranch [V $ Lexeme "" "bar"] (ExpressionValue (V $ Lexeme "" "baz"))
+            , CaseBranch [V $ Lexeme "" "fuux"] (ExpressionValue (V $ Lexeme "" "bar"))
             ]
-            (Just (Else (ExpressionValue (V "whatevs"))))) @=?) $
+            (Just (Else (ExpressionValue (V $ Lexeme "" "whatevs"))))) @=?) $
       parse delphiCase' "" "case foo of bar : baz; fuux: bar; else whatevs; end"
     ]

@@ -70,7 +70,7 @@ onError e = do
   return []
 
 getTypes :: Unit -> [TypeDefinition]
-getTypes (Unit _ (Interface _ c) impl i f) = getTypesIE c
+getTypes (Unit _ _ (Interface _ c) impl i f) = getTypesIE c
 
 getTypesIE :: [InterfaceExpression] -> [TypeDefinition]
 getTypesIE ((TypeDefinitions x):xs) = (x <> getTypesIE xs)

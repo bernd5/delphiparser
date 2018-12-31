@@ -10,6 +10,9 @@ import DelphiWriter
 
 import Data.Maybe (Maybe(Just))
 
+typ a = Type $ Lexeme "" a
+arg a b c = Arg a (Lexeme "" b) (typ <$> c)
+
 writerTests :: TestTree
 writerTests = testGroup
   "Delphi ShowDelphi tests"
@@ -18,21 +21,21 @@ writerTests = testGroup
       [ testCase "Function"
       $ ("class function foo(bar: baz): fuux;" @=?)
       $ showDelphi
-      $ Function (Type "foo")
-                 [Arg NormalArg "bar" (Just $ Type "baz") Nothing]
-                 (Type "fuux")
+      $ Function (typ "foo")
+                 [arg NormalArg "bar" (Just $ "baz") Nothing]
+                 (typ "fuux")
                  [Static]
       , testCase "Overridden Procedure"
       $ ("procedure foo(bar: baz); override;" @=?)
       $ showDelphi
-      $ Procedure (Type "foo")
-                  [Arg NormalArg "bar" (Just $ Type "baz") Nothing]
+      $ Procedure (typ "foo")
+                  [arg NormalArg "bar" (Just $ "baz") Nothing]
                   [Override]
       , testCase "Overridden constructor"
       $ ("constructor Create(bar: baz); override;" @=?)
       $ showDelphi
-      $ Constructor (Type "Create")
-                  [Arg NormalArg "bar" (Just $ Type "baz") Nothing]
+      $ Constructor (typ "Create")
+                  [arg NormalArg "bar" (Just $ "baz") Nothing]
                   [Override]
       ]
   ]

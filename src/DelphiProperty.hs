@@ -18,13 +18,13 @@ property typeName arrayParameter expression = do
     name <- identifier'
     rest name <|> inherited name
   where
-    inherited :: Text -> Parser Field   
+    inherited :: Lexeme Text -> Parser Field
     inherited name = do
       specifiers <- many $ specifier expression
       semi
       return $ InheritedProperty name
 
-    rest :: Text -> Parser Field
+    rest :: Lexeme Text -> Parser Field
     rest name = do
       indexes <- optional $ parens "[" "]" (arrayParameter `sepBy1` semi)
       symbol ":"

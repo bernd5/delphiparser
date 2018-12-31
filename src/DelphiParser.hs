@@ -4,9 +4,13 @@ module DelphiParser
   ( dUnitP
   , program
   , expression'
+  , typeExpressions
   , uses
   , array'
   , with'
+  , classType
+  , dArgsPassedP
+  , dRecordDefinitionP
   , loop'
   , property'
   , typeArguments'
@@ -39,7 +43,7 @@ module DelphiParser
   ) where
 
 import Data.Maybe
-import Data.Text (Text, pack, strip, intercalate)
+import Data.Text (Text, strip, intercalate)
 import DelphiAst
 import DelphiLexer
 import DelphiArray (array)
@@ -90,19 +94,20 @@ dUnitP :: Parser Unit
 dUnitP = do
   _ <- optional $ char '\xFEFF'
   _ <- optional sc
+  c <- comment
   unitName <- dUnitNameP
   interface <- dUnitInterfaceP
   implementation <- dUnitImplementationP
   initialization <- dUnitInitializationP
   finalization <- dUnitFinalizationP
-  return $ Unit unitName interface implementation initialization finalization
+  return $ Unit c unitName interface implementation initialization finalization
 
 program :: Parser Unit
 program = do
   _ <- optional $ char '\xFEFF'
   _ <- optional sc
   rword "program"
-  s <- pack <$> identifier
+  s <- identifier'
   semi
   rword "begin"
   expressions <- many (try $ statement <* semi)
@@ -110,10 +115,10 @@ program = do
   rword "end."
   return $ Program s (expressions <> catMaybes [lastExpression])
 
-dUnitNameP :: Parser Text
+dUnitNameP :: Parser (Lexeme Text)
 dUnitNameP = rword "unit" *> dottedIdentifier <* semi
 
-uses :: Parser [[Text]]
+uses :: Parser [[Lexeme Text]]
 uses = do
   rword "uses"
   items <- identifier' `sepBy` symbol "." `sepBy` symbol ","
@@ -175,13 +180,9 @@ varExpressions = do
 typeExpressions :: Parser InterfaceExpression
 typeExpressions = do
   rword "type"
-  types <- TypeDefinitions <$> many (try typeAttribute' <|> try typeDefinition)
+  types <- TypeDefinitions <$> many (choice [typeDefinition, typeAttribute'])
   return types
 
-forwardClass :: Parser TypeDefinition
-forwardClass = do
-  rword "class"
-  return ForwardClass
 
 typeDefinition :: Parser TypeDefinition
 typeDefinition = do
@@ -193,22 +194,22 @@ typeDefinition = do
             else GenericDefinition ident args
     symbol "="
     ie <- choice
-      [ try $ dReferenceToProcedureP ident 
-      , try $ dReferenceToFunctionP ident 
-      , try $ dGenericRecordP lhs' 
+      [ try $ dReferenceToProcedureP ident
+      , try $ dReferenceToFunctionP ident
+      , try $ dGenericRecordP lhs'
       , try $ interfaceType lhs' stringLiteral
-      , try $ setDefinition lhs' 
+      , try $ setDefinition lhs'
       , try $ enumDefinition lhs'  -- Contains parens
       , try $ do
         rword "class"
-        choice 
+        r <- optional $ choice
           [ try $ metaClassDefinition lhs'
           , try $ classHelper lhs'
           , try $ classType lhs'
           ]
+        return $ fromMaybe (ForwardClass lhs') r
       , try $ typeAlias lhs' -- Just for *very* simple type aliases
       , try $ newType lhs'
-      , try forwardClass
       ]
     optional semi
     return ie
@@ -251,7 +252,7 @@ enumDefinition a = do
   rhs <- parens "(" ")" $ identifier' `sepBy` symbol ","
   return $ EnumDefinition a rhs
 
-dReferenceToProcedureP :: Text -> Parser TypeDefinition
+dReferenceToProcedureP :: Lexeme Text -> Parser TypeDefinition
 dReferenceToProcedureP ident = do
   r <- optional $ do
     rword "reference"
@@ -269,7 +270,7 @@ dReferenceToProcedureP ident = do
               else SimpleProcedure
   return $ TypeDef (Type ident) (t args)
 
-dReferenceToFunctionP :: Text -> Parser TypeDefinition
+dReferenceToFunctionP :: Lexeme Text -> Parser TypeDefinition
 dReferenceToFunctionP ident = do
   r <- optional $ do
     rword "reference"
@@ -295,15 +296,19 @@ dGenericRecordP a = do
   rword "record"
   r <- optional $ dRecordDefinitionListP <* rword "end"
   let r' = fromMaybe [] r
+  c <- comment
   return $ if isNothing r
-           then TypeAlias a (Type "record")
+           then TypeAlias a (Type (Lexeme c "record"))
            else Record a r'
 
 -- TODO: Fix this so that it's expressed in the type system.
-dottedIdentifier :: Parser Text
+dottedIdentifier :: Parser (Lexeme Text)
 dottedIdentifier = do
   parts <- identifier' `sepBy` symbol "."
-  return $ intercalate "." parts
+  return $ intercalateLexeme "." parts
+
+intercalateLexeme :: Text -> [Lexeme Text] -> Lexeme Text
+intercalateLexeme sep = foldr1 (\a b -> a <> (Lexeme "" sep) <> b) 
 
 dArgsPassedP :: Parser [TypeName]
 dArgsPassedP = do
@@ -331,13 +336,13 @@ classType a = do
   r <- optional $ dRecordDefinitionListP <* rword "end"
   let r' = fromMaybe [] r
   return $ if isNothing r
-           then TypeAlias a (Type "class")
+           then ForwardClass a
            else Class a supers' r'
 
 dRecordDefinitionListP :: Parser [Accessibility]
 dRecordDefinitionListP = do
   a <- concat <$> many dFieldDefinitionP
-  b <- many dRecordDefinitionP
+  b <- many (dRecordDefinitionP <* comment)
   return $ if null a
            then b
            else (DefaultAccessibility a) : b
@@ -358,7 +363,7 @@ dRecordDefinitionP' a b = do
   return $ b fields
 
 dFieldDefinitionP :: Parser [Field]
-dFieldDefinitionP = choice
+dFieldDefinitionP = comment *> choice
   [ try $ pure <$> recordCase
   , try $ pure <$> dConstructorFieldP
   , try $ pure <$> dDestructorFieldP
@@ -375,7 +380,7 @@ dFieldDefinitionP = choice
                                   , try $ pure <$> staticFunction
                                   , try $ pure <$> property'
                                   ]
-  ]
+  ] <* comment
 
 recordCase :: Parser Field
 recordCase = do
@@ -385,7 +390,7 @@ recordCase = do
   rword "of"
   items <- many (do
     notFollowedBy $ rword "end"
-    ordinal <- identifier' `sepBy1` symbol ","
+    ordinal <- identifierPlus reserved `sepBy1` symbol ","
     let ordinal' = map V ordinal
     symbol ":"
     s <- parens "(" ")" (many (simpleField <* optional semi))
@@ -417,11 +422,12 @@ dGenericTypes = do
 array':: Parser TypeName
 array' = array typeName expression'
 
-simplifyTypeName :: Text -> Maybe String -> Maybe [TypeName] -> TypeName
+simplifyTypeName :: Lexeme Text -> Maybe (Lexeme Text) -> Maybe [TypeName] -> TypeName
 simplifyTypeName m a b = r a $ t b $ m
   where
-    r (Just "^") = AddressOfType
-    r (Just "@") = TargetOfPointer
+    r :: Maybe (Lexeme Text) -> TypeName -> TypeName
+    r (Just (Lexeme a "^")) = AddressOfType a
+    r (Just (Lexeme a "@")) = TargetOfPointer a
     r Nothing = id
     r _ = error "Unspecified pointer or reference type"
 
@@ -440,12 +446,12 @@ singleTypeName = choice [ try array'
   ]
 
 typeName :: Parser TypeName
-typeName = choice [ try array'
+typeName = comment *> choice [ try array'
   , do
     -- TODO: Distinguish between the different sorts of identifiers, especially class.
     pointer <- optional $ (symbol' "^" <|> symbol' "@")
     name <- (identifierPlus ["string", "boolean", "cardinal", "class"]) `sepBy1` symbol "."
-    let name' = intercalate "." name
+    let name' = intercalateLexeme "." name
     args <- optional dGenericTypes
     return $ simplifyTypeName name' pointer args
   ]
@@ -460,8 +466,8 @@ staticFunction = a <$> dFunctionP
 dFunctionP :: Parser Field
 dFunctionP = do
   rword "function"
-  name <- identifier' `sepBy1` symbol "."
-  let name' = intercalate "." name
+  name <- identifierPlus reserved `sepBy1` symbol "."
+  let name' = intercalateLexeme "." name
   eq <- optional $ ((symbol "=") *> identifier')
   if isJust eq then do
     -- Is a redirect
@@ -587,6 +593,7 @@ dMemberImplementationP ::
   -> (TypeName -> TypeName -> [Argument] -> TypeName -> [FieldAnnotation] -> [ImplementationSpec] -> Expression -> ImplementationSpec)
   -> Parser ImplementationSpec
 dMemberImplementationP a b = do
+  comment
   rword a
   name <- singleTypeName
   _ <- symbol "."
@@ -653,14 +660,15 @@ classVar = do
 dSimpleFieldP :: Parser [Field]
 dSimpleFieldP = do
   sf <- simpleField
-  _ <- semi
+  semi
   return $ sf
 
 simpleField :: Parser [Field]
 simpleField = do
   optional $ rword "const"
+  comment
   name <- identifier' `sepBy1` symbol ","
-  _ <- symbol ":"
+  symbol ":"
   typ <- typeName
   e <- optional $ symbol "="
   v <- if isJust e then optional $ expression'
