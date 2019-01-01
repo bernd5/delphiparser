@@ -39,8 +39,8 @@ newtype ParserTestsData = ParserTestsData
 
 v a = V $ Lexeme "" a
 i a = I $ Lexeme "" a
-usesC (x:xs) = (Prelude.map (Lexeme "") x) : usesC xs
-usesC _ = []
+usesC (x : xs) = (Prelude.map (Lexeme "") x) : usesC xs
+usesC _        = []
 genericInstance a b = GenericInstance (Lexeme "" a) b
 redirectedFunction a b = RedirectedFunction (Lexeme "" a) (Lexeme "" b)
 varDefinition a b = VarDefinition (Lexeme "" a) b
@@ -92,7 +92,7 @@ unitTests p = testGroup
   "Delphi Parser Tests"
   [ -- testCase "Ensure that show == read (if we ignore spaces)"
     -- $ roundtrip (sharedpointer p) dUnitP
-   testCase "Ensure that operations showDelphi are correct"
+    testCase "Ensure that operations showDelphi are correct"
     $ roundtrip "23 + 32" dValueExpression
   , testCase
       "Ensure that function call value expression's showDelphi without a semicolon"
@@ -119,7 +119,8 @@ unitTests p = testGroup
   $ parse identifier "" "foo_bar"
   , testCase "Ensure delphi skeleton parses"
   $ (Right
-      (Unit "" (Lexeme "" "TestUnit")
+      (Unit ""
+            (Lexeme "" "TestUnit")
             (Interface (Uses []) [TypeDefinitions []])
             (Implementation (Uses []) [])
             Initialization
@@ -132,7 +133,8 @@ unitTests p = testGroup
       "unit TestUnit; interface type implementation initialization finalization end."
   , testCase "Ensure delphi skeleton beginning with a BOM parses"
   $ (Right
-      (Unit ""  (Lexeme "" "TestUnit")
+      (Unit ""
+            (Lexeme "" "TestUnit")
             (Interface (Uses []) [TypeDefinitions []])
             (Implementation (Uses []) [])
             Initialization
@@ -162,7 +164,8 @@ unitTests p = testGroup
       ["function TShared<T>.Cast<TT>: TShared<TT>;", "begin", "end;"]
   , testCase "Ensure comments at the start still parse"
   $ (Right
-      (Unit "--\n This file starts with comments\n--\n And another comment" (Lexeme "" "TestUnit")
+      (Unit "--\n This file starts with comments\n--\n And another comment"
+            (Lexeme "" "TestUnit")
             (Interface (Uses []) [TypeDefinitions []])
             (Implementation (Uses []) [])
             Initialization
@@ -175,38 +178,32 @@ unitTests p = testGroup
       "{--\n This file starts with comments\n--}\n// And another comment\n\n\nunit TestUnit; interface type implementation initialization finalization end."
   , testCase "Ensure a class function declaration parses"
   $ (Right
-      [Function (typ "foo")
-                [arg NormalArg "bar" (Just $ typ "TBar") Nothing]
-                (typ "TBar")
-                [Static]
+      [ Function (typ "foo")
+                 [arg NormalArg "bar" (Just $ typ "TBar") Nothing]
+                 (typ "TBar")
+                 [Static]
       ] @=?
     )
   $ parse dFieldDefinitionP "" "class function foo(bar: TBar): TBar;"
   , testCase "Ensure a class var declaration parses"
-  $ (Right
-      [ClassVar (typ "foo")
-                (typ "TBar")
-      ] @=?
-    )
+  $ (Right [ClassVar (typ "foo") (typ "TBar")] @=?)
   $ parse dFieldDefinitionP "" "class var foo: TBar;"
   , testCase "Ensure a class var declaration that has a generic type parses"
   $ (Right
-      [ClassVar (typ "foo")
-                (genericInstance "TBar" [typ "TFoo",typ "TBaz"])
-      ] @=?
+      [ClassVar (typ "foo") (genericInstance "TBar" [typ "TFoo", typ "TBaz"])] @=?
     )
   $ parse dFieldDefinitionP "" "class var foo: TBar<TFoo, TBaz>;"
-  , testCase "Ensure a class function redirection parses - using dFieldDefinitionP" 
-  $ (Right
-      [redirectedFunction "foo.bar" "baz"] @=?
-    )
+  , testCase
+    "Ensure a class function redirection parses - using dFieldDefinitionP"
+  $ (Right [redirectedFunction "foo.bar" "baz"] @=?)
   $ parse dFieldDefinitionP "" "class function foo.bar= baz;"
-  , testCase "Ensure a class function declaration parses - using dFieldDefinitionP" 
+  , testCase
+    "Ensure a class function declaration parses - using dFieldDefinitionP"
   $ (Right
-      [Function (typ "foo")
-                [arg NormalArg "bar" (Just $ typ "TBar") Nothing]
-                (typ "TBar")
-                [Static]
+      [ Function (typ "foo")
+                 [arg NormalArg "bar" (Just $ typ "TBar") Nothing]
+                 (typ "TBar")
+                 [Static]
       ] @=?
     )
   $ parse dFieldDefinitionP "" "class function foo(bar: TBar): TBar;"
@@ -303,10 +300,9 @@ unitTests p = testGroup
   , testCase "Ensure that const expression's involving arrays parse"
   $ (Right
       (ConstDefinitions
-        [ ConstDefinition
-            (Lexeme "" "foo")
-            (Just $ StaticArray (IndexOf [v "bar"]) (typ "baz"))
-            (P [v "one", v "two", v "three"])
+        [ ConstDefinition (Lexeme "" "foo")
+                          (Just $ StaticArray (IndexOf [v "bar"]) (typ "baz"))
+                          (P [v "one", v "two", v "three"])
         ]
       ) @=?
     )
@@ -321,7 +317,11 @@ unitTests p = testGroup
   $ (Right (v "a" :== (v "foo" :. v "bar")) @=?)
   $ parse expression' "" "a = foo.bar"
   , testCase "Ensure if a = foo.bar then... parses"
-  $ (Right (If (V (Lexeme "" "a") :== (V (Lexeme "" "foo") :. V (Lexeme "" "bar"))) (Then (ExpressionValue Nil)) (Else EmptyExpression)) @=?
+  $ (Right
+      (If (V (Lexeme "" "a") :== (V (Lexeme "" "foo") :. V (Lexeme "" "bar")))
+          (Then (ExpressionValue Nil))
+          (Else EmptyExpression)
+      ) @=?
     )
   $ parse dIfExpression "" "if a = foo.bar then Nil;"
   , testCase "Ensure dereference parses"
@@ -393,8 +393,21 @@ unitTests p = testGroup
   $ unpack
   $ intercalate "\n" ["procedure TShared<T>.Cast<TT>;", "begin", "end;"]
   , testCase "Ensure a static constructor implementation parses"
-  $ (Right (Implementation (Uses []) [MemberConstructorImpl (typ "TShared") (typ "Create") [] [] [] (Begin [])]) @=? )
+  $ (Right
+      (Implementation
+        (Uses [])
+        [ MemberConstructorImpl (typ "TShared")
+                                (typ "Create")
+                                []
+                                []
+                                []
+                                (Begin [])
+        ]
+      ) @=?
+    )
   $ parse dUnitImplementationP ""
   $ unpack
-  $ intercalate "\n" ["implementation class constructor TShared.Create;", "begin", "end;"]
+  $ intercalate
+      "\n"
+      ["implementation class constructor TShared.Create;", "begin", "end;"]
   ]
