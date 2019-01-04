@@ -91,7 +91,7 @@ dArgumentP :: Parser [Argument]
 dArgumentP = typeArguments typeName expression'
 
 dUnitP :: Parser Unit
-dUnitP = do
+dUnitP = try $ do
   _ <- optional $ char '\xFEFF'
   _ <- optional sc
   c <- comment
@@ -106,9 +106,27 @@ program :: Parser Unit
 program = do
   _ <- optional $ char '\xFEFF'
   _ <- optional sc
+  c <- comment
   rword "program"
   s <- identifier'
   semi
+  optional uses
+  functions <-
+    many $ choice 
+      [ try functionImpl
+      , try procedureImpl
+      , try dFunctionImplementationP
+      , try dProcedureImplementationP
+      , try dConstructorImplementationP
+      , try dDestructorImplementationP
+      , rword "class" *> choice [
+          dFunctionImplementationP
+        , dProcedureImplementationP
+        , dConstructorImplementationP
+        , dDestructorImplementationP
+        ]
+      , AdditionalInterface <$> interfaceItems
+      ]
   rword "begin"
   expressions <- many (try $ statement <* semi)
   lastExpression <- optional statement
@@ -203,9 +221,9 @@ typeDefinition = do
       , try $ do
         rword "class"
         r <- optional $ choice
-          [ try $ metaClassDefinition lhs'
-          , try $ classHelper lhs'
-          , try $ classType lhs'
+          [ metaClassDefinition lhs'
+          , classHelper lhs'
+          , classType lhs'
           ]
         return $ fromMaybe (ForwardClass lhs') r
       , try $ typeAlias lhs' -- Just for *very* simple type aliases
@@ -293,7 +311,7 @@ dReferenceToFunctionP ident = do
 dGenericRecordP :: TypeName -> Parser TypeDefinition
 dGenericRecordP a = do
   p <- optional $ rword "packed"
-  rword "record"
+  choice [rword "record", rword "object"]
   r <- optional $ dRecordDefinitionListP <* rword "end"
   let r' = fromMaybe [] r
   c <- comment
@@ -390,12 +408,11 @@ recordCase = do
   rword "of"
   items <- many (do
     notFollowedBy $ rword "end"
-    ordinal <- identifierPlus reserved `sepBy1` symbol ","
-    let ordinal' = map V ordinal
+    ordinal <- expression' `sepBy1` symbol ","
     symbol ":"
     s <- parens "(" ")" (many (simpleField <* optional semi))
     optional semi
-    return $ (ordinal', concat s))
+    return $ (ordinal, concat s))
   e <- optional $ do
     rword "else"
     s <- parens "(" ")" (simpleField `sepBy` semi)
@@ -450,7 +467,7 @@ typeName = comment *> choice [ try array'
   , do
     -- TODO: Distinguish between the different sorts of identifiers, especially class.
     pointer <- optional $ (symbol' "^" <|> symbol' "@")
-    name <- (identifierPlus ["string", "boolean", "cardinal", "class"]) `sepBy1` symbol "."
+    name <- (identifierPlus reserved) `sepBy1` symbol "."
     let name' = intercalateLexeme "." name
     args <- optional dGenericTypes
     return $ simplifyTypeName name' pointer args
@@ -513,6 +530,7 @@ dValueExpression = ExpressionValue <$> expression'
 dBeginEndExpression :: Parser Expression
 dBeginEndExpression = do
   rword "begin"
+  comment
   expressions <- many (try $ statement <* semi)
   lastExpression <- optional statement
   rword "end"

@@ -15,25 +15,32 @@ import System.IO (hSetEncoding, latin1, localeEncoding, openBinaryFile, IOMode(R
 import Data.Text (unpack, pack, intercalate)
 import Data.Text.Encoding (decodeUtf8', decodeLatin1)
 import Control.Monad (filterM)
+import qualified Control.Monad.Parallel as P (mapM)
 import Control.Exception (handle, SomeException)
 import System.FilePath ((</>), isExtensionOf)
 import Control.Applicative ((<|>))
 import DelphiWriter
+
+files :: FilePath -> IO [FilePath]
+files d = do
+  a <- doesFileExist d
+  if a then
+    pure $ [d]
+  else do
+    contents <- getDirectoryContents d
+    let contents' = filter (\x -> x /= "." && x /= "..") contents
+    r <- mapM (\x -> files (d </> x)) contents'
+    pure $ concat $ r
 
 main :: IO ()
 main = do
   args <- getArgs
   let dirname = (head args)
 
-  contents <- getDirectoryContents dirname
-  let contents' = map (dirname </>) contents
+  contents <- files dirname
   putStrLn . pack  $ show contents
-  let
-    files :: IO [FilePath]
-    files = filterM doesFileExist contents'
 
-  files' <- files
-  let pasfiles = filter (isExtensionOf "pas") files'
+  let pasfiles = filter (\x -> isExtensionOf "pas" x || isExtensionOf "pp" x) contents
   
   r <- flip mapM pasfiles $ \x -> handle onError $ do
     putStrLn . pack $ "Parsing file: " <> x
@@ -71,6 +78,7 @@ onError e = do
 
 getTypes :: Unit -> [TypeDefinition]
 getTypes (Unit _ _ (Interface _ c) impl i f) = getTypesIE c
+getTypes a = []
 
 getTypesIE :: [InterfaceExpression] -> [TypeDefinition]
 getTypesIE ((TypeDefinitions x):xs) = (x <> getTypesIE xs)

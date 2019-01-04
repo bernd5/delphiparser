@@ -6,26 +6,12 @@ This is intended to be just a Delphi parser to an AST, including comments.
 
 Not all functionality is implemented yet.
 
+# Manual testing
+
+In addition to automated testing, manual testing is done by parsing PyScripter and the free pascal project sources.
+ - Zero errors are expected.
+
 # Difficult cases
-
-## Comments.
-
-Comments are hard to include within an AST, comments in Pascal are used for dev source documentatson, and for the preprocessor.
-
-We thus have a few different types of comments:
-
-1. Compiler Directives
-2. Comments placed at the end of a line (trailing comments)
-3. Comments placed between adjacent tokens.
-4. Comments placed before the line they discuss.
-
-This parser will interpret standalone comments (ie, lines that are just a comment - which may be a block comment), as an expression.
-
-Comments that are placed between adjacent tokens, however, will be catered for as part of the AST node for that token.
-
-Comments that occur at the end of the line (ie, as a trailing comment), will be interpreted as belonging to the most recent ValueExpression or AST node otherwise.
-
-Comments can not be placed in the middle of a term.
 
 ### Compiler Directives.
 1. Some comments are compiler directives. {+M}, as an example.  These are listed for Embarcadero at http://docs.embarcadero.com/products/rad_studio/delphiAndcpp2009/HelpUpdate2/EN/html/devcommon/delphicompdirectivespart_xml.html  The following link also hints as to special handling of Compiler Directives: http://docwiki.embarcadero.com/RADStudio/Tokyo/en/Fundamental_Syntactic_Elements_(Delphi)#Comments_and_Compiler_Directives

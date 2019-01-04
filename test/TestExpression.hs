@@ -144,5 +144,11 @@ expressionTests = testGroup
     $ (Right (s "**") @=?)
     $ parse expression' "" "#42#42"
     ]
+  , testGroup
+    "Misc"
+    [ testCase "3 : (blah: blah)"
+    $ (Right (i 3) @=? )
+    $ parse expression' "" "3 : (blah: blah)\n"
+    ]
   ]
 

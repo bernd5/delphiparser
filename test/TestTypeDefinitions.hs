@@ -70,7 +70,8 @@ typeDefinitionTests = testGroup
           , "kpStr,kpPath: ();"
           , "kpInteger: (intvalue: longint);"
           , "kpDouble: (floatvalue: extended;"
-          , "abbr: Char)"
+          , "abbr: Char);"
+          , "3: (foovalue: Foo)"
           , "end"
           ]
       , testCase "Ensure another record with a case parses"

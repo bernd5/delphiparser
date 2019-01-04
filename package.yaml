@@ -51,6 +51,7 @@ executables:
     - directory
     - filepath
     - bytestring
+    - monad-parallel
 
 tests:
   delphi-test:
