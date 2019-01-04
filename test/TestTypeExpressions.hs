@@ -6,7 +6,7 @@ import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase, (@=?))
 
 import DelphiAst
-import DelphiParser (typeAttribute', typeExpressions)
+import DelphiParser (typeAttribute', typeExpressions, newType)
 import Text.Megaparsec (parse)
 import Data.Text(unpack, intercalate)
 
@@ -36,4 +36,13 @@ typeExpressionTests = testGroup
   , testCase "Type, followed by var"
   $ (Right (TypeDefinitions []) @=? )
   $ parse typeExpressions "" "Type\n\n\nvar"
+  , testCase "type foo = type bar;"
+  $ (Right (TypeDefinitions [TypeDef (typ "foo") (NewType (typ "bar"))]) @=? )
+  $ parse typeExpressions "" "type foo = type bar;"
+  , testCase "type foo = 1..3;"
+  $ (Right (TypeDefinitions [TypeExpression (I (Lexeme "" 1) :.. I (Lexeme "" 3))]) @=? )
+  $ parse typeExpressions "" "type foo = 1..3;"
+  , testCase "type bar"
+  $ (Right (TypeDef (typ "a") (NewType (typ "bar"))) @=?)
+  $ parse (newType (typ "a"))  "" "type bar"
   ]

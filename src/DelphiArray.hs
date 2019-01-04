@@ -13,8 +13,8 @@ import Text.Megaparsec
 
 array :: Parser TypeName -> Parser ValueExpression -> Parser TypeName
 array p e = rword "array" *> choice
-    [ try $ staticArray p e
-    , variantArray p e
+    [ try $ variantArray p e
+    , staticArray p e
     , dynamicArray p e
     , openDynamicArray p e]
 
@@ -37,7 +37,9 @@ dynamicArray typeName _ = do
   dimensions <- fromIntegral . length <$> many (do
     rword "array"
     rword "of")
-  base <- typeName <|> (const ConstType <$> rword "const")
+  base <- choice [ const ConstType <$> rword "const"
+                 , typeName
+                 ]
   return $ DynamicArray (dimensions+1) base
 
 variantArray :: Parser TypeName -> Parser ValueExpression -> Parser TypeName

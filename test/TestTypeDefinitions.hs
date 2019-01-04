@@ -1,21 +1,35 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module TestTypeDefinitions ( typeDefinitionTests) where
+module TestTypeDefinitions
+  ( typeDefinitionTests
+  )
+where
 
-import Test.Tasty (TestTree, testGroup)
-import Test.Tasty.HUnit (testCase, (@=?))
+import           Test.Tasty                     ( TestTree
+                                                , testGroup
+                                                )
+import           Test.Tasty.HUnit               ( testCase
+                                                , (@=?)
+                                                )
 
-import DelphiAst
-import DelphiParser (typeAttribute', typeDefinition, classType, dRecordDefinitionP)
-import Text.Megaparsec (parse)
-import Data.Text(unpack, intercalate)
+import           DelphiAst
+import           DelphiParser                   ( typeAttribute'
+                                                , typeDefinition
+                                                , classType
+                                                , dRecordDefinitionP
+                                                )
+import           Text.Megaparsec                ( parse )
+import           Data.Text                      ( unpack
+                                                , intercalate
+                                                )
 
-import Data.Maybe (Maybe(Just))
+import           Data.Maybe                     ( Maybe(Just) )
 
 typ a = Type $ Lexeme "" a
 arg a b c d = Arg a (Lexeme "" b) c d
 v a = V $ Lexeme "" a
 s a = S $ Lexeme "" a
+i a = I $ Lexeme "" a
 field a b = Field (Lexeme "" a) b
 
 typeDefinitionTests :: TestTree
@@ -31,7 +45,11 @@ typeDefinitionTests = testGroup
         )
       $ parse typeAttribute' "" "[foo('hello')]\nfoo = bar;"
       , testCase "Ensure empty class parses"
-      $ (Right (Class (typ "TFreeTheValue") [typ "TInterfacedObject", typ "TFoo"] []) @=?
+      $ (Right
+          (Class (typ "TFreeTheValue")
+                 [typ "TInterfacedObject", typ "TFoo"]
+                 []
+          ) @=?
         )
       $ parse typeDefinition
               ""
@@ -59,9 +77,32 @@ typeDefinitionTests = testGroup
       $ (Right (TypeDef (typ "foo") (ClassHelper (typ "bar") [])) @=?)
       $ parse typeDefinition "" "foo = class helper for bar end;"
       , testCase "Ensure a record with a case parses"
-      $ (Right (Record (typ "TFoo") [DefaultAccessibility [field "name" (typ "string"),field "desc" (typ "string"),CaseField (v "kind") [([v "kpFloat"],[]),([v "kpStr",v "kpPath"],[]),([v "kpInteger"],[field "intvalue" (typ "longint")]),([v "kpDouble"],[field "floatvalue" (typ "extended"),field "abbr" (typ "Char")])] Nothing]]) @=? )
+      $ (Right
+          (Record
+            (typ "TFoo")
+            [ DefaultAccessibility
+                [ field "name" (typ "string")
+                , field "desc" (typ "string")
+                , CaseField
+                  (v "kind")
+                  [ ([v "kpFloat"]          , [])
+                  , ([v "kpStr", v "kpPath"], [])
+                  , ([v "kpInteger"], [field "intvalue" (typ "longint")])
+                  , ( [v "kpDouble"]
+                    , [ field "floatvalue" (typ "extended")
+                      , field "abbr"       (typ "Char")
+                      ]
+                    )
+                  , ([i 3] , [field "foovalue" (typ "Foo")])
+                  ]
+                  Nothing
+                ]
+            ]
+          ) @=?
+        )
       $ parse typeDefinition ""
-      $ unpack $ intercalate
+      $ unpack
+      $ intercalate
           "\n"
           [ "TFoo=record"
           , "name,desc:string;"
@@ -75,9 +116,27 @@ typeDefinitionTests = testGroup
           , "end"
           ]
       , testCase "Ensure another record with a case parses"
-      $ (Right (Record (typ "TFoo") [DefaultAccessibility [field "name" (typ "string"),field "desc" (typ "string"),CaseField (v "Boolean") [([v "True"],[field "Char" (typ "String")]),([v "False"],[])] Nothing]]) @=? )
+      $ (Right
+          (Record
+            (typ "TFoo")
+            [ DefaultAccessibility
+                [ field "name" (typ "string")
+                , field "desc" (typ "string")
+                , CaseField
+                  (v "Boolean")
+                  [ ( [DTrue]
+                    , [Field (Lexeme "" "Char") (Type (Lexeme "" "String"))]
+                    )
+                  , ([DFalse], [])
+                  ]
+                  Nothing
+                ]
+            ]
+          ) @=?
+        )
       $ parse typeDefinition ""
-      $ unpack $ intercalate
+      $ unpack
+      $ intercalate
           "\n"
           [ "TFoo=record"
           , "name,desc:string;"
@@ -87,19 +146,32 @@ typeDefinitionTests = testGroup
           , "end;"
           ]
       , testCase "Class with comments..."
-      $ (Right (Class (Type (Lexeme "" "TFoo")) [Type (Lexeme "" "TObject"), Type (Lexeme "" "IFoo")] [Public []]) @=? )
+      $ (Right
+          (Class (Type (Lexeme "" "TFoo"))
+                 [Type (Lexeme "" "TObject"), Type (Lexeme "" "IFoo")]
+                 [Public []]
+          ) @=?
+        )
       $ parse (classType (typ "TFoo")) ""
-      $ unpack $ intercalate
+      $ unpack
+      $ intercalate
           "\n"
-          [ "(TObject,IFoo){a}"
-          , "public{}"
-          , " {b}  "
-          , "{h} end; {i}{j}"
-          ]
+          ["(TObject,IFoo){a}", "public{}", " {b}  ", "{h} end; {i}{j}"]
       , testCase "Class with comments..."
-      $ (Right (Class (Type (Lexeme "" "TFoo")) [Type (Lexeme "" "TObject")] [Public [Field (Lexeme "c" "name") (Type (Lexeme "f" "string")),Field (Lexeme "e" "desc") (Type (Lexeme "f" "string"))]]) @=? )
+      $ (Right
+          (Class
+            (Type (Lexeme "" "TFoo"))
+            [Type (Lexeme "" "TObject")]
+            [ Public
+                [ Field (Lexeme "c" "name") (Type (Lexeme "f" "string"))
+                , Field (Lexeme "e" "desc") (Type (Lexeme "f" "string"))
+                ]
+            ]
+          ) @=?
+        )
       $ parse (classType (typ "TFoo")) ""
-      $ unpack $ intercalate
+      $ unpack
+      $ intercalate
           "\n"
           [ "(TObject){a}"
           , "public{}"
@@ -107,21 +179,14 @@ typeDefinitionTests = testGroup
           , "{h} end; {i}{j}"
           ]
       , testCase "RecordDefinition with comments..."
-      $ (Right (Public [Field (Lexeme "" "name") (typ "string")]) @=? )
+      $ (Right (Public [Field (Lexeme "" "name") (typ "string")]) @=?)
       $ parse (dRecordDefinitionP) ""
-      $ unpack $ intercalate
-          "\n"
-          [ "public"
-          , "  { blah blah }  "
-          , " {}name{}: string;"
-          ]
+      $ unpack
+      $ intercalate "\n" ["public", "  { blah blah }  ", " {}name{}: string;"]
       , testCase "RecordDefinition without comments..."
-      $ (Right (Public [Field (Lexeme "" "name") (typ "string")]) @=? )
+      $ (Right (Public [Field (Lexeme "" "name") (typ "string")]) @=?)
       $ parse (dRecordDefinitionP) ""
-      $ unpack $ intercalate
-          "\n"
-          [ "public"
-          , " name : string;"
-          ]
+      $ unpack
+      $ intercalate "\n" ["public", " name : string;"]
       ]
   ]

@@ -21,6 +21,7 @@ module DelphiParser
   , varExpressions
   , setDefinition
   , functionImpl
+  , newType
   , procedureImpl
   , typeDefinition
   , statement
@@ -226,8 +227,9 @@ typeDefinition = do
           , classType lhs'
           ]
         return $ fromMaybe (ForwardClass lhs') r
-      , try $ typeAlias lhs' -- Just for *very* simple type aliases
       , try $ newType lhs'
+      , try $ typeAlias lhs' -- Just for *very* simple type aliases
+      , TypeExpression <$> expression'
       ]
     optional semi
     return ie

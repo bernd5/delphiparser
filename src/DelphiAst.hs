@@ -213,6 +213,7 @@ data TypeDefinition
   | Class TypeName
           [TypeName]
           ClassDefinition
+  | TypeExpression ValueExpression
   deriving (Eq, Show)
 
 data InterfaceExpression
