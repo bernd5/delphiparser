@@ -33,7 +33,7 @@ commentTests = testGroup "Comment Tests"
   , testCase "{SimpleBlockComment}{SimpleBlockComment}//ThenLine"
   $ (Right "SimpleBlockComment\nSimpleBlockComment\nThenLine" @=? )
   $ parse comment "" "{SimpleBlockComment}{SimpleBlockComment}//ThenLine"
-  , testCase "{SimpleBlockComment} \n {SimpleBlockComment} //ThenLine"
+  , testCase "{SimpleBlockComment} \\n {SimpleBlockComment} //ThenLine"
   $ (Right "SimpleBlockComment\nSimpleBlockComment\nThenLine" @=? )
   $ parse comment "" "{SimpleBlockComment} {SimpleBlockComment} //ThenLine"
   , testCase "Multiple lines..."

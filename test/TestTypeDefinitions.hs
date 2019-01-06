@@ -19,8 +19,7 @@ import           DelphiParser                   ( typeAttribute'
                                                 , dRecordDefinitionP
                                                 )
 import           Text.Megaparsec                ( parse )
-import           Data.Text                      ( unpack
-                                                , intercalate
+import           Data.Text                      ( intercalate
                                                 )
 
 import           Data.Maybe                     ( Maybe(Just) )
@@ -101,7 +100,6 @@ typeDefinitionTests = testGroup
           ) @=?
         )
       $ parse typeDefinition ""
-      $ unpack
       $ intercalate
           "\n"
           [ "TFoo=record"
@@ -135,7 +133,6 @@ typeDefinitionTests = testGroup
           ) @=?
         )
       $ parse typeDefinition ""
-      $ unpack
       $ intercalate
           "\n"
           [ "TFoo=record"
@@ -153,7 +150,6 @@ typeDefinitionTests = testGroup
           ) @=?
         )
       $ parse (classType (typ "TFoo")) ""
-      $ unpack
       $ intercalate
           "\n"
           ["(TObject,IFoo){a}", "public{}", " {b}  ", "{h} end; {i}{j}"]
@@ -170,7 +166,6 @@ typeDefinitionTests = testGroup
           ) @=?
         )
       $ parse (classType (typ "TFoo")) ""
-      $ unpack
       $ intercalate
           "\n"
           [ "(TObject){a}"
@@ -181,12 +176,10 @@ typeDefinitionTests = testGroup
       , testCase "RecordDefinition with comments..."
       $ (Right (Public [Field (Lexeme "" "name") (typ "string")]) @=?)
       $ parse (dRecordDefinitionP) ""
-      $ unpack
       $ intercalate "\n" ["public", "  { blah blah }  ", " {}name{}: string;"]
       , testCase "RecordDefinition without comments..."
       $ (Right (Public [Field (Lexeme "" "name") (typ "string")]) @=?)
       $ parse (dRecordDefinitionP) ""
-      $ unpack
       $ intercalate "\n" ["public", " name : string;"]
       ]
   ]

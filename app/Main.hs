@@ -49,7 +49,7 @@ main = do
     let sp = case decodeUtf8' bs of
               Left _ -> decodeLatin1 bs
               Right t -> t
-    let p = runParser (dUnitP <|> program) x (unpack sp)
+    let p = runParser (dUnitP <|> program) x sp
     case p of
       Left a -> case a of
         TrivialError o (Just e) s -> do

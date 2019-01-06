@@ -156,9 +156,9 @@ interfaceItems = choice
   [ try typeExpressions
   , try constExpressions 
   , try resourceExpressions 
-  , try varExpressions
   , Standalone <$> try dProcedureP
   , Standalone <$> try dFunctionP
+  , try varExpressions
   ] 
 
 singleConstExpression :: Parser ConstDefinition
@@ -172,7 +172,7 @@ singleConstExpression = do
 
 singleVarExpression :: Parser [VarDefinition]
 singleVarExpression = do
-  names <- identifier' `sepBy` symbol ","
+  names <- (identifierPlus reserved) `sepBy` symbol ","
   typ <- symbol ":" >> typeName
   def <- optional (symbol "=" >> expression')
   semi
@@ -376,7 +376,7 @@ dRecordDefinitionP = choice
   ]
 
 dRecordDefinitionP' ::
-     String -> ([Field] -> Accessibility) -> Parser Accessibility
+     Text -> ([Field] -> Accessibility) -> Parser Accessibility
 dRecordDefinitionP' a b = do
   rword a
   fields <- concat <$> many dFieldDefinitionP
@@ -390,7 +390,6 @@ dFieldDefinitionP = comment *> choice
   , try $ pure <$> dProcedureP
   , try $ pure <$> dFunctionP
   , try $ pure <$> property'
-  , try dSimpleFieldP
   , try $ pure [] <* typeExpressions
   , try $ rword "class" *> choice [classVar
                                   , try dSimpleFieldP
@@ -400,6 +399,7 @@ dFieldDefinitionP = comment *> choice
                                   , try $ pure <$> staticFunction
                                   , try $ pure <$> property'
                                   ]
+  , try dSimpleFieldP
   ] <* comment
 
 recordCase :: Parser Field
@@ -609,7 +609,7 @@ procedureImpl = do
   return $ ProcedureImpl name args annotations nested statements
 
 dMemberImplementationP ::
-     String
+     Text
   -> (TypeName -> TypeName -> [Argument] -> TypeName -> [FieldAnnotation] -> [ImplementationSpec] -> Expression -> ImplementationSpec)
   -> Parser ImplementationSpec
 dMemberImplementationP a b = do
@@ -632,7 +632,7 @@ dMemberImplementationP a b = do
   return $ b name member args (fromMaybe UnspecifiedType typ) annotations nested statements
 
 dProcedureP' ::
-     String
+    Text 
   -> (TypeName -> [Argument] -> TypeName -> [FieldAnnotation] -> Field)
   -> Parser Field
 dProcedureP' a b = do
@@ -687,7 +687,7 @@ simpleField :: Parser [Field]
 simpleField = do
   optional $ rword "const"
   comment
-  name <- identifier' `sepBy1` symbol ","
+  name <- (identifierPlus reserved)`sepBy1` symbol ","
   symbol ":"
   typ <- typeName
   e <- optional $ symbol "="

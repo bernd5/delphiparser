@@ -2,7 +2,7 @@
 
 module TestDelphiTry ( delphiTryTests ) where
 
-import Data.Text (unpack, intercalate)
+import Data.Text (intercalate)
 
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase, (@=?))
@@ -48,7 +48,6 @@ delphiTryTests = testGroup
       ) @=?
     )
   $ parse statement ""
-  $ unpack
   $ intercalate
       "\n"
       [ "try"
@@ -81,7 +80,6 @@ delphiTryTests = testGroup
       ) @=?
     )
   $ parse statement ""
-  $ unpack
   $ intercalate
       "\n"
       [ "try"

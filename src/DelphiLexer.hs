@@ -21,19 +21,19 @@ module DelphiLexer
   , identifierPlus
   ) where
 
-import Prelude hiding (words)
+import Prelude hiding (words, length, concat)
 import Data.Void
 import Data.Ratio ((%))
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
-import Data.Text (Text, toLower, strip, pack, unpack, words, intercalate)
+import Data.Text (Text, toLower, strip, pack, unpack, words, intercalate, length, singleton, concat)
 import Control.Applicative (empty)
 import Control.Monad (void)
 import Data.Maybe (fromMaybe, isJust)
 import DelphiAst (Lexeme(..))
 
-type Parser = Parsec Void String
+type Parser = Parsec Void Text
 
 -- For now, just skip comments.  But will later have to include them.
 -- (because a code reformatter will need to preserve comments)
@@ -45,6 +45,9 @@ sc = L.space space1 lineCmnt blockCmnt
     lineCmnt = empty
     blockCmnt = empty
 
+takeWhileP' :: Maybe String -> (Token Text -> Bool) -> Parser Text
+takeWhileP' = takeWhileP
+
 comment :: Parser Text
 comment = do
   a <- optional $ many $ choice [ try lineComment
@@ -54,8 +57,8 @@ comment = do
 
 lineComment :: Parser Text
 lineComment = do
-  a <- some ((string "//" *> takeWhileP (Just "character") (/= '\n')) <* space)
-  return $ intercalate "\n" (pack <$> a)
+  a <- some ((string "//" *> takeWhileP' (Just "character") (/= '\n')) <* space)
+  return $ intercalate "\n" a
 
 blockComment :: Parser Text
 blockComment = do
@@ -75,14 +78,14 @@ lexeme a = do
   c <- comment
   return $ Lexeme c b
 
-symbol' :: String -> Parser (Lexeme Text)
+symbol' :: Text -> Parser (Lexeme Text)
 symbol' a = do
-  b <- pack <$> L.symbol sc a
+  b <- L.symbol sc a
   c <- comment
   return $ Lexeme c b
 
 symbol :: Text -> Parser ()
-symbol a = void $ symbol' (unpack a)
+symbol a = void $ symbol' a
 
 parens :: Text -> Text -> Parser a -> Parser a
 parens a b = between (symbol a) (symbol b)
@@ -102,15 +105,16 @@ float = try $ do
   skipCount 1 float_
   return $ nom a c % den c
   where
-    nom :: String -> String -> Integer
-    nom a c = read $ a <> c
-    den :: String -> Integer
+    nom :: Text -> Text -> Integer
+    nom a c = read . unpack $ a <> c
+    den :: Text -> Integer
     den c = toInteger $ (10 :: Integer) ^ length c
+    float_ :: Parser (Text, Text)
     float_ = do
-      a <- some digitChar
+      a <- some (singleton <$> digitChar)
       _ <- char '.'
-      c <- some digitChar
-      return (a, c)
+      c <- some (singleton <$> digitChar)
+      return (concat a, concat c)
 
 semi :: Parser ()
 semi = void $ symbol ";"
@@ -120,7 +124,7 @@ reserved =
   words
     "and array asm begin break case const constructor continue destructor div do downto else end false file for function goto if implementation in inline interface label mod nil not object of on operator or packed procedure program record repeat set shl shr string then to true type unit until uses var while with xor as class dispose except exit exports finalization finally inherited initialization is library new on out property raise threadvar try absolute abstract alias assembler cdecl cppdecl default export external forward generic index local nostackframe oldfpccall override pascal private protected public published read register reintroduce safecall softfloat specialize stdcall virtual write far near"
 
-rword :: String -> Parser (Lexeme ())
+rword :: Text -> Parser (Lexeme ())
 rword w = (lexeme . try) (string' w *> notFollowedBy alphaNumChar)
 
 identifier :: Parser (Lexeme String)

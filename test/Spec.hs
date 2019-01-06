@@ -80,7 +80,7 @@ stripWhitespace = concatMap f
 
 roundtrip :: ShowDelphi a => Text -> Parser a -> IO ()
 roundtrip expected p = do
-  let r = parse p "" $ unpack expected
+  let r = parse p "" $ expected
   either (\_ -> assertFailure "Parse Error") actualCase r
  where
   actualCase actual = assertEqual "Delphi Generation must match source"
@@ -158,7 +158,6 @@ unitTests p = testGroup
       ) @=?
     )
   $ parse dFunctionImplementationP ""
-  $ unpack
   $ intercalate
       "\n"
       ["function TShared<T>.Cast<TT>: TShared<TT>;", "begin", "end;"]
@@ -390,7 +389,6 @@ unitTests p = testGroup
       ) @=?
     )
   $ parse dProcedureImplementationP ""
-  $ unpack
   $ intercalate "\n" ["procedure TShared<T>.Cast<TT>;", "begin", "end;"]
   , testCase "Ensure a static constructor implementation parses"
   $ (Right
@@ -406,7 +404,6 @@ unitTests p = testGroup
       ) @=?
     )
   $ parse dUnitImplementationP ""
-  $ unpack
   $ intercalate
       "\n"
       ["implementation class constructor TShared.Create;", "begin", "end;"]
