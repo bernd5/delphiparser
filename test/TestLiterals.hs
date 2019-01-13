@@ -31,6 +31,16 @@ literalsTests = testGroup
           expression'
           ""
           "[1, 2, 3]"
+      , testCase "(a, b, c)" 
+      $ (Right (P [v "a",v "b",v"c"]) @=?) $ parse
+          expression'
+          ""
+          "(a, b, c)"
+      , testCase "(1, 2, 3)" 
+      $ (Right (P [i 1, i 2, i 3]) @=?) $ parse
+          expression'
+          ""
+          "(1, 2, 3)"
       ]
   , testGroup "var"
     $ [ testCase "Floating point: 42.56" $ (Right [varDefinition "A" (typ "float") (Just (F 42.56))] @=?) $ parse

@@ -6,7 +6,7 @@ import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase, (@=?))
 
 import Text.Megaparsec (parse)
-import DelphiParser (array')
+import DelphiParser (array', typeName)
 
 import DelphiAst
 
@@ -16,6 +16,9 @@ arrayTests = testGroup "Delphi Array Tests"
       testCase "array [foo] of bar" $
       (Right (StaticArray (IndexOf [V $ Lexeme "" "foo"]) (Type $ Lexeme "" "bar")) @=?) $
       parse array' "" "array [foo] of bar"
+    , testCase "array [foo] of bar[32]" $
+      (Right (StaticArray (IndexOf [V $ Lexeme "" "foo"]) (Type $ Lexeme "" "bar")) @=?) $
+      parse typeName "" "array [foo] of bar[32]"
     , testCase "array [foo, bar] of baz" $
       (Right (StaticArray (IndexOf [V $ Lexeme "" "foo", V $ Lexeme "" "bar"]) (Type $ Lexeme "" "baz")) @=?) $
       parse array' "" "array [foo, bar] of baz"

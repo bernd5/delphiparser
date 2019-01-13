@@ -5,6 +5,7 @@ module DelphiLexer
   , sc
   , lexeme
   , symbol
+  , end
   , reserved
   , symbol'
   , parens
@@ -126,6 +127,9 @@ reserved =
 
 rword :: Text -> Parser (Lexeme ())
 rword w = (lexeme . try) (string' w *> notFollowedBy alphaNumChar)
+
+end :: Parser (Lexeme ())
+end = rword "end"
 
 identifier :: Parser (Lexeme String)
 identifier = do

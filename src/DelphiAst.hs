@@ -294,6 +294,9 @@ data FieldAnnotation
   = Override
   | Static -- Ie, a class function
   | Virtual
+  | NoReturn
+  | Inline
+  | Final
   | Dynamic
   | Overload
   | Reintroduce
@@ -333,6 +336,7 @@ data TypeName
   | DynamicArray Integer
                  TypeName
   | VariantArray ArrayIndex
+  | Set TypeName
   | OpenDynamicArray TypeName
   | ConstType -- Eg, for an 'array of const'
   | AddressOfType Comment TypeName -- '^'

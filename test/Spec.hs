@@ -38,6 +38,7 @@ newtype ParserTestsData = ParserTestsData
   }
 
 v a = V $ Lexeme "" a
+s a = S $ Lexeme "" a
 i a = I $ Lexeme "" a
 usesC (x : xs) = (Prelude.map (Lexeme "") x) : usesC xs
 usesC _        = []
@@ -308,6 +309,19 @@ unitTests p = testGroup
   $ parse constExpressions
           ""
           "const foo: array [bar] of baz = (one, two, three);"
+  , testCase "Ensure that const expression's involving arrays parse"
+  $ (Right
+      (ConstDefinitions
+        [ ConstDefinition (Lexeme "" "foo")
+                          (Just $ StaticArray (IndexOf [v "bar"]) (
+                            StaticArray (IndexOf [i 30]) (typ "string")))
+                          (P [s "one", s "two", s "three"])
+        ]
+      ) @=?
+    )
+  $ parse constExpressions
+          ""
+          "const foo: array [bar] of string[30] = ('one', 'two', 'three');"
   , testCase "Ensure foo.bar parses" $ (Right (v "foo" :. v "bar") @=?) $ parse
     expression'
     ""
