@@ -23,6 +23,9 @@ loopTests = testGroup "Delphi Loop Tests"
   , testCase "while foo <= bar do begin end" $
     (Right (While (v "foo" :<= v "bar") (Begin [])) @=? ) $
     parse loop' "" "while foo <= bar do begin end"
+  , testCase "while (foo <= bar) and (c[i] <> '\\n') do begin end" $
+    (Right (While (P [V (Lexeme "" "foo") :<= V (Lexeme "" "bar")] :& P [(V (Lexeme "" "c") :!! [V (Lexeme "" "i")]) :<> S (Lexeme "" "\\n")]) (Begin [])) @=? ) $
+    parse loop' "" "while (foo <= bar) and (c[i] <> '\\n') do begin end"
   , testCase "repeat ...; until foo <= bar" $
     (Right (Repeat [v "A" := v "B",v "B" := v "A"] (v "foo" :<= v "bar")) @=? ) $
     parse loop' "" "repeat A := B; B := A; until foo <= bar"

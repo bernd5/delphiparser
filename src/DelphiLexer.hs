@@ -23,14 +23,15 @@ module DelphiLexer
   ) where
 
 import Prelude hiding (words, length, concat)
+import qualified Prelude as P
 import Data.Void
 import Data.Ratio ((%))
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
-import Data.Text (Text, toLower, strip, pack, unpack, words, intercalate, length, singleton, concat)
+import Data.Text (Text, toLower, strip, pack, unpack, words, intercalate, length, singleton, concat, breakOnAll)
 import Control.Applicative (empty)
-import Control.Monad (void)
+import Control.Monad (void, replicateM)
 import Data.Maybe (fromMaybe, isJust)
 import DelphiAst (Lexeme(..))
 
@@ -61,13 +62,22 @@ lineComment = do
   a <- some ((string "//" *> takeWhileP' (Just "character") (/= '\n')) <* space)
   return $ intercalate "\n" a
 
+blockComment' :: Text -> Text -> Parser Text
+blockComment' a b = do
+  c <- pack <$> (string a >> (manyTill anyChar (string b)))
+  let a' = P.length $ breakOnAll a c
+  let b' = P.length $ breakOnAll b c
+  c' <- replicateM (a' - b') (pack <$> (manyTill anyChar (string b)))
+
+  return $ intercalate b ([c] <> c')
+
 blockComment :: Parser Text
 blockComment = do
   c <- some $ (choice
-    [ char '{' >> (manyTill anyChar (char '}'))
-    , string "(*" >> (manyTill anyChar (string "*)"))
+    [ blockComment' "{" "}"
+    , blockComment' "(*" "*)"
     ] <* space )
-  let c' = (intercalate "\n") $ map pack $ c
+  let c' = (intercalate "\n") $ c
   d <- optional lineComment
   let d' = fromMaybe "" d
   return $ intercalate "\n" $ filter (\x -> x /= "") [c', d']

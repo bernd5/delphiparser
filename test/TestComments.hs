@@ -39,4 +39,7 @@ commentTests = testGroup "Comment Tests"
   , testCase "Multiple lines..."
   $ (Right "--\n This file starts with comments\n--\n And another comment" @=? )
   $ parse comment "" "{--\n This file starts with comments\n--}\n// And another comment\n\n\nunit TestUnit; interface type implementation initialization finalization end."
+  , testCase "Nested Comments"
+  $ (Right "hey{there}blah" @=? )
+  $ parse comment "" "{hey{there}blah}"
   ]
