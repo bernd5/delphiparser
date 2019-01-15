@@ -154,6 +154,7 @@ data ValueExpression
   | ValueExpression :& ValueExpression -- foo and bar
   | ValueExpression :| ValueExpression -- foo or bar
   | ValueExpression :== ValueExpression -- foo = bar
+  | ValueExpression :=. ValueExpression -- foo := bar (TODO: Remove this one)
   | ValueExpression :+ ValueExpression -- foo + bar
   | ValueExpression :- ValueExpression -- foo - bar
   | ValueExpression :* ValueExpression -- foo * bar
@@ -162,7 +163,9 @@ data ValueExpression
   | ValueExpression :<> ValueExpression -- foo <> bar
   | ValueExpression :< ValueExpression -- foo < bar
   | ValueExpression :<= ValueExpression -- foo <= bar
-  | ValueExpression :>= ValueExpression -- foo >= bar 
+  | ValueExpression :>= ValueExpression -- foo >= bar
+  | ValueExpression :>> ValueExpression -- foo >> bar
+  | ValueExpression :<< ValueExpression -- foo << bar
   | ValueExpression :> ValueExpression -- foo > bar
   | As ValueExpression ValueExpression -- foo as bar
   | Is ValueExpression ValueExpression -- foo is bar

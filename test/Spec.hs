@@ -224,9 +224,7 @@ unitTests p = testGroup
   $ (Right (v "a" :$ [v "b"] :+ v "c") @=?)
   $ parse expression' "" "a(b)+c"
   , testCase "Ensure that you can assign to the result of a cast"
-  $ (Right
-      (P [v "FFreeTheValue" `As` v "TFreeTheValue"] :. v "FObjectToFree" := Nil) @=?
-    )
+  $ (Right (ExpressionValue ((P [As (V (Lexeme "" "FFreeTheValue")) (V (Lexeme "" "TFreeTheValue"))] :. V (Lexeme "" "FObjectToFree")) :=. Nil)) @=? )
   $ parse statement "" "(FFreeTheValue as TFreeTheValue).FObjectToFree := nil;"
   , testCase "Ensure a value involving a generic type member function parses"
   $ (Right (((v "TShared" :<<>> [typ "TT"]) :. v "Create") :$ [Nil]) @=?)
@@ -267,7 +265,7 @@ unitTests p = testGroup
   $ (Right EmptyExpression @=?)
   $ parse statement "" ";"
   , testCase "Ensure assign to an index property parses"
-  $ (Right (v "foo" :!! [i 32] := v "blah") @=?)
+  $ (Right (ExpressionValue ((V (Lexeme "" "foo") :!! [I (Lexeme "" 32)]) :=. V (Lexeme "" "blah"))) @=? )
   $ parse statement "" "foo[32] := blah;"
   , testCase "Ensure reading an index property parses"
   $ (Right (ExpressionValue (v "foo" :!! [i 32])) @=?)

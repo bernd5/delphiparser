@@ -139,6 +139,9 @@ table = [ [ infixL (:*)  "*"
     , infixL (:<) "<"
     , infixL (:>) ">"
     , infixL (:==) "="
+    , infixL (:=.) ":=" -- TODO: Actually this should be removed.
+    , infixL (:<<) "shl"
+    , infixL (:>>) "shr"
     ]
   , [ infixL (:..) ".."
   ]

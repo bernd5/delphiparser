@@ -26,6 +26,7 @@ module DelphiParser
   , typeDefinition
   , statement
   , delphiTry'
+  , dEqExpression
   , constExpressions
   , dIfExpression
   , dFieldDefinitionP
@@ -329,10 +330,9 @@ dGenericRecordP a = do
            then TypeAlias a (Type (Lexeme c "record"))
            else Record a r'
 
--- TODO: Fix this so that it's expressed in the type system.
 dottedIdentifier :: Parser (Lexeme Text)
 dottedIdentifier = do
-  parts <- identifier' `sepBy` symbol "."
+  parts <- (identifierPlus reserved) `sepBy` symbol "."
   return $ intercalateLexeme "." parts
 
 intercalateLexeme :: Text -> [Lexeme Text] -> Lexeme Text
@@ -560,8 +560,8 @@ dBeginEndExpression = do
 
 dEqExpression :: Parser Expression
 dEqExpression = do
-  lhs <- expression'
-  rword ":=" -- TODO: Ensure that this doesn't require spaces.
+  lhs <- V <$> dottedIdentifier
+  symbol ":="
   rhs <- expression'
   return $ lhs := rhs
 
