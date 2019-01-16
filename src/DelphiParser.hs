@@ -168,7 +168,7 @@ singleConstExpression = do
   typ <- optional $ symbol ":" >> typeName
   symbol "="
   rhs <- expression'
-  semi
+  optional semi
   return $ ConstDefinition lhs typ rhs
 
 singleVarExpression :: Parser [VarDefinition]
@@ -212,24 +212,35 @@ typeDefinition = do
           if null args
             then Type ident
             else GenericDefinition ident args
-    symbol "="
+    s <- symbol' "="
+    case s of
+      Lexeme (Include (Lexeme e a)) b -> do
+        --let c = parse (typeDefinitionRhs ident args lhs') "" a
+        let c = Right $ TypeDef lhs' (NewType $ Type (Lexeme e ("todo-import:" <> a)))
+        case c of
+          Right c' -> return c'
+          Left d' -> fail $ "Something failed"
+      _ -> typeDefinitionRhs ident args lhs'
+
+typeDefinitionRhs :: Lexeme Text -> [Argument] -> TypeName -> Parser TypeDefinition
+typeDefinitionRhs a b c = do
     ie <- choice
-      [ try $ dReferenceToProcedureP ident
-      , try $ dReferenceToFunctionP ident
-      , try $ dGenericRecordP lhs'
-      , try $ interfaceType lhs' stringLiteral
-      , try $ setDefinition lhs'
-      , try $ enumDefinition lhs'  -- Contains parens
+      [ try $ dReferenceToProcedureP a
+      , try $ dReferenceToFunctionP a
+      , try $ dGenericRecordP c
+      , try $ interfaceType c stringLiteral
+      , try $ setDefinition c
+      , try $ enumDefinition c  -- Contains parens
       , try $ do
         rword "class"
         r <- optional $ choice
-          [ metaClassDefinition lhs'
-          , classHelper lhs'
-          , classType lhs'
+          [ metaClassDefinition c
+          , classHelper c
+          , classType c
           ]
-        return $ fromMaybe (ForwardClass lhs') r
-      , try $ newType lhs'
-      , try $ typeAlias lhs' -- Just for *very* simple type aliases
+        return $ fromMaybe (ForwardClass c) r
+      , try $ newType c
+      , try $ typeAlias c -- Just for *very* simple type aliases
       , TypeExpression <$> expression'
       ]
     optional semi
@@ -336,7 +347,7 @@ dottedIdentifier = do
   return $ intercalateLexeme "." parts
 
 intercalateLexeme :: Text -> [Lexeme Text] -> Lexeme Text
-intercalateLexeme sep = foldr1 (\a b -> a <> (Lexeme "" sep) <> b) 
+intercalateLexeme sep = foldr1 (\a b -> a <> (Lexeme Empty sep) <> b)
 
 dArgsPassedP :: Parser [TypeName]
 dArgsPassedP = parens "(" ")" $ do
@@ -483,17 +494,30 @@ singleTypeName = choice [ try array'
   ]
 
 typeName :: Parser TypeName
-typeName = comment *> choice [ try array'
-  , try setType
-  , do
-    -- TODO: Distinguish between the different sorts of identifiers, especially class.
-    pointer <- optional $ (symbol' "^" <|> symbol' "@")
-    name <- (identifierPlus reserved) `sepBy1` symbol "."
-    let name' = intercalateLexeme "." name
-    args <- optional dGenericTypes
-    ai <- optional $ arrayIndex typeName expression'
-    return $ simplifyTypeName name' pointer args ai
-  ]
+typeName = do
+  c <- comment
+  case c of
+    Include (Lexeme e a) -> do
+        let c = Right $ Type (Lexeme e ("todo-import:" <> a))
+        case c of
+          Right c' -> return c'
+          Left d' -> fail $ "Something failed"
+    Comment a -> typeName'
+    Empty -> typeName'
+
+typeName' :: Parser TypeName
+typeName' = choice
+        [ try array'
+        , try setType
+        , do
+          -- TODO: Distinguish between the different sorts of identifiers, especially class.
+          pointer <- optional $ (symbol' "^" <|> symbol' "@")
+          name    <- (identifierPlus reserved) `sepBy1` symbol "."
+          let name' = intercalateLexeme "." name
+          args <- optional dGenericTypes
+          ai   <- optional $ arrayIndex typeName expression'
+          return $ simplifyTypeName name' pointer args ai
+        ]
 
 staticFunction :: Parser Field
 staticFunction = a <$> dFunctionP

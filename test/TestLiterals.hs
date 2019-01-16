@@ -11,11 +11,11 @@ import DelphiWriter
 
 import DelphiAst
 
-v a = V $ Lexeme "" a
-i a = I $ Lexeme "" a
-s a = S $ Lexeme "" a
-typ a = Type $ Lexeme "" a
-varDefinition a b c = VarDefinition (Lexeme "" a) b c
+v a = V $ Lexeme Empty a
+i a = I $ Lexeme Empty a
+s a = S $ Lexeme Empty a
+typ a = Type $ Lexeme Empty a
+varDefinition a b c = VarDefinition (Lexeme Empty a) b c
 
 literalsTests :: TestTree
 literalsTests = testGroup

@@ -17,10 +17,10 @@ lambdaFunction' = lambdaFunction dBeginEndExpression interfaceItems typeName
 lambdaArgs' :: Parser [Argument]
 lambdaArgs' = lambdaArgs dBeginEndExpression interfaceItems typeName
 
-v a = V $ Lexeme ""  a
-s a = S $ Lexeme ""  a
-i a = I $ Lexeme "" a
-typ a = Type $ Lexeme "" a
+v a = V $ Lexeme Empty a
+s a = S $ Lexeme Empty a
+i a = I $ Lexeme Empty a
+typ a = Type $ Lexeme Empty a
 
 expressionTests :: TestTree
 expressionTests = testGroup

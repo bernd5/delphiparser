@@ -12,7 +12,7 @@ import DelphiParser (statement, delphiTry')
 
 import DelphiAst
 
-v a = V $ Lexeme "" a
+v a = V $ Lexeme Empty a
 
 delphiTryTests :: TestTree
 delphiTryTests = testGroup

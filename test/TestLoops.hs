@@ -10,7 +10,8 @@ import DelphiParser (loop', statement, expression')
 
 import DelphiAst
 
-v a = V $ Lexeme "" a
+v a = V $ Lexeme Empty a
+s a = S $ Lexeme Empty a
 
 loopTests :: TestTree
 loopTests = testGroup "Delphi Loop Tests"
@@ -24,25 +25,33 @@ loopTests = testGroup "Delphi Loop Tests"
     (Right (While (v "foo" :<= v "bar") (Begin [])) @=? ) $
     parse loop' "" "while foo <= bar do begin end"
   , testCase "while (foo <= bar) and (c[i]<=length('\\n')) do begin ... end" $
-    (Right (While (P [V (Lexeme "" "foo") :<= V (Lexeme "" "bar")] :& P [(V (Lexeme "" "c") :!! [V (Lexeme "" "i")]) :<= (V (Lexeme "" "length") :$ [S (Lexeme "" "\\n")])]) (Begin [V (Lexeme "" "result") := (V (Lexeme "" "result") :+ (V (Lexeme "" "s") :!! [V (Lexeme "" "i")])),ExpressionValue (V (Lexeme "" "inc") :$ [V (Lexeme "" "i")])])) @=? ) $
+    (Right
+      (While
+        (P [v "foo" :<= v "bar"] :& P [v "c" :!! [v "i"] :<= ((v "length") :$ [s "\\n"])])
+          (Begin [ v "result" := ((v "result") :+ ((v "s") :!! [v "i"]))
+                 , ExpressionValue $ (v "inc") :$ [v "i"]
+                 ]
+          )) @=? ) $
     parse loop' "" "while (foo <= bar) and (c[i]<=length('\\n')) do begin result:=result+s[i]; inc(i); end"
   , testCase "result+s[i]" $
-    (Right (V (Lexeme "" "result") :+ (V (Lexeme "" "s") :!! [V (Lexeme "" "i")])) @=? ) $
+    (Right (v "result" :+ (v "s" :!! [v "i"])) @=? ) $
     parse expression' "" "result+s[i]"
   , testCase "result:=result+s[i] // Statement" $
-    (Right (V (Lexeme "" "result") := (V (Lexeme "" "result") :+ (V (Lexeme "" "s") :!! [V (Lexeme "" "i")]))) @=? ) $
+    (Right (v "result" := (v "result" :+ (v "s" :!! [v "i"]))) @=? ) $
     parse statement "" "result:=result+s[i]"
   , testCase "begin result:=result+s[i]; end" $
-    (Right (Begin [V (Lexeme "" "result") := (V (Lexeme "" "result") :+ (V (Lexeme "" "s") :!! [V (Lexeme "" "i")]))]) @=? ) $
+    (Right (Begin [v "result" := (v "result" :+ (v "s" :!! [v "i"]))]) @=? ) $
     parse statement "" "begin result:=result+s[i]; end"
   , testCase "begin result:=result+s[i]; inc(i); end" $
-    (Right (Begin [V (Lexeme "" "result") := (V (Lexeme "" "result") :+ (V (Lexeme "" "s") :!! [V (Lexeme "" "i")])),ExpressionValue (V (Lexeme "" "inc") :$ [V (Lexeme "" "i")])]) @=? ) $
+    (Right (Begin
+      [ v "result" := (v "result" :+ (v "s" :!! [v "i"]))
+      , ExpressionValue (v "inc" :$ [v "i"])]) @=? ) $
     parse statement "" "begin result:=result+s[i]; inc(i); end"
   , testCase "(foo <= bar) and (c[i]<=length('\\n'))" $
-    (Right (P [V (Lexeme "" "foo") :<= V (Lexeme "" "bar")] :& P [(V (Lexeme "" "c") :!! [V (Lexeme "" "i")]) :<= (V (Lexeme "" "length") :$ [S (Lexeme "" "\\n")])]) @=? ) $
+    (Right (P [v "foo" :<= v "bar"] :& P [(v "c" :!! [v "i"]) :<= (v "length" :$ [s "\\n"])]) @=? ) $
     parse expression' "" "(foo <= bar) and (c[i]<=length('\\n'))"
   , testCase "while (foo <= bar) and (c[i] <> '\\n') do begin end" $
-    (Right (While (P [V (Lexeme "" "foo") :<= V (Lexeme "" "bar")] :& P [(V (Lexeme "" "c") :!! [V (Lexeme "" "i")]) :<> S (Lexeme "" "\\n")]) (Begin [])) @=? ) $
+    (Right (While (P [v "foo" :<= v "bar"] :& P [(v "c" :!! [v "i"]) :<> s "\\n"]) (Begin [])) @=? ) $
     parse loop' "" "while (foo <= bar) and (c[i] <> '\\n') do begin end"
   , testCase "repeat ...; until foo <= bar" $
     (Right (Repeat [v "A" := v "B",v "B" := v "A"] (v "foo" :<= v "bar")) @=? ) $

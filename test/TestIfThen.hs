@@ -9,7 +9,7 @@ import DelphiAst
 import DelphiParser (dIfExpression, statement)
 import Text.Megaparsec (parse)
 
-v a = V $ Lexeme "" a
+v a = V $ Lexeme Empty a
 
 ifThenTests :: TestTree
 ifThenTests = testGroup

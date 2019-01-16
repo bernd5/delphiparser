@@ -14,8 +14,9 @@ import DelphiAst
 
 import Data.Maybe (Maybe(Just))
 
-arg a b c d = Arg a (Lexeme "" b) c d
-typ a = Type $ Lexeme "" a
+arg a b c d = Arg a (Lexeme Empty b) c d
+typ a = Type $ Lexeme Empty a
+i a = I $ Lexeme Empty a
 
 typeArgumentTests :: TestTree
 typeArgumentTests =
@@ -32,10 +33,10 @@ typeArgumentTests =
       (Right (Just [arg ConstArg "Default" (Just $ typ "TBar") Nothing]) @=?) $
       parse typeArguments' "" "(const Default: TBar)"
     , testCase "One argument with default" $
-      (Right (Just [arg NormalArg "aFoo" (Just $ typ "TFoo") (Just (I $ Lexeme "" 32))]) @=?) $
+      (Right (Just [arg NormalArg "aFoo" (Just $ typ "TFoo") (Just (i 32))]) @=?) $
       parse typeArguments' "" "(aFoo: TFoo = 32)"
     , testCase "One argument with default array" $
-      (Right (Just [arg NormalArg "aFoo" (Just $ typ "TFoo") (Just $ L [I $ Lexeme "" 32, I $ Lexeme "" 33])]) @=?) $
+      (Right (Just [arg NormalArg "aFoo" (Just $ typ "TFoo") (Just $ L [i 32, i 33])]) @=?) $
       parse typeArguments' "" "(aFoo: TFoo = [32, 33])"
     , testCase "One const 'array of const' argument" $
       (Right (Just [arg ConstArg "Default" (Just $ DynamicArray 1 ConstType) Nothing]) @=?) $

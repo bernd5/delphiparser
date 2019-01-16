@@ -1,21 +1,36 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module DelphiAst where
 
 import Data.Text (Text)
 
 -- This is the crude lexeme - a single "word" in the delphi code.
-type Comment = Text
-data Lexeme a = Lexeme Comment a
+data Directive
+  = Comment Text
+  | Include (Lexeme Text)
+  | IfDef Text (Lexeme Text) (Lexeme Text)
+  | Empty
+  deriving (Eq, Show)
+
+data Lexeme a = Lexeme Directive a
   deriving (Eq, Show)
 
 instance (Functor Lexeme) where
   --fmap :: (a -> b) -> f a -> f b
   fmap f (Lexeme a b) = Lexeme a (f b)
 
+instance Semigroup Directive where
+  (Comment a) <> (Comment b) = Comment (a <> "\n" <> b)
+  Empty <> b = b
+  a <> Empty = a
+  (Comment a) <> Empty = Comment (a)
+  (Include a) <> (Comment b) = Include (a <> Lexeme Empty b)
+
 instance Semigroup a => (Semigroup (Lexeme a)) where
   (Lexeme a b) <> (Lexeme c d) = Lexeme (a <> c) (b <> d)
 
 data Unit = Unit
-             Comment
+             Directive
              (Lexeme Text)
              Interface
              Implementation
@@ -342,8 +357,8 @@ data TypeName
   | Set TypeName
   | OpenDynamicArray TypeName
   | ConstType -- Eg, for an 'array of const'
-  | AddressOfType Comment TypeName -- '^'
-  | TargetOfPointer Comment TypeName -- '@'
+  | AddressOfType Directive TypeName -- '^'
+  | TargetOfPointer Directive TypeName -- '@'
   | Constraint [GenericConstraint]
   | GenericDefinition (Lexeme Text)
                       [Argument]

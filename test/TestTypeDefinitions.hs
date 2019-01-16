@@ -24,12 +24,12 @@ import           Data.Text                      ( intercalate
 
 import           Data.Maybe                     ( Maybe(Just) )
 
-typ a = Type $ Lexeme "" a
-arg a b c d = Arg a (Lexeme "" b) c d
-v a = V $ Lexeme "" a
-s a = S $ Lexeme "" a
-i a = I $ Lexeme "" a
-field a b = Field (Lexeme "" a) b
+typ a = Type $ Lexeme Empty a
+arg a b c d = Arg a (Lexeme Empty b) c d
+v a = V $ Lexeme Empty a
+s a = S $ Lexeme Empty a
+i a = I $ Lexeme Empty a
+field a b = Field (Lexeme Empty a) b
 
 typeDefinitionTests :: TestTree
 typeDefinitionTests = testGroup
@@ -123,7 +123,7 @@ typeDefinitionTests = testGroup
                 , CaseField
                   (v "Boolean")
                   [ ( [DTrue]
-                    , [Field (Lexeme "" "Char") (Type (Lexeme "" "String"))]
+                    , [field "Char" (typ "String")]
                     )
                   , ([DFalse], [])
                   ]
@@ -144,8 +144,8 @@ typeDefinitionTests = testGroup
           ]
       , testCase "Class with comments..."
       $ (Right
-          (Class (Type (Lexeme "" "TFoo"))
-                 [Type (Lexeme "" "TObject"), Type (Lexeme "" "IFoo")]
+          (Class (typ "TFoo")
+                 [typ "TObject", typ "IFoo"]
                  [Public []]
           ) @=?
         )
@@ -156,11 +156,11 @@ typeDefinitionTests = testGroup
       , testCase "Class with comments..."
       $ (Right
           (Class
-            (Type (Lexeme "" "TFoo"))
-            [Type (Lexeme "" "TObject")]
+            (typ "TFoo")
+            [typ "TObject"]
             [ Public
-                [ Field (Lexeme "c" "name") (Type (Lexeme "f" "string"))
-                , Field (Lexeme "e" "desc") (Type (Lexeme "f" "string"))
+                [ Field (Lexeme (Comment "c") "name") (Type (Lexeme (Comment "f") "string"))
+                , Field (Lexeme (Comment "e") "desc") (Type (Lexeme (Comment "f") "string"))
                 ]
             ]
           ) @=?
@@ -174,11 +174,11 @@ typeDefinitionTests = testGroup
           , "{h} end; {i}{j}"
           ]
       , testCase "RecordDefinition with comments..."
-      $ (Right (Public [Field (Lexeme "" "name") (typ "string")]) @=?)
+      $ (Right (Public [Field (Lexeme (Comment "") "name") (typ "string")]) @=?)
       $ parse (dRecordDefinitionP) ""
       $ intercalate "\n" ["public", "  { blah blah }  ", " {}name{}: string;"]
       , testCase "RecordDefinition without comments..."
-      $ (Right (Public [Field (Lexeme "" "name") (typ "string")]) @=?)
+      $ (Right (Public [field "name" (typ "string")]) @=?)
       $ parse (dRecordDefinitionP) ""
       $ intercalate "\n" ["public", " name : string;"]
       ]

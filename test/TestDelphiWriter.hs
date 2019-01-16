@@ -10,8 +10,8 @@ import DelphiWriter
 
 import Data.Maybe (Maybe(Just))
 
-typ a = Type $ Lexeme "" a
-arg a b c = Arg a (Lexeme "" b) (typ <$> c)
+typ a = Type $ Lexeme Empty a
+arg a b c = Arg a (Lexeme Empty b) (typ <$> c)
 
 writerTests :: TestTree
 writerTests = testGroup

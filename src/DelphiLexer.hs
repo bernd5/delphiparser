@@ -29,11 +29,11 @@ import Data.Ratio ((%))
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
-import Data.Text (Text, toLower, strip, pack, unpack, words, intercalate, length, singleton, concat, breakOnAll)
+import Data.Text (Text, toLower, strip, pack, unpack, words, intercalate, length, singleton, concat, breakOn, breakOnAll)
 import Control.Applicative (empty)
 import Control.Monad (void, replicateM)
 import Data.Maybe (fromMaybe, isJust)
-import DelphiAst (Lexeme(..))
+import DelphiAst (Lexeme(..), Directive(..))
 
 type Parser = Parsec Void Text
 
@@ -50,37 +50,75 @@ sc = L.space space1 lineCmnt blockCmnt
 takeWhileP' :: Maybe String -> (Token Text -> Bool) -> Parser Text
 takeWhileP' = takeWhileP
 
-comment :: Parser Text
+-- TODO: Make this take a continuation in the event that it's an include or if or something?
+-- And have it return not a `Parser Directive`, but the 'new' parse.
+comment :: Parser Directive
 comment = do
   a <- optional $ many $ choice [ try lineComment
                  , try blockComment
                  ]
-  return $ intercalate "\n" $ fromMaybe [] a
+  return $ foldr (<>) Empty $ fromMaybe [] a
 
-lineComment :: Parser Text
+lineComment :: Parser Directive
 lineComment = do
   a <- some ((string "//" *> takeWhileP' (Just "character") (/= '\n')) <* space)
-  return $ intercalate "\n" a
+  return $ Comment $ intercalate "\n" a
 
-blockComment' :: Text -> Text -> Parser Text
+blockComment' :: Text -> Text -> Parser Directive
 blockComment' a b = do
-  c <- pack <$> (string a >> (manyTill anyChar (string b)))
+  string a
+  if a == "{" then
+    choice [ try compilerDirective
+           , restOfBlockComment' a b
+           ] <* space
+  else
+    (restOfBlockComment' a b) <* space
+
+compilerDirective :: Parser Directive
+compilerDirective = do
+  char '$'
+  directive <- takeWhileP' (Just "character") (/= '}') <* char '}'
+  let
+    directive' :: (Text, Text)
+    directive' = breakOn " " directive
+  case directive' of
+    ("i", b) -> do
+      return $ Include (Lexeme Empty (strip b))
+    ("if", b) -> do
+      a <- readToEndDirective "endif"
+      case a of
+        (Lexeme _ "else") -> do
+          e <- readToEndDirective "endif"
+          return $ IfDef b a e
+        _ -> do
+          return $ IfDef b a (Lexeme Empty "")
+    _ -> return $ Comment $ "$" <> directive
+
+readToEndDirective :: Text -> Parser (Lexeme Text)
+readToEndDirective _ = do
+  a <- lexeme (takeWhileP' (Just "character") (/= '{'))
+
+  return $ a
+
+restOfBlockComment' :: Text -> Text -> Parser Directive
+restOfBlockComment' a b = do
+  c <- pack <$> (manyTill anyChar (string b))
   let a' = P.length $ breakOnAll a c
   let b' = P.length $ breakOnAll b c
   c' <- replicateM (a' - b') (pack <$> (manyTill anyChar (string b)))
 
-  return $ intercalate b ([c] <> c')
+  return $ Comment $ intercalate b ([c] <> c')
 
-blockComment :: Parser Text
+blockComment :: Parser Directive
 blockComment = do
   c <- some $ (choice
     [ blockComment' "{" "}"
     , blockComment' "(*" "*)"
     ] <* space )
-  let c' = (intercalate "\n") $ c
+  let c' = foldr (<>) Empty c
   d <- optional lineComment
-  let d' = fromMaybe "" d
-  return $ intercalate "\n" $ filter (\x -> x /= "") [c', d']
+  let d' = fromMaybe Empty d
+  return $ c' <> d'
 
 -- Removes all spaces after a lexime.
 lexeme :: Parser a -> Parser (Lexeme a)

@@ -376,7 +376,7 @@ instance ShowDelphi Field where
                                             <> _toDelphiAnnotations h
                                             where
                                               tos (Just x) = x
-                                              tos Nothing = Lexeme "" ""
+                                              tos Nothing = Lexeme Empty ""
 
                                               tose (Just x) = showDelphi x
                                               tose Nothing = ""
@@ -390,7 +390,7 @@ instance ShowDelphi Field where
                                             <> _toDelphiAnnotations h
                                             where
                                               tos (Just x) = x
-                                              tos Nothing = Lexeme "" ""
+                                              tos Nothing = Lexeme Empty ""
 
                                               tose (Just x) = showDelphi x
                                               tose Nothing = ""
@@ -440,9 +440,13 @@ instance ShowDelphi ArgModifier where
 instance ShowDelphi Text where
   showDelphi a = a
 
+instance ShowDelphi Directive where
+  showDelphi Empty = ""
+  showDelphi (Comment a) = a
+
 instance ShowDelphi a => ShowDelphi (Lexeme a) where
-  showDelphi (Lexeme "" b) = showDelphi b
-  showDelphi (Lexeme a b) = showDelphi b <> "{" <> a <> "}"
+  showDelphi (Lexeme Empty b) = showDelphi b
+  showDelphi (Lexeme (Comment a) b) = showDelphi b <> "{" <> a <> "}"
 
 instance ShowDelphi Argument where
   showDelphi (Arg m a (Just b) (Just c)) = showDelphi m <> showDelphi a <> ": " <> (showDelphi b) <> " = " <> showDelphi c
