@@ -16,20 +16,21 @@ module DelphiLexer
   , float
   , semi
   , rword
+  , compilerDirective
   , anyIdentifier
   , identifier
   , identifier'
   , identifierPlus
   ) where
 
-import Prelude hiding (words, length, concat)
+import Prelude hiding (words, length, concat, take)
 import qualified Prelude as P
 import Data.Void
 import Data.Ratio ((%))
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
-import Data.Text (Text, toLower, strip, pack, unpack, words, intercalate, length, singleton, concat, breakOn, breakOnAll)
+import Data.Text (Text, toLower, strip, pack, unpack, words, intercalate, length, singleton, concat, breakOn, breakOnAll, take, isPrefixOf)
 import Control.Applicative (empty)
 import Control.Monad (void, replicateM)
 import Data.Maybe (fromMaybe, isJust)
@@ -83,22 +84,48 @@ compilerDirective = do
     directive' = breakOn " " directive
   case directive' of
     ("i", b) -> do
-      return $ Include (Lexeme Empty (strip b))
-    ("if", b) -> do
-      a <- readToEndDirective "endif"
-      case a of
-        (Lexeme _ "else") -> do
-          e <- readToEndDirective "endif"
-          return $ IfDef b a e
-        _ -> do
-          return $ IfDef b a (Lexeme Empty "")
-    _ -> return $ Comment $ "$" <> directive
+      return $ Include (strip b)
+    ("if", cond) -> do
+      let cond' = strip cond
+      a <- takeWhileP' (Just "character") (/= '{') <* char '{'
+      restOfIf cond' a
+    (a', b) -> pure $ UnknownDirective a'
 
-readToEndDirective :: Text -> Parser (Lexeme Text)
-readToEndDirective _ = do
-  a <- lexeme (takeWhileP' (Just "character") (/= '{'))
+restOfIf cond a = choice [ try cd
+                         , do
+                            a' <- takeWhileP' (Just "character") (/= '}') <* char '}'
+                            b' <- takeWhileP' (Just "character") (/= '{') <* char '{'
+                            c <- restOfIf cond a
+                            case c of
+                              IfDef d e f ->
+                                pure $ IfDef d ([ Left (Comment a'), Right b'] <> e) f 
+                         ]
+      where
+        cd = compilerDirective >>= \b -> 
+            if a == "" then
+              processIfDirectivePart cond [] b
+            else
+              processIfDirectivePart cond [Right a] b
 
-  return $ a
+processIfDirectivePart :: Text -> [Either Directive Text] -> Directive -> Parser Directive
+processIfDirectivePart cond a part = do
+  case part of
+    UnknownDirective "endif" -> do
+      return $ IfDef cond a []
+    UnknownDirective "else" -> do
+      els <- takeWhileP' (Just "character") (/= '{') <* char '{'
+      fin <- compilerDirective -- TODO: Or a regular comment.
+      return $ IfDef cond a [ Right els]
+    otherwise -> do
+      rst <- takeWhileP' (Just "character") (/= '{') <* char '{'
+      fin <- compilerDirective -- TODO: Or a regular comment.
+      let a' = filter (\x -> case x of
+                              Right "" -> False
+                              otherwise -> True) (a <> [Left otherwise] <> [Right rst])
+      processIfDirectivePart cond a' fin
+
+restOfSingleBlockComment :: Text -> Text -> Parser Directive
+restOfSingleBlockComment a b = Comment . pack <$> (manyTill anyChar (string b))
 
 restOfBlockComment' :: Text -> Text -> Parser Directive
 restOfBlockComment' a b = do

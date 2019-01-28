@@ -45,7 +45,7 @@ module DelphiParser
   ) where
 
 import Data.Maybe
-import Data.Text (Text, strip, intercalate)
+import Data.Text (Text, unpack)
 import DelphiAst
 import DelphiLexer
 import DelphiArray (array, arrayIndex)
@@ -82,7 +82,6 @@ typeArguments' = typeArguments'' '(' ')'
 typeAttribute' :: Parser TypeDefinition
 typeAttribute' = typeAttribute expression' typeDefinition
 
-
 delphiTry' :: Parser Expression
 delphiTry' = delphiTry typeName expression' statement
 
@@ -104,11 +103,24 @@ dUnitP = try $ do
   finalization <- dUnitFinalizationP
   return $ Unit c unitName interface implementation initialization finalization
 
+rword' :: Text -> (Directive -> Parser a) -> Parser a
+rword' word f = do
+  r <- rword word
+
+  case r of
+    Lexeme (Include a) () -> do
+      let p = parse (f Empty) (unpack a) a
+      case p of
+        Left err -> fail $ show err
+        Right result -> return result
+    Lexeme (IfDef a b c) () -> f (IfDef a b c)
+    Lexeme a () -> f a
+
 program :: Parser Unit
 program = do
   _ <- optional $ char '\xFEFF'
   _ <- optional sc
-  c <- comment
+  comment
   rword "program"
   s <- identifier'
   semi
@@ -214,9 +226,9 @@ typeDefinition = do
             else GenericDefinition ident args
     s <- symbol' "="
     case s of
-      Lexeme (Include (Lexeme e a)) b -> do
+      Lexeme (Include a) b -> do
         --let c = parse (typeDefinitionRhs ident args lhs') "" a
-        let c = Right $ TypeDef lhs' (NewType $ Type (Lexeme e ("todo-import:" <> a)))
+        let c = Right $ TypeDef lhs' (NewType $ Type (Lexeme Empty ("todo-import:" <> a)))
         case c of
           Right c' -> return c'
           Left d' -> fail $ "Something failed"
@@ -400,24 +412,26 @@ dRecordDefinitionP' a b = do
   return $ b fields
 
 dFieldDefinitionP :: Parser [Field]
-dFieldDefinitionP = comment *> choice
-  [ try $ pure <$> recordCase
-  , try $ pure <$> dConstructorFieldP
-  , try $ pure <$> dDestructorFieldP
-  , try $ pure <$> dProcedureP
-  , try $ pure <$> dFunctionP
-  , try $ pure <$> property'
-  , try $ pure [] <* typeExpressions
-  , try $ rword "class" *> choice [classVar
-                                  , try dSimpleFieldP
-                                  , try $ pure <$> dConstructorFieldP
-                                  , try $ pure <$> dDestructorFieldP
-                                  , try $ pure <$> dProcedureP
-                                  , try $ pure <$> staticFunction
-                                  , try $ pure <$> property'
-                                  ]
-  , try dSimpleFieldP
-  ] <* comment
+dFieldDefinitionP = do
+  c <- comment
+  choice
+    [ try $ pure <$> recordCase
+    , try $ pure <$> dConstructorFieldP
+    , try $ pure <$> dDestructorFieldP
+    , try $ pure <$> dProcedureP
+    , try $ pure <$> dFunctionP
+    , try $ pure <$> property'
+    , try $ pure [] <* typeExpressions
+    , try $ rword "class" *> choice [classVar
+                                    , try dSimpleFieldP
+                                    , try $ pure <$> dConstructorFieldP
+                                    , try $ pure <$> dDestructorFieldP
+                                    , try $ pure <$> dProcedureP
+                                    , try $ pure <$> staticFunction
+                                    , try $ pure <$> property'
+                                    ]
+    , try dSimpleFieldP
+    ] <* comment
 
 recordCase :: Parser Field
 recordCase = do
@@ -497,13 +511,11 @@ typeName :: Parser TypeName
 typeName = do
   c <- comment
   case c of
-    Include (Lexeme e a) -> do
-        let c = Right $ Type (Lexeme e ("todo-import:" <> a))
-        case c of
-          Right c' -> return c'
-          Left d' -> fail $ "Something failed"
-    Comment a -> typeName'
+    Comment c -> typeName' >>= \x -> pure $ DirectiveType $ Lexeme (Comment c) x
+    IfDef cond body els -> pure $ DirectiveType (Lexeme c UnspecifiedType)
     Empty -> typeName'
+    UnknownDirective _ -> pure $ DirectiveType $ Lexeme c UnspecifiedType
+    els -> pure $ DirectiveType (Lexeme els UnspecifiedType)
 
 typeName' :: Parser TypeName
 typeName' = choice
@@ -744,25 +756,25 @@ simpleField = do
 
 dUnitImplementationP :: Parser Implementation
 dUnitImplementationP = do
-  rword "implementation"
-  u <- optional uses
-  functions <-
-    many $ choice 
-      [ try functionImpl
-      , try procedureImpl
-      , try dFunctionImplementationP
-      , try dProcedureImplementationP
-      , try dConstructorImplementationP
-      , try dDestructorImplementationP
-      , rword "class" *> choice [
-          dFunctionImplementationP
-        , dProcedureImplementationP
-        , dConstructorImplementationP
-        , dDestructorImplementationP
+  rword' "implementation" $ \r -> do
+    u <- optional uses
+    functions <-
+      many $ choice 
+        [ try functionImpl
+        , try procedureImpl
+        , try dFunctionImplementationP
+        , try dProcedureImplementationP
+        , try dConstructorImplementationP
+        , try dDestructorImplementationP
+        , rword "class" *> choice [
+            dFunctionImplementationP
+          , dProcedureImplementationP
+          , dConstructorImplementationP
+          , dDestructorImplementationP
+          ]
+        , AdditionalInterface <$> interfaceItems
         ]
-      , AdditionalInterface <$> interfaceItems
-      ]
-  return $ Implementation (Uses (fromMaybe [] u)) functions
+    return $ Implementation (Uses (fromMaybe [] u)) functions
 
 dUnitInitializationP :: Parser Initialization
 dUnitInitializationP = do

@@ -7,9 +7,7 @@ import Test.Tasty.HUnit
 import DelphiLexer
 import Text.Megaparsec (parse)
 import DelphiAst (Directive(..), Lexeme(..))
-
-c a = Comment a
-include a = Include (Lexeme Empty a)
+import TestSupport
 
 commentTests :: TestTree
 commentTests = testGroup "Comment Tests"

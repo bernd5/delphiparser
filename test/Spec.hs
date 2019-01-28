@@ -22,6 +22,7 @@ import TestComments (commentTests)
 import TestArrays (arrayTests)
 import TestDelphiCase (caseTests)
 import TestDelphiTry (delphiTryTests)
+import TestTypeName (typeNameTests)
 import TestLoops (loopTests)
 import TestProperties (propertiesTests)
 import TestTypeArguments (typeArgumentTests)
@@ -71,6 +72,7 @@ main = do
     , functionTests
     , literalsTests
     , ifThenTests
+    , typeNameTests
     ]
 
 stripWhitespace :: Text -> Text

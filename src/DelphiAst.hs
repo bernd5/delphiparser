@@ -7,8 +7,10 @@ import Data.Text (Text)
 -- This is the crude lexeme - a single "word" in the delphi code.
 data Directive
   = Comment Text
-  | Include (Lexeme Text)
-  | IfDef Text (Lexeme Text) (Lexeme Text)
+  | Include Text
+  | IfDef Text [Either Directive Text] [Either Directive Text]
+  | UnknownDirective Text
+  | Compound Directive Directive
   | Empty
   deriving (Eq, Show)
 
@@ -20,12 +22,15 @@ instance (Functor Lexeme) where
   fmap f (Lexeme a b) = Lexeme a (f b)
 
 instance Semigroup Directive where
-  (Comment a) <> (Comment b) = Comment (a <> "\n" <> b)
   Empty <> b = b
   a <> Empty = a
-  (Comment a) <> Empty = Comment (a)
-  (Include a) <> (Comment b) = Include (a <> Lexeme Empty b)
 
+  (Comment a) <> (Comment b) = Comment (a <> "\n" <> b)
+
+  a <> b = Compound a b
+
+
+-- TODO: Remove or refine this instance so that it doesn't remove the implied spaces between comments.
 instance Semigroup a => (Semigroup (Lexeme a)) where
   (Lexeme a b) <> (Lexeme c d) = Lexeme (a <> c) (b <> d)
 
@@ -348,6 +353,7 @@ data ArrayIndex
 
 data TypeName
   = Type (Lexeme Text)
+  | DirectiveType (Lexeme TypeName)
   -- Arrays
   | StaticArray ArrayIndex
                 TypeName
