@@ -59,12 +59,12 @@ typeNameTests = testGroup
               ) UnspecifiedType
             )
           )
-      , testCase' "{$if bar}{foo bar}foo{$else}baz{$endif}a{$endif}" typeName
+      , testCase' "{$if bar}{foo bar}foo{$else}{bar foo}baz{$endif}a{$endif}" typeName
         $ (DirectiveType
             (Lexeme
               (IfDef "bar"
                 [Left (Comment "foo bar"), Right "foo"]
-                [Right "baz"]
+                [Left (Comment "bar foo"), Right "baz"]
               ) UnspecifiedType -- Note: 'a{$endif}' is not parsed, as the parser is done.
             )
           )

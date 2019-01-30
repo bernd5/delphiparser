@@ -88,41 +88,58 @@ compilerDirective = do
     ("if", cond) -> do
       let cond' = strip cond
       a <- takeWhileP' (Just "character") (/= '{') <* char '{'
-      restOfIf cond' a
+      restOfIf' cond' [Right a] [] restOfIfCombiner
     (a', b) -> pure $ UnknownDirective a'
 
-restOfIf cond a = choice [ try cd
+restOfIfCombiner :: Text -> Text -> Directive -> Directive
+restOfIfCombiner a b c = case c of
+                       IfDef d e f -> IfDef d ([ Left (Comment a), Right b] <> e) f
+
+restOfIfCombiner' :: Text -> Text -> Directive -> Directive
+restOfIfCombiner' a b c = case c of
+                       IfDef d e f -> IfDef d e ([ Left (Comment a), Right b] <> f)
+
+restOfIf'
+  :: Text
+  -> [Either Directive Text]
+  -> [Either Directive Text]
+  -> (Text -> Text -> Directive -> Directive)
+  -> Parser Directive
+restOfIf' cond a b f = choice [ try cd
                          , do
                             a' <- takeWhileP' (Just "character") (/= '}') <* char '}'
                             b' <- takeWhileP' (Just "character") (/= '{') <* char '{'
-                            c <- restOfIf cond a
-                            case c of
-                              IfDef d e f ->
-                                pure $ IfDef d ([ Left (Comment a'), Right b'] <> e) f 
+                            (f a' b') <$> restOfIf' cond a b f
                          ]
       where
-        cd = compilerDirective >>= \b -> 
-            if a == "" then
-              processIfDirectivePart cond [] b
-            else
-              processIfDirectivePart cond [Right a] b
+        cd = compilerDirective >>= \b' -> processIfDirectivePart cond
+                                            (removeEmpties a)
+                                            (removeEmpties b)
+                                            b'
 
-processIfDirectivePart :: Text -> [Either Directive Text] -> Directive -> Parser Directive
-processIfDirectivePart cond a part = do
+removeEmpties a = filter (\x -> case x of
+                                  Left x -> True
+                                  Right "" -> False
+                                  otherwise -> True) a
+
+processIfDirectivePart
+  :: Text
+  -> [Either Directive Text]
+  -> [Either Directive Text]
+  -> Directive -> Parser Directive
+processIfDirectivePart cond a b part = do
   case part of
     UnknownDirective "endif" -> do
-      return $ IfDef cond a []
+      return $ IfDef cond a b
     UnknownDirective "else" -> do
       els <- takeWhileP' (Just "character") (/= '{') <* char '{'
-      fin <- compilerDirective -- TODO: Or a regular comment.
-      return $ IfDef cond a [ Right els]
+      restOfIf' cond a (b <> [Right els]) restOfIfCombiner'
     otherwise -> do
+      -- TODO: Figure out why I can't just use restOfIf' as per the above, here.
       rst <- takeWhileP' (Just "character") (/= '{') <* char '{'
       fin <- compilerDirective -- TODO: Or a regular comment.
-      let a' = filter (\x -> case x of
-                              Right "" -> False
-                              otherwise -> True) (a <> [Left otherwise] <> [Right rst])
-      processIfDirectivePart cond a' fin
+      let a' = removeEmpties $ a <> [Left otherwise] <> [Right rst]
+      processIfDirectivePart cond a' [] fin
 
 restOfSingleBlockComment :: Text -> Text -> Parser Directive
 restOfSingleBlockComment a b = Comment . pack <$> (manyTill anyChar (string b))
