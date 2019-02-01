@@ -45,7 +45,7 @@ module DelphiParser
   ) where
 
 import Data.Maybe
-import Data.Text (Text, unpack)
+import Data.Text (Text, pack, unpack)
 import DelphiAst
 import DelphiLexer
 import DelphiArray (array, arrayIndex)
@@ -178,10 +178,16 @@ singleConstExpression :: Parser ConstDefinition
 singleConstExpression = do
   lhs <- identifier'
   typ <- optional $ symbol ":" >> typeName
-  symbol "="
-  rhs <- expression'
-  optional semi
-  return $ ConstDefinition lhs typ rhs
+  c <- symbol' "="
+  case c of
+    Lexeme (Include a) "=" -> do
+      return $ ConstDirectiveFragment lhs typ (Include a)
+    Lexeme (Compound a b) "=" -> do
+      return $ ConstDirectiveFragment lhs typ (Compound a b)
+    _ -> do
+      rhs <- expression'
+      optional semi
+      return $ ConstDefinition lhs typ rhs
 
 singleVarExpression :: Parser [VarDefinition]
 singleVarExpression = do
@@ -226,12 +232,10 @@ typeDefinition = do
             else GenericDefinition ident args
     s <- symbol' "="
     case s of
-      Lexeme (Include a) b -> do
-        --let c = parse (typeDefinitionRhs ident args lhs') "" a
-        let c = Right $ TypeDef lhs' (NewType $ Type (Lexeme Empty ("todo-import:" <> a)))
-        case c of
-          Right c' -> return c'
-          Left d' -> fail $ "Something failed"
+      Lexeme (Include a) "=" -> do
+        return $ TypeDef lhs' (NewType $ Type (Lexeme Empty ("todo-import:" <> a)))
+      Lexeme (Compound a b) "=" -> do
+        return $ TypeDef lhs' (NewType $ Type (Lexeme Empty ("todo-compound:" <> (pack $ show a) <> (pack $ show b))))
       _ -> typeDefinitionRhs ident args lhs'
 
 typeDefinitionRhs :: Lexeme Text -> [Argument] -> TypeName -> Parser TypeDefinition

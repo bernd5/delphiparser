@@ -247,10 +247,11 @@ data InterfaceExpression
   | Standalone Field -- TODO: Make this more specialised
   deriving (Eq, Show)
 
-data ConstDefinition =
-  ConstDefinition (Lexeme Text)
+data ConstDefinition
+  = ConstDefinition (Lexeme Text)
                   (Maybe TypeName)
                   ValueExpression
+  | ConstDirectiveFragment (Lexeme Text) (Maybe TypeName) Directive
   deriving (Eq, Show)
 
 data VarDefinition =

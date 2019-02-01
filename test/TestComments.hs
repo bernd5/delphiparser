@@ -50,4 +50,6 @@ commentTests = testGroup "Comment Tests"
   , testCase "Directive: $i foo"
   $ (Right (include "foo") @=? )
   $ parse comment "" "{$i foo}"
+  , testCase' "{$i foo} {bar!}" comment
+  $ (Compound (include "foo") (Comment "bar!"))
   ]

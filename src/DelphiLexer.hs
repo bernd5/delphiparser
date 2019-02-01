@@ -55,9 +55,7 @@ takeWhileP' = takeWhileP
 -- And have it return not a `Parser Directive`, but the 'new' parse.
 comment :: Parser Directive
 comment = do
-  a <- optional $ many $ choice [ try lineComment
-                 , try blockComment
-                 ]
+  a <- optional $ many $ choice [try lineComment, try blockComment]
   return $ foldr (<>) Empty $ fromMaybe [] a
 
 lineComment :: Parser Directive
