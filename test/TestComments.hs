@@ -10,46 +10,46 @@ import DelphiAst (Directive(..), Lexeme(..))
 import TestSupport
 
 commentTests :: TestTree
-commentTests = testGroup "Comment Tests"
-  [ testCase "//SimpleLineComment NewLine"
-  $ (Right (Comment "SimpleLineComment") @=? )
+commentTests = testGroup "c Tests"
+  [ testCase "//SimpleLinec NewLine"
+  $ (Right [c "SimpleLineComment"] @=? )
   $ parse comment "" "//SimpleLineComment\n"
   , testCase "//SimpleLineComment"
-  $ (Right (Comment "SimpleLineComment") @=? )
+  $ (Right [c "SimpleLineComment"] @=? )
   $ parse comment "" "//SimpleLineComment"
   , testCase "//MultipleLineComment"
-  $ (Right (Comment "MultipleLineComment\nSecondLine!") @=? )
+  $ (Right [c "MultipleLineComment\nSecondLine!"] @=? )
   $ parse comment "" "//MultipleLineComment\n//SecondLine!"
   , testCase "//MultipleLineComment#2"
-  $ (Right (Comment "MultipleLineComment\nSecondLine!") @=? )
+  $ (Right [c "MultipleLineComment\nSecondLine!"] @=? )
   $ parse comment "" "//MultipleLineComment\n  //SecondLine!"
   , testCase "{SimpleBlockComment}NewLine"
-  $ (Right (Comment "SimpleBlockComment") @=? )
+  $ (Right [c "SimpleBlockComment"] @=? )
   $ parse comment "" "{SimpleBlockComment}\n"
   , testCase "{SimpleBlockComment}"
-  $ (Right (Comment "SimpleBlockComment") @=? )
+  $ (Right [c "SimpleBlockComment"] @=? )
   $ parse comment "" "{SimpleBlockComment}"
   , testCase "{SimpleBlockComment}//ThenLine"
-  $ (Right (Comment "SimpleBlockComment\nThenLine") @=? )
+  $ (Right [c "SimpleBlockComment", c "ThenLine"] @=? )
   $ parse comment "" "{SimpleBlockComment}//ThenLine"
   , testCase "{SimpleBlockComment}{SimpleBlockComment}//ThenLine"
-  $ (Right (Comment "SimpleBlockComment\nSimpleBlockComment\nThenLine") @=? )
+  $ (Right [c "SimpleBlockComment", c "SimpleBlockComment", c "ThenLine"] @=? )
   $ parse comment "" "{SimpleBlockComment}{SimpleBlockComment}//ThenLine"
   , testCase "{SimpleBlockComment} \\n {SimpleBlockComment} //ThenLine"
-  $ (Right (Comment "SimpleBlockComment\nSimpleBlockComment\nThenLine") @=? )
+  $ (Right [c "SimpleBlockComment", c "SimpleBlockComment", c "ThenLine"] @=? )
   $ parse comment "" "{SimpleBlockComment} {SimpleBlockComment} //ThenLine"
   , testCase "Multiple lines..."
-  $ (Right (Comment "--\n This file starts with comments\n--\n And another comment") @=? )
+  $ (Right [c "--\n This file starts with comments\n--", c " And another comment"] @=? )
   $ parse comment "" "{--\n This file starts with comments\n--}\n// And another comment\n\n\nunit TestUnit; interface type implementation initialization finalization end."
   , testCase "Nested Comments"
-  $ (Right (Comment "hey{there}blah") @=? )
+  $ (Right [c "hey{there}blah"] @=? )
   $ parse comment "" "{hey{there}blah}"
   , testCase "Commented directive"
-  $ (Right (Comment " $define blah") @=? )
+  $ (Right [c " $define blah"] @=? )
   $ parse comment "" "{ $define blah}"
   , testCase "Directive: $i foo"
-  $ (Right (include "foo") @=? )
+  $ (Right [include "foo"] @=? )
   $ parse comment "" "{$i foo}"
   , testCase' "{$i foo} {bar!}" comment
-  $ (Compound (include "foo") (Comment "bar!"))
+  $ [include "foo", c "bar!"]
   ]

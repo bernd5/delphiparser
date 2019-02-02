@@ -9,9 +9,7 @@ import Text.Megaparsec (parse)
 import DelphiParser (loop', statement, expression')
 
 import DelphiAst
-
-v a = V $ Lexeme Empty a
-s a = S $ Lexeme Empty a
+import TestSupport
 
 loopTests :: TestTree
 loopTests = testGroup "Delphi Loop Tests"

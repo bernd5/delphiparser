@@ -11,8 +11,7 @@ import DelphiParser (delphiCase')
 import Text.Megaparsec (parse)
 
 import DelphiAst
-
-v a = V (Lexeme Empty a)
+import TestSupport
 
 caseTests :: TestTree
 caseTests =

@@ -9,18 +9,7 @@ import Text.Megaparsec (parse, try, many)
 import DelphiAst
 import DelphiLexer
 import DelphiParser (expression', dBeginEndExpression, interfaceItems, typeName )
-import DelphiExpressions
-
-lambdaFunction' :: Parser ValueExpression
-lambdaFunction' = lambdaFunction dBeginEndExpression interfaceItems typeName
-
-lambdaArgs' :: Parser [Argument]
-lambdaArgs' = lambdaArgs dBeginEndExpression interfaceItems typeName
-
-v a = V $ Lexeme Empty a
-s a = S $ Lexeme Empty a
-i a = I $ Lexeme Empty a
-typ a = Type $ Lexeme Empty a
+import TestSupport
 
 expressionTests :: TestTree
 expressionTests = testGroup

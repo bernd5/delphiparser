@@ -4,6 +4,7 @@ module DelphiParser
   ( dUnitP
   , program
   , expression'
+  , singleConstExpression
   , typeExpressions
   , uses
   , array'
@@ -103,17 +104,17 @@ dUnitP = try $ do
   finalization <- dUnitFinalizationP
   return $ Unit c unitName interface implementation initialization finalization
 
-rword' :: Text -> (Directive -> Parser a) -> Parser a
+rword' :: Text -> ([Directive] -> Parser a) -> Parser a
 rword' word f = do
   r <- rword word
 
   case r of
-    Lexeme (Include a) () -> do
-      let p = parse (f Empty) (unpack a) a
+    Lexeme [(Include a)] () -> do
+      let p = parse (f []) (unpack a) a
       case p of
         Left err -> fail $ show err
         Right result -> return result
-    Lexeme (IfDef a b c) () -> f (IfDef a b c)
+    Lexeme [(IfDef a b c)] () -> f [(IfDef a b c)]
     Lexeme a () -> f a
 
 program :: Parser Unit
@@ -180,14 +181,12 @@ singleConstExpression = do
   typ <- optional $ symbol ":" >> typeName
   c <- symbol' "="
   case c of
-    Lexeme (Include a) "=" -> do
-      return $ ConstDirectiveFragment lhs typ (Include a)
-    Lexeme (Compound a b) "=" -> do
-      return $ ConstDirectiveFragment lhs typ (Compound a b)
-    _ -> do
+    Lexeme [] "=" -> do
       rhs <- expression'
       optional semi
       return $ ConstDefinition lhs typ rhs
+    Lexeme a "=" -> do
+      return $ ConstDirectiveFragment lhs typ a
 
 singleVarExpression :: Parser [VarDefinition]
 singleVarExpression = do
@@ -232,10 +231,8 @@ typeDefinition = do
             else GenericDefinition ident args
     s <- symbol' "="
     case s of
-      Lexeme (Include a) "=" -> do
-        return $ TypeDef lhs' (NewType $ Type (Lexeme Empty ("todo-import:" <> a)))
-      Lexeme (Compound a b) "=" -> do
-        return $ TypeDef lhs' (NewType $ Type (Lexeme Empty ("todo-compound:" <> (pack $ show a) <> (pack $ show b))))
+      Lexeme (x:xs) "=" -> do
+        return $ TypeDef lhs' (NewType $ Type (Lexeme (x:xs) ""))
       _ -> typeDefinitionRhs ident args lhs'
 
 typeDefinitionRhs :: Lexeme Text -> [Argument] -> TypeName -> Parser TypeDefinition
@@ -363,7 +360,7 @@ dottedIdentifier = do
   return $ intercalateLexeme "." parts
 
 intercalateLexeme :: Text -> [Lexeme Text] -> Lexeme Text
-intercalateLexeme sep = foldr1 (\a b -> a <> (Lexeme Empty sep) <> b)
+intercalateLexeme sep = foldr1 (\a b -> a <> (Lexeme [] sep) <> b)
 
 dArgsPassedP :: Parser [TypeName]
 dArgsPassedP = parens "(" ")" $ do
@@ -485,8 +482,8 @@ simplifyTypeName
 simplifyTypeName m a b c = r a $ t b c $ m
   where
     r :: Maybe (Lexeme Text) -> TypeName -> TypeName
-    r (Just (Lexeme a "^")) = AddressOfType a
-    r (Just (Lexeme a "@")) = TargetOfPointer a
+    r (Just (Lexeme (a:_) "^")) = AddressOfType a
+    r (Just (Lexeme (a:_) "@")) = TargetOfPointer a
     r Nothing = id
     r _ = error "Unspecified pointer or reference type"
 
@@ -515,10 +512,10 @@ typeName :: Parser TypeName
 typeName = do
   c <- comment
   case c of
-    Comment c -> typeName' >>= \x -> pure $ DirectiveType $ Lexeme (Comment c) x
-    IfDef cond body els -> pure $ DirectiveType (Lexeme c UnspecifiedType)
-    Empty -> typeName'
-    UnknownDirective _ -> pure $ DirectiveType $ Lexeme c UnspecifiedType
+    [] -> typeName'
+    [Comment c] -> typeName' >>= \x -> pure $ DirectiveType $ Lexeme [Comment c] x
+    [IfDef cond body els] -> pure $ DirectiveType (Lexeme c UnspecifiedType)
+    [UnknownDirective _] -> pure $ DirectiveType $ Lexeme c UnspecifiedType
     els -> pure $ DirectiveType (Lexeme els UnspecifiedType)
 
 typeName' :: Parser TypeName

@@ -19,13 +19,13 @@ typeNameTests = testGroup
   "Delphi type name Tests"
   [ testGroup
       "Various comments"
-      [ testCase' "foo // bar" typeName $ (Type (Lexeme (Comment " bar") "foo"))
+      [ testCase' "foo // bar" typeName $ (Type (Lexeme [Comment " bar"] "foo"))
       , testCase' "{ bar} foo"           typeName
-        $ (DirectiveType (Lexeme (Comment " bar") (Type (Lexeme Empty "foo"))))
+        $ (DirectiveType (Lexeme [Comment " bar"] (Type (Lexeme [] "foo"))))
       , testCase' "{$bar}" typeName
         $ (DirectiveType
             (Lexeme
-              (UnknownDirective "bar")
+              [UnknownDirective "bar"]
               UnspecifiedType))
       , testCase' "{$if bar}foo{$endif}" typeName
         $ (DirectiveType
@@ -38,10 +38,10 @@ typeNameTests = testGroup
       , testCase' "{$if bar}{$if bag}foo{$else}baz{$endif}{$endif}" typeName
         $ (DirectiveType
             (Lexeme
-              (IfDef "bar"
+              [IfDef "bar"
                 (ifDef "bag" "foo" "baz")
                 []
-              )
+              ]
               UnspecifiedType
             )
           )
@@ -53,19 +53,19 @@ typeNameTests = testGroup
       , testCase' "{$if bar}{$if bar}foo{$else}baz{$endif}a{$endif}" typeName
         $ (DirectiveType
             (Lexeme
-              (IfDef "bar"
+              [IfDef "bar"
                 ((ifDef "bar" "foo" "baz") <> [Right "a"])
                 []
-              ) UnspecifiedType
+              ] UnspecifiedType
             )
           )
       , testCase' "{$if bar}{foo bar}foo{$else}{bar foo}baz{$endif}a{$endif}" typeName
         $ (DirectiveType
             (Lexeme
-              (IfDef "bar"
+              [IfDef "bar"
                 [Left (Comment "foo bar"), Right "foo"]
                 [Left (Comment "bar foo"), Right "baz"]
-              ) UnspecifiedType -- Note: 'a{$endif}' is not parsed, as the parser is done.
+              ] UnspecifiedType -- Note: 'a{$endif}' is not parsed, as the parser is done.
             )
           )
       ]

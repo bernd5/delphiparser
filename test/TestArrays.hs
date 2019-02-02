@@ -9,10 +9,7 @@ import Text.Megaparsec (parse)
 import DelphiParser (array', typeName)
 
 import DelphiAst
-
-i a = I (Lexeme Empty a)
-v a = V (Lexeme Empty a)
-typ a = Type (Lexeme Empty a)
+import TestSupport
 
 arrayTests :: TestTree
 arrayTests = testGroup "Delphi Array Tests"

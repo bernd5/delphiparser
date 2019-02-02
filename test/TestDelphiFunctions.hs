@@ -9,8 +9,7 @@ import Text.Megaparsec (parse)
 import DelphiParser (expression')
 
 import DelphiAst
-
-v a = V (Lexeme Empty a)
+import TestSupport
 
 functionTests :: TestTree
 functionTests = testGroup

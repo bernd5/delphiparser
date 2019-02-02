@@ -6,18 +6,9 @@ import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase, (@=?))
 
 import DelphiAst
-import DelphiParser (typeAttribute', typeExpressions, newType)
+import DelphiParser (typeExpressions, newType)
 import Text.Megaparsec (parse)
-import Data.Text(unpack, intercalate)
-
-import Data.Maybe (Maybe(Just))
-
-typ a = Type $ Lexeme Empty a
-arg a b c d = Arg a (Lexeme Empty b) c d
-v a = V $ Lexeme Empty a
-s a = S $ Lexeme Empty a
-i a = I $ Lexeme Empty a
-field a b = Field (Lexeme Empty a) b
+import TestSupport
 
 typeExpressionTests :: TestTree
 typeExpressionTests = testGroup

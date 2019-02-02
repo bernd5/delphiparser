@@ -11,31 +11,20 @@ data Directive
   | IfDef Text [Either Directive Text] [Either Directive Text]
   | UnknownDirective Text
   | Compound Directive Directive
-  | Empty
   deriving (Eq, Show)
 
-data Lexeme a = Lexeme Directive a
+data Lexeme a = Lexeme [Directive] a
   deriving (Eq, Show)
 
 instance (Functor Lexeme) where
   --fmap :: (a -> b) -> f a -> f b
   fmap f (Lexeme a b) = Lexeme a (f b)
 
-instance Semigroup Directive where
-  Empty <> b = b
-  a <> Empty = a
-
-  (Comment a) <> (Comment b) = Comment (a <> "\n" <> b)
-
-  a <> b = Compound a b
-
-
--- TODO: Remove or refine this instance so that it doesn't remove the implied spaces between comments.
 instance Semigroup a => (Semigroup (Lexeme a)) where
   (Lexeme a b) <> (Lexeme c d) = Lexeme (a <> c) (b <> d)
 
 data Unit = Unit
-             Directive
+             [Directive]
              (Lexeme Text)
              Interface
              Implementation
@@ -251,7 +240,7 @@ data ConstDefinition
   = ConstDefinition (Lexeme Text)
                   (Maybe TypeName)
                   ValueExpression
-  | ConstDirectiveFragment (Lexeme Text) (Maybe TypeName) Directive
+  | ConstDirectiveFragment (Lexeme Text) (Maybe TypeName) [Directive]
   deriving (Eq, Show)
 
 data VarDefinition =

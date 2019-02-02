@@ -13,10 +13,7 @@ import Text.Megaparsec (parse)
 import DelphiAst
 
 import Data.Maybe (Maybe(Just))
-
-arg a b c d = Arg a (Lexeme Empty b) c d
-typ a = Type $ Lexeme Empty a
-i a = I $ Lexeme Empty a
+import TestSupport
 
 typeArgumentTests :: TestTree
 typeArgumentTests =

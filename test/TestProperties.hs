@@ -10,14 +10,7 @@ import DelphiParser (property')
 
 import DelphiAst
 import Data.Maybe (Maybe(Just))
-
-property a b c d e f = Property (Lexeme Empty a) b c d e f
-arg a b c d = Arg a (Lexeme Empty b) c d
-typ a = Type $ Lexeme Empty a
-i a = I $ Lexeme Empty a
-propertyRead a = PropertyRead (map (\x -> Lexeme Empty x) a)
-propertyWrite a = PropertyWrite (map (\x -> Lexeme Empty x) a)
-genericInstance a b = GenericInstance (Lexeme Empty a) b
+import TestSupport
 
 propertiesTests :: TestTree
 propertiesTests = testGroup "Delphi Property Tests"

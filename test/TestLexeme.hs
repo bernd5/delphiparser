@@ -12,6 +12,6 @@ import DelphiAst (Lexeme(..), Directive(..))
 lexemeTests :: TestTree
 lexemeTests = testGroup "Lexeme Tests"
   [ testCase "char a"
-  $ (Right (Lexeme Empty 'a') @=?)
+  $ (Right (Lexeme [] 'a') @=?)
   $ parse (lexeme $ char 'a') "" "a"
   ]

@@ -11,7 +11,6 @@ import Data.Char (isSpace)
 import DelphiAst
 import DelphiLexer
 import DelphiParser
-import DelphiWriter
 import Text.Megaparsec (parse)
 
 import Data.Maybe (Maybe(Just))
@@ -26,28 +25,23 @@ import TestTypeName (typeNameTests)
 import TestLoops (loopTests)
 import TestProperties (propertiesTests)
 import TestTypeArguments (typeArgumentTests)
-import TestDelphiWriter (writerTests)
 import TestTypeDefinitions (typeDefinitionTests)
 import TestProcedureImplementation (procedureImplementationTest)
 import TestDelphiFunctions (functionTests)
 import TestLiterals (literalsTests)
 import TestIfThen (ifThenTests)
 import TestExpression(expressionTests)
+import TestConst (constTests)
+
+import TestSupport
 
 newtype ParserTestsData = ParserTestsData
   { sharedpointer :: Text
   }
 
-v a = V $ Lexeme Empty a
-s a = S $ Lexeme Empty a
-i a = I $ Lexeme Empty a
-usesC (x : xs) = (Prelude.map (Lexeme Empty) x) : usesC xs
+usesC (x : xs) = (Prelude.map (Lexeme []) x) : usesC xs
 usesC _        = []
-genericInstance a b = GenericInstance (Lexeme Empty a) b
-redirectedFunction a b = RedirectedFunction (Lexeme Empty a) (Lexeme Empty b)
-varDefinition a b = VarDefinition (Lexeme Empty a) b
-arg a b c d = Arg a (Lexeme Empty b) c d
-typ a = Type $ Lexeme Empty a
+redirectedFunction a b = RedirectedFunction (Lexeme [] a) (Lexeme [] b)
 
 main :: IO ()
 main = do
@@ -66,13 +60,13 @@ main = do
     , delphiTryTests
     , expressionTests
     , caseTests
-    , writerTests
     , typeDefinitionTests
     , procedureImplementationTest
     , functionTests
     , literalsTests
     , ifThenTests
     , typeNameTests
+    , constTests
     ]
 
 stripWhitespace :: Text -> Text
@@ -81,31 +75,10 @@ stripWhitespace = concatMap f
   f :: Char -> Text
   f x = if isSpace x then "" else pack [x]
 
-roundtrip :: ShowDelphi a => Text -> Parser a -> IO ()
-roundtrip expected p = do
-  let r = parse p "" $ expected
-  either (\_ -> assertFailure "Parse Error") actualCase r
- where
-  actualCase actual = assertEqual "Delphi Generation must match source"
-                                  (stripWhitespace expected)
-                                  (stripWhitespace (showDelphi actual))
-
 unitTests :: ParserTestsData -> TestTree
 unitTests p = testGroup
   "Delphi Parser Tests"
-  [ -- testCase "Ensure that show == read (if we ignore spaces)"
-    -- $ roundtrip (sharedpointer p) dUnitP
-    testCase "Ensure that operations showDelphi are correct"
-    $ roundtrip "23 + 32" dValueExpression
-  , testCase
-      "Ensure that function call value expression's showDelphi without a semicolon"
-    $ roundtrip "foo(23)" dValueExpression
-  , testCase
-      "Ensure that function call^'s expression's showDelphi without a semicolon"
-    $ roundtrip "(foo(23)^)" dValueExpression
-  , testCase "Ensure that IndexCall showDelphi are correct"
-    $ roundtrip "foo[(foo(32) + 32)]" expression'
-  , testCase "Ensure that 'a < b > c' parses"
+  [ testCase "Ensure that 'a < b > c' parses"
   $ (Right ((v "a" :< v "b") :> v "c") @=?)
   $ parse (parens "(" ")" expression') "" "(a < b > c)"
   , testCase "Ensure that 'a < b and b > c' parses"
@@ -118,26 +91,12 @@ unitTests p = testGroup
   $ (Right (usesC [["one"], ["two"], ["three"]]) @=?)
   $ parse uses "" "uses one, two, three;"
   , testCase "Underscores are valid as part of an identifier"
-  $ (Right (Lexeme Empty "foo_bar") @=?)
+  $ (Right (Lexeme [] "foo_bar") @=?)
   $ parse identifier "" "foo_bar"
   , testCase "Ensure delphi skeleton parses"
   $ (Right
-      (Unit Empty
-            (Lexeme Empty "TestUnit")
-            (Interface (Uses []) [TypeDefinitions []])
-            (Implementation (Uses []) [])
-            Initialization
-            Finalization
-      ) @=?
-    )
-  $ parse
-      dUnitP
-      "testUnit.pas"
-      "unit TestUnit; interface type implementation initialization finalization end."
-  , testCase "Ensure delphi skeleton beginning with a BOM parses"
-  $ (Right
-      (Unit Empty
-            (Lexeme Empty "TestUnit")
+      (Unit []
+            (Lexeme [] "TestUnit")
             (Interface (Uses []) [TypeDefinitions []])
             (Implementation (Uses []) [])
             Initialization
@@ -166,8 +125,8 @@ unitTests p = testGroup
       ["function TShared<T>.Cast<TT>: TShared<TT>;", "begin", "end;"]
   , testCase "Ensure comments at the start still parse"
   $ (Right
-      (Unit (Comment "--\n This file starts with comments\n--\n And another comment")
-            (Lexeme Empty "TestUnit")
+      (Unit [c "--\n This file starts with comments\n--", c " And another comment"]
+            (Lexeme [] "TestUnit")
             (Interface (Uses []) [TypeDefinitions []])
             (Implementation (Uses []) [])
             Initialization
@@ -226,7 +185,7 @@ unitTests p = testGroup
   $ (Right (v "a" :$ [v "b"] :+ v "c") @=?)
   $ parse expression' "" "a(b)+c"
   , testCase "Ensure that you can assign to the result of a cast"
-  $ (Right (ExpressionValue ((P [As (V (Lexeme Empty "FFreeTheValue")) (V (Lexeme Empty "TFreeTheValue"))] :. V (Lexeme Empty "FObjectToFree")) :=. Nil)) @=? )
+  $ (Right (ExpressionValue ((P [As (V (Lexeme [] "FFreeTheValue")) (V (Lexeme [] "TFreeTheValue"))] :. V (Lexeme [] "FObjectToFree")) :=. Nil)) @=? )
   $ parse statement "" "(FFreeTheValue as TFreeTheValue).FObjectToFree := nil;"
   , testCase "Ensure a value involving a generic type member function parses"
   $ (Right (((v "TShared" :<<>> [typ "TT"]) :. v "Create") :$ [Nil]) @=?)
@@ -267,7 +226,7 @@ unitTests p = testGroup
   $ (Right EmptyExpression @=?)
   $ parse statement "" ";"
   , testCase "Ensure assign to an index property parses"
-  $ (Right (ExpressionValue ((V (Lexeme Empty "foo") :!! [I (Lexeme Empty 32)]) :=. V (Lexeme Empty "blah"))) @=? )
+  $ (Right (ExpressionValue ((V (Lexeme [] "foo") :!! [I (Lexeme [] 32)]) :=. V (Lexeme [] "blah"))) @=? )
   $ parse statement "" "foo[32] := blah;"
   , testCase "Ensure reading an index property parses"
   $ (Right (ExpressionValue (v "foo" :!! [i 32])) @=?)
@@ -300,7 +259,7 @@ unitTests p = testGroup
   , testCase "Ensure that const expression's involving arrays parse"
   $ (Right
       (ConstDefinitions
-        [ ConstDefinition (Lexeme Empty "foo")
+        [ ConstDefinition (Lexeme [] "foo")
                           (Just $ StaticArray (IndexOf [v "bar"]) (typ "baz"))
                           (P [v "one", v "two", v "three"])
         ]
@@ -312,7 +271,7 @@ unitTests p = testGroup
   , testCase "Ensure that const expression's involving arrays parse"
   $ (Right
       (ConstDefinitions
-        [ ConstDefinition (Lexeme Empty "foo")
+        [ ConstDefinition (Lexeme [] "foo")
                           (Just $ StaticArray (IndexOf [v "bar"]) (
                             StaticArray (IndexOf [i 30]) (typ "string")))
                           (P [s "one", s "two", s "three"])
@@ -331,7 +290,7 @@ unitTests p = testGroup
   $ parse expression' "" "a = foo.bar"
   , testCase "Ensure if a = foo.bar then... parses"
   $ (Right
-      (If (V (Lexeme Empty "a") :== (V (Lexeme Empty "foo") :. V (Lexeme Empty "bar")))
+      (If (V (Lexeme [] "a") :== (V (Lexeme [] "foo") :. V (Lexeme [] "bar")))
           (Then (ExpressionValue Nil))
           (Else EmptyExpression)
       ) @=?

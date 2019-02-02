@@ -53,10 +53,10 @@ takeWhileP' = takeWhileP
 
 -- TODO: Make this take a continuation in the event that it's an include or if or something?
 -- And have it return not a `Parser Directive`, but the 'new' parse.
-comment :: Parser Directive
+comment :: Parser [Directive]
 comment = do
-  a <- optional $ many $ choice [try lineComment, try blockComment]
-  return $ foldr (<>) Empty $ fromMaybe [] a
+  a <- many $ choice [(\x -> [x]) <$> try lineComment, try blockComment]
+  return $ removeEmpties' $ P.concat a
 
 lineComment :: Parser Directive
 lineComment = do
@@ -115,10 +115,13 @@ restOfIf' cond a b f = choice [ try cd
                                             (removeEmpties b)
                                             b'
 
-removeEmpties a = filter (\x -> case x of
+removeEmpties = filter (\x -> case x of
                                   Left x -> True
                                   Right "" -> False
-                                  otherwise -> True) a
+                                  otherwise -> True)
+removeEmpties' = filter (\x -> case x of
+                                  Comment "" -> False
+                                  otherwise -> True)
 
 processIfDirectivePart
   :: Text
@@ -139,9 +142,6 @@ processIfDirectivePart cond a b part = do
       let a' = removeEmpties $ a <> [Left otherwise] <> [Right rst]
       processIfDirectivePart cond a' [] fin
 
-restOfSingleBlockComment :: Text -> Text -> Parser Directive
-restOfSingleBlockComment a b = Comment . pack <$> (manyTill anyChar (string b))
-
 restOfBlockComment' :: Text -> Text -> Parser Directive
 restOfBlockComment' a b = do
   c <- pack <$> (manyTill anyChar (string b))
@@ -151,16 +151,16 @@ restOfBlockComment' a b = do
 
   return $ Comment $ intercalate b ([c] <> c')
 
-blockComment :: Parser Directive
+blockComment :: Parser [Directive]
 blockComment = do
   c <- some $ (choice
     [ blockComment' "{" "}"
     , blockComment' "(*" "*)"
     ] <* space )
-  let c' = foldr (<>) Empty c
   d <- optional lineComment
-  let d' = fromMaybe Empty d
-  return $ c' <> d'
+  case d of
+    Just d' -> return $ c <> [d']
+    otherwise -> return c
 
 -- Removes all spaces after a lexime.
 lexeme :: Parser a -> Parser (Lexeme a)

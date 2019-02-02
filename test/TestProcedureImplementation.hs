@@ -8,10 +8,7 @@ import Test.Tasty.HUnit (testCase, (@=?))
 import DelphiAst
 import DelphiParser (procedureImpl, functionImpl)
 import Text.Megaparsec (parse)
-
-v a = V $ Lexeme Empty a
-typ a = Type $ Lexeme Empty a
-varDefinition a b c = VarDefinition (Lexeme Empty a) b c
+import TestSupport
 
 procedureImplementationTest :: TestTree
 procedureImplementationTest = testGroup

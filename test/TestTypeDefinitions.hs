@@ -146,10 +146,10 @@ typeDefinitionTests = testGroup
             (typ "TFoo")
             [typ "TObject"]
             [ Public
-                [ Field (Lexeme (Comment "c") "name")
-                        (Type (Lexeme (Comment "f") "string"))
-                , Field (Lexeme (Comment "e") "desc")
-                        (Type (Lexeme (Comment "f") "string"))
+                [ Field (Lexeme [Comment "c"] "name")
+                        (Type (Lexeme [Comment "f"] "string"))
+                , Field (Lexeme [Comment "e"] "desc")
+                        (Type (Lexeme [Comment "f"] "string"))
                 ]
             ]
           ) @=?
@@ -163,7 +163,7 @@ typeDefinitionTests = testGroup
           , "{h} end; {i}{j}"
           ]
       , testCase "RecordDefinition with comments..."
-      $ (Right (Public [Field (Lexeme (Comment "") "name") (typ "string")]) @=?)
+      $ (Right (Public [Field (Lexeme [] "name") (typ "string")]) @=?)
       $ parse (dRecordDefinitionP) ""
       $ intercalate "\n" ["public", "  { blah blah }  ", " {}name{}: string;"]
       , testCase "RecordDefinition without comments..."
@@ -173,33 +173,33 @@ typeDefinitionTests = testGroup
       , testCase'
         "foo = {$i bar}"
         typeDefinition
-        (TypeDef (Type (Lexeme Empty "foo"))
-                 (NewType (Type (Lexeme Empty "todo-import:bar")))
+        (TypeDef (Type (Lexeme [] "foo"))
+                 (NewType (Type (Lexeme [Include "bar"] "")))
         )
       , testCase'
         "foo = array[bar] of string[11];"
         typeDefinition
         (TypeAlias
-          (Type (Lexeme Empty "foo"))
+          (Type (Lexeme [] "foo"))
           (StaticArray
-            (IndexOf [V (Lexeme Empty "bar")])
-            (StaticArray (IndexOf [I (Lexeme Empty 11)])
-                         (Type (Lexeme Empty "string"))
+            (IndexOf [V (Lexeme [] "bar")])
+            (StaticArray (IndexOf [I (Lexeme [] 11)])
+                         (Type (Lexeme [] "string"))
             )
           )
         )
       , testCase' "type foo = {$i bar} {yo!} foo = array[bar] of string[11];"
                   typeExpressions
         $ TypeDefinitions
-            [ (TypeDef (Type (Lexeme Empty "foo"))
-                       (NewType (Type (Lexeme Empty "todo-import:bar")))
+            [ (TypeDef (Type (Lexeme [] "foo"))
+                       (NewType (Type (Lexeme [Include "bar", Comment "yo!"] "")))
               )
             , (TypeAlias
-                (Type (Lexeme Empty "foo"))
+                (Type (Lexeme [] "foo"))
                 (StaticArray
-                  (IndexOf [V (Lexeme Empty "bar")])
-                  (StaticArray (IndexOf [I (Lexeme Empty 11)])
-                               (Type (Lexeme Empty "string"))
+                  (IndexOf [V (Lexeme [] "bar")])
+                  (StaticArray (IndexOf [I (Lexeme [] 11)])
+                               (Type (Lexeme [] "string"))
                   )
                 )
               )
