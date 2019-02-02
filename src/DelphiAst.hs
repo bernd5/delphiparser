@@ -31,6 +31,7 @@ data Unit = Unit
              Initialization
              Finalization
           | Program (Lexeme Text) [Expression]
+          | UnitFragment [Directive] Text
   deriving (Eq, Show)
 
 data Interface =

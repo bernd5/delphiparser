@@ -363,6 +363,9 @@ unitTests p = testGroup
     )
   $ parse dProcedureImplementationP ""
   $ intercalate "\n" ["procedure TShared<T>.Cast<TT>;", "begin", "end;"]
+  , testCase "Ensure that a begin/end following an include parses."
+  $ (Right (UnitFragment [Include "foo"] "...") @=?)
+  $ parse pascalFile "" "{$i foo} ..."
   , testCase "Ensure a static constructor implementation parses"
   $ (Right
       (Implementation

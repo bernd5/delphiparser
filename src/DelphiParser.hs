@@ -3,6 +3,8 @@
 module DelphiParser
   ( dUnitP
   , program
+  , unitFragment
+  , pascalFile
   , expression'
   , singleConstExpression
   , typeExpressions
@@ -92,6 +94,15 @@ delphiCase' = delphiCase typeName statement expression'
 dArgumentP :: Parser [Argument]
 dArgumentP = typeArguments typeName expression'
 
+pascalFile :: Parser Unit
+pascalFile = choice [dUnitP, program, unitFragment]
+
+unitFragment :: Parser Unit
+unitFragment = try $ do
+  c <- comment
+  rst <- takeRest
+  return $ UnitFragment c rst
+
 dUnitP :: Parser Unit
 dUnitP = try $ do
   _ <- optional $ char '\xFEFF'
@@ -118,7 +129,7 @@ rword' word f = do
     Lexeme a () -> f a
 
 program :: Parser Unit
-program = do
+program = try $ do
   _ <- optional $ char '\xFEFF'
   _ <- optional sc
   comment

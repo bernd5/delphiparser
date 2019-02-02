@@ -87,6 +87,10 @@ compilerDirective = do
       let cond' = strip cond
       a <- takeWhileP' (Just "character") (/= '{') <* char '{'
       restOfIf' cond' [Right a] [] restOfIfCombiner
+    ("ifdef", cond) -> do
+      let cond' = strip cond
+      a <- takeWhileP' (Just "character") (/= '{') <* char '{'
+      restOfIf' cond' [Right a] [] restOfIfCombiner
     (a', b) -> pure $ UnknownDirective a'
 
 restOfIfCombiner :: Text -> Text -> Directive -> Directive

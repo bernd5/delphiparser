@@ -35,10 +35,10 @@ main = do
   let dirname = (head args)
 
   contents <- files dirname
-  putStrLn . pack  $ show contents
 
   let pasfiles = filter (\x -> isExtensionOf "pas" x || isExtensionOf "pp" x) contents
-  
+  putStrLn . pack  $ show pasfiles
+
   r <- flip mapM pasfiles $ \x -> handle onError $ do
     putStrLn . pack $ "Parsing file: " <> x
     h <- openBinaryFile x ReadMode
@@ -46,7 +46,7 @@ main = do
     let sp = case decodeUtf8' bs of
               Left _ -> decodeLatin1 bs
               Right t -> t
-    let p = runParser (dUnitP <|> program) x sp
+    let p = runParser pascalFile x sp
     case p of
       Left a -> case a of
         TrivialError o (Just e) s -> do
