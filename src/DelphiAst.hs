@@ -11,6 +11,7 @@ instance (Functor Lexeme) where
   --fmap :: (a -> b) -> f a -> f b
   fmap f (Lexeme a b) = Lexeme a (f b)
 
+
 instance Semigroup a => (Semigroup (Lexeme a)) where
   (Lexeme a b) <> (Lexeme c d) = Lexeme (a <> c) (b <> d)
 
@@ -294,6 +295,7 @@ data FieldAnnotation
   = Override
   | Static -- Ie, a class function
   | Virtual
+  | Inline
   | Dynamic
   | Overload
   | Reintroduce
@@ -321,7 +323,7 @@ type RecordDefinition = [Accessibility]
 
 type ClassDefinition = [Accessibility]
 
-data ArrayIndex
+newtype ArrayIndex
   = IndexOf [ValueExpression]
   deriving (Eq, Show)
 

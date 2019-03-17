@@ -140,7 +140,7 @@ dUnitNameP = rword "unit" *> dottedIdentifier <* semi
 uses :: Parser [[Lexeme Text]]
 uses = do
   rword "uses"
-  items <- identifier' `sepBy` symbol "." `sepBy` symbol ","
+  items <- (identifierPlus reserved) `sepBy` symbol "." `sepBy` symbol ","
   semi
   return items
 
@@ -649,6 +649,7 @@ annotation = choice
   , (rword "overload" *> semi) $> Overload
   , (rword "reintroduce" *> semi) $> Reintroduce
   , (rword "virtual" *> semi) $> Virtual
+  , (rword "inline" *> semi) $> Inline
   , (rword "default" *> semi) $> Default
   , (rword "dynamic" *> semi) $> Dynamic
   , (rword "abstract" *> semi) $> Abstract

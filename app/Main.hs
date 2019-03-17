@@ -14,7 +14,7 @@ import Data.ByteString (hGetContents)
 import System.IO (hSetEncoding, latin1, localeEncoding, openBinaryFile, IOMode(ReadMode))
 import Data.Text (unpack, pack, intercalate)
 import Data.Text.Encoding (decodeUtf8', decodeLatin1)
-import Control.Monad (filterM)
+import Control.Monad (filterM, forM)
 import qualified Control.Monad.Parallel as P (mapM)
 import Control.Exception (handle, SomeException)
 import System.FilePath ((</>), isExtensionOf)
@@ -25,24 +25,24 @@ files :: FilePath -> IO [FilePath]
 files d = do
   a <- doesFileExist d
   if a then
-    pure $ [d]
+    pure [d]
   else do
     contents <- getDirectoryContents d
     let contents' = filter (\x -> x /= "." && x /= "..") contents
     r <- mapM (\x -> files (d </> x)) contents'
-    pure $ concat $ r
+    pure $ concat r
 
 main :: IO ()
 main = do
   args <- getArgs
-  let dirname = (head args)
+  let dirname = head args
 
   contents <- files dirname
   putStrLn . pack  $ show contents
 
   let pasfiles = filter (\x -> isExtensionOf "pas" x || isExtensionOf "pp" x) contents
   
-  r <- flip mapM pasfiles $ \x -> handle onError $ do
+  r <- forM pasfiles $ \x -> handle onError $ do
     putStrLn . pack $ "Parsing file: " <> x
     h <- openBinaryFile x ReadMode
     bs <- hGetContents h
@@ -57,14 +57,12 @@ main = do
           putStrLn . pack $ "E: " <> show e
           putStrLn . pack $ "S: " <> show s
           return []
-        otherwise -> do
+        _ -> do
           putStrLn . pack $ "A: " <> show a
           return []
-      Right !a -> do
-        --putStrLn $ showDelphi a
-        return [a]
+      Right !a -> return [a]
 
-  let types = concat $ map getTypes $ concat r
+  let types = concatMap getTypes (concat r)
   --putStrLn $ intercalate "\n=======\n" $ map showDelphi types
 
   putStrLn . pack $ "Total files: " <> show (length r)
@@ -81,6 +79,6 @@ getTypes (Unit _ _ (Interface _ c) impl i f) = getTypesIE c
 getTypes a = []
 
 getTypesIE :: [InterfaceExpression] -> [TypeDefinition]
-getTypesIE ((TypeDefinitions x):xs) = (x <> getTypesIE xs)
+getTypesIE (TypeDefinitions x:xs) = x <> getTypesIE xs
 getTypesIE (_:xs) = getTypesIE xs
 getTypesIE _ = []
