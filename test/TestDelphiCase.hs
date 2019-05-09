@@ -11,6 +11,7 @@ import DelphiParser (delphiCase')
 import Text.Megaparsec (parse)
 
 import DelphiAst
+import TestSupport
 
 caseTests :: TestTree
 caseTests =
@@ -19,10 +20,10 @@ caseTests =
     [ testCase "simple case" $
       (Right
          (Case
-            (V $ Lexeme "" "foo")
-            [ CaseBranch [V $ Lexeme "" "bar"] (ExpressionValue (V $ Lexeme "" "baz"))
-            , CaseBranch [V $ Lexeme "" "fuux"] (ExpressionValue (V $ Lexeme "" "bar"))
+            (v "foo")
+            [ CaseBranch [v "bar"] (ExpressionValue (v "baz"))
+            , CaseBranch [v "fuux"] (ExpressionValue (v "bar"))
             ]
-            (Just (Else (ExpressionValue (V $ Lexeme "" "whatevs"))))) @=?) $
+            (Just (Else (ExpressionValue (v "whatevs"))))) @=?) $
       parse delphiCase' "" "case foo of bar : baz; fuux: bar; else whatevs; end"
     ]

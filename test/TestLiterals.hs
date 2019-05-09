@@ -7,15 +7,9 @@ import Test.Tasty.HUnit (testCase, (@=?))
 
 import Text.Megaparsec (parse)
 import DelphiParser (expression', singleVarExpression)
-import DelphiWriter
 
 import DelphiAst
-
-v a = V $ Lexeme "" a
-i a = I $ Lexeme "" a
-s a = S $ Lexeme "" a
-typ a = Type $ Lexeme "" a
-varDefinition a b c = VarDefinition (Lexeme "" a) b c
+import TestSupport
 
 literalsTests :: TestTree
 literalsTests = testGroup
@@ -31,15 +25,22 @@ literalsTests = testGroup
           expression'
           ""
           "[1, 2, 3]"
+      , testCase "(a, b, c)" 
+      $ (Right (P [v "a",v "b",v"c"]) @=?) $ parse
+          expression'
+          ""
+          "(a, b, c)"
+      , testCase "(1, 2, 3)" 
+      $ (Right (P [i 1, i 2, i 3]) @=?) $ parse
+          expression'
+          ""
+          "(1, 2, 3)"
       ]
   , testGroup "var"
     $ [ testCase "Floating point: 42.56" $ (Right [varDefinition "A" (typ "float") (Just (F 42.56))] @=?) $ parse
           singleVarExpression
           ""
           "A: float = 42.56;"
-      , testCase "Integer: 42 -> string" $ 
-          ("A: int=42" @=?)
-          $ showDelphi (varDefinition "A" (typ "int") (Just (i 42)))
       ]
   , testGroup "Number Literals"
     $ [ testCase "Floating point: 42.56" $ (Right (F 42.56) @=?) $ parse

@@ -11,15 +11,14 @@ import System.Directory (getDirectoryContents, doesFileExist)
 import Text.Megaparsec (runParser, ParseError(..))
 import Data.Text.IO (putStrLn)
 import Data.ByteString (hGetContents)
-import System.IO (hSetEncoding, latin1, localeEncoding, openBinaryFile, IOMode(ReadMode))
-import Data.Text (unpack, pack, intercalate)
+import System.IO (openBinaryFile, IOMode(ReadMode))
+import Data.Text (pack)
 import Data.Text.Encoding (decodeUtf8', decodeLatin1)
 import Control.Monad (filterM, forM)
 import qualified Control.Monad.Parallel as P (mapM)
 import Control.Exception (handle, SomeException)
 import System.FilePath ((</>), isExtensionOf)
 import Control.Applicative ((<|>))
-import DelphiWriter
 
 files :: FilePath -> IO [FilePath]
 files d = do
@@ -38,7 +37,6 @@ main = do
   let dirname = head args
 
   contents <- files dirname
-  putStrLn . pack  $ show contents
 
   let pasfiles = filter (\x -> isExtensionOf "pas" x || isExtensionOf "pp" x) contents
   
@@ -49,7 +47,7 @@ main = do
     let sp = case decodeUtf8' bs of
               Left _ -> decodeLatin1 bs
               Right t -> t
-    let p = runParser (dUnitP <|> program) x sp
+    let p = runParser pascalFile x sp
     case p of
       Left a -> case a of
         TrivialError o (Just e) s -> do
@@ -75,8 +73,8 @@ onError e = do
   return []
 
 getTypes :: Unit -> [TypeDefinition]
-getTypes (Unit _ _ (Interface _ c) impl i f) = getTypesIE c
-getTypes a = []
+getTypes (Unit _ _ (Interface _ c) _ _ _) = getTypesIE c
+getTypes _ = []
 
 getTypesIE :: [InterfaceExpression] -> [TypeDefinition]
 getTypesIE (TypeDefinitions x:xs) = x <> getTypesIE xs

@@ -17,19 +17,15 @@ import           DelphiParser                   ( typeAttribute'
                                                 , typeDefinition
                                                 , classType
                                                 , dRecordDefinitionP
+                                                , typeExpressions
                                                 )
 import           Text.Megaparsec                ( parse )
 import           Data.Text                      ( intercalate
                                                 )
 
 import           Data.Maybe                     ( Maybe(Just) )
+import TestSupport
 
-typ a = Type $ Lexeme "" a
-arg a b c d = Arg a (Lexeme "" b) c d
-v a = V $ Lexeme "" a
-s a = S $ Lexeme "" a
-i a = I $ Lexeme "" a
-field a b = Field (Lexeme "" a) b
 
 typeDefinitionTests :: TestTree
 typeDefinitionTests = testGroup
@@ -92,7 +88,7 @@ typeDefinitionTests = testGroup
                       , field "abbr"       (typ "Char")
                       ]
                     )
-                  , ([i 3] , [field "foovalue" (typ "Foo")])
+                  , ([i 3], [field "foovalue" (typ "Foo")])
                   ]
                   Nothing
                 ]
@@ -122,11 +118,7 @@ typeDefinitionTests = testGroup
                 , field "desc" (typ "string")
                 , CaseField
                   (v "Boolean")
-                  [ ( [DTrue]
-                    , [Field (Lexeme "" "Char") (Type (Lexeme "" "String"))]
-                    )
-                  , ([DFalse], [])
-                  ]
+                  [([DTrue], [field "Char" (typ "String")]), ([DFalse], [])]
                   Nothing
                 ]
             ]
@@ -143,12 +135,7 @@ typeDefinitionTests = testGroup
           , "end;"
           ]
       , testCase "Class with comments..."
-      $ (Right
-          (Class (Type (Lexeme "" "TFoo"))
-                 [Type (Lexeme "" "TObject"), Type (Lexeme "" "IFoo")]
-                 [Public []]
-          ) @=?
-        )
+      $ (Right (Class (typ "TFoo") [typ "TObject", typ "IFoo"] [Public []]) @=?)
       $ parse (classType (typ "TFoo")) ""
       $ intercalate
           "\n"
@@ -156,11 +143,13 @@ typeDefinitionTests = testGroup
       , testCase "Class with comments..."
       $ (Right
           (Class
-            (Type (Lexeme "" "TFoo"))
-            [Type (Lexeme "" "TObject")]
+            (typ "TFoo")
+            [typ "TObject"]
             [ Public
-                [ Field (Lexeme "c" "name") (Type (Lexeme "f" "string"))
-                , Field (Lexeme "e" "desc") (Type (Lexeme "f" "string"))
+                [ Field (Lexeme [Comment "c"] "name")
+                        (Type (Lexeme [Comment "f"] "string"))
+                , Field (Lexeme [Comment "e"] "desc")
+                        (Type (Lexeme [Comment "f"] "string"))
                 ]
             ]
           ) @=?
@@ -174,12 +163,46 @@ typeDefinitionTests = testGroup
           , "{h} end; {i}{j}"
           ]
       , testCase "RecordDefinition with comments..."
-      $ (Right (Public [Field (Lexeme "" "name") (typ "string")]) @=?)
+      $ (Right (Public [Field (Lexeme [] "name") (typ "string")]) @=?)
       $ parse (dRecordDefinitionP) ""
       $ intercalate "\n" ["public", "  { blah blah }  ", " {}name{}: string;"]
       , testCase "RecordDefinition without comments..."
-      $ (Right (Public [Field (Lexeme "" "name") (typ "string")]) @=?)
-      $ parse (dRecordDefinitionP) ""
-      $ intercalate "\n" ["public", " name : string;"]
+      $ (Right (Public [field "name" (typ "string")]) @=?)
+      $ parse       (dRecordDefinitionP) ""
+      $ intercalate "\n"                 ["public", " name : string;"]
+      , testCase'
+        "foo = {$i bar}"
+        typeDefinition
+        (TypeDef (Type (Lexeme [] "foo"))
+                 (NewType (Type (Lexeme [Include "bar"] "")))
+        )
+      , testCase'
+        "foo = array[bar] of string[11];"
+        typeDefinition
+        (TypeAlias
+          (Type (Lexeme [] "foo"))
+          (StaticArray
+            (IndexOf [V (Lexeme [] "bar")])
+            (StaticArray (IndexOf [I (Lexeme [] 11)])
+                         (Type (Lexeme [] "string"))
+            )
+          )
+        )
+      , testCase' "type foo = {$i bar} {yo!} foo = array[bar] of string[11];"
+                  typeExpressions
+        $ TypeDefinitions
+            [ (TypeDef (Type (Lexeme [] "foo"))
+                       (NewType (Type (Lexeme [Include "bar", Comment "yo!"] "")))
+              )
+            , (TypeAlias
+                (Type (Lexeme [] "foo"))
+                (StaticArray
+                  (IndexOf [V (Lexeme [] "bar")])
+                  (StaticArray (IndexOf [I (Lexeme [] 11)])
+                               (Type (Lexeme [] "string"))
+                  )
+                )
+              )
+            ]
       ]
   ]

@@ -11,8 +11,7 @@ import Text.Megaparsec (parse)
 import DelphiParser (statement, delphiTry')
 
 import DelphiAst
-
-v a = V $ Lexeme "" a
+import TestSupport
 
 delphiTryTests :: TestTree
 delphiTryTests = testGroup

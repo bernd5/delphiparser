@@ -1,10 +1,19 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module DelphiAst where
 
 import Data.Text (Text)
 
 -- This is the crude lexeme - a single "word" in the delphi code.
-type Comment = Text
-data Lexeme a = Lexeme Comment a
+data Directive
+  = Comment Text
+  | Include Text
+  | IfDef Text [Either Directive Text] [Either Directive Text]
+  | UnknownDirective Text
+  | Compound Directive Directive
+  deriving (Eq, Show)
+
+data Lexeme a = Lexeme [Directive] a
   deriving (Eq, Show)
 
 instance (Functor Lexeme) where
@@ -16,13 +25,14 @@ instance Semigroup a => (Semigroup (Lexeme a)) where
   (Lexeme a b) <> (Lexeme c d) = Lexeme (a <> c) (b <> d)
 
 data Unit = Unit
-             Comment
+             [Directive]
              (Lexeme Text)
              Interface
              Implementation
              Initialization
              Finalization
           | Program (Lexeme Text) [Expression]
+          | UnitFragment [Directive] Text
   deriving (Eq, Show)
 
 data Interface =
@@ -155,6 +165,7 @@ data ValueExpression
   | ValueExpression :& ValueExpression -- foo and bar
   | ValueExpression :| ValueExpression -- foo or bar
   | ValueExpression :== ValueExpression -- foo = bar
+  | ValueExpression :=. ValueExpression -- foo := bar (TODO: Remove this one)
   | ValueExpression :+ ValueExpression -- foo + bar
   | ValueExpression :- ValueExpression -- foo - bar
   | ValueExpression :* ValueExpression -- foo * bar
@@ -163,7 +174,9 @@ data ValueExpression
   | ValueExpression :<> ValueExpression -- foo <> bar
   | ValueExpression :< ValueExpression -- foo < bar
   | ValueExpression :<= ValueExpression -- foo <= bar
-  | ValueExpression :>= ValueExpression -- foo >= bar 
+  | ValueExpression :>= ValueExpression -- foo >= bar
+  | ValueExpression :>> ValueExpression -- foo >> bar
+  | ValueExpression :<< ValueExpression -- foo << bar
   | ValueExpression :> ValueExpression -- foo > bar
   | As ValueExpression ValueExpression -- foo as bar
   | Is ValueExpression ValueExpression -- foo is bar
@@ -225,10 +238,11 @@ data InterfaceExpression
   | Standalone Field -- TODO: Make this more specialised
   deriving (Eq, Show)
 
-data ConstDefinition =
-  ConstDefinition (Lexeme Text)
+data ConstDefinition
+  = ConstDefinition (Lexeme Text)
                   (Maybe TypeName)
                   ValueExpression
+  | ConstDirectiveFragment (Lexeme Text) (Maybe TypeName) [Directive]
   deriving (Eq, Show)
 
 data VarDefinition =
@@ -295,7 +309,9 @@ data FieldAnnotation
   = Override
   | Static -- Ie, a class function
   | Virtual
+  | NoReturn
   | Inline
+  | Final
   | Dynamic
   | Overload
   | Reintroduce
@@ -329,16 +345,18 @@ newtype ArrayIndex
 
 data TypeName
   = Type (Lexeme Text)
+  | DirectiveType (Lexeme TypeName)
   -- Arrays
   | StaticArray ArrayIndex
                 TypeName
   | DynamicArray Integer
                  TypeName
   | VariantArray ArrayIndex
+  | Set TypeName
   | OpenDynamicArray TypeName
   | ConstType -- Eg, for an 'array of const'
-  | AddressOfType Comment TypeName -- '^'
-  | TargetOfPointer Comment TypeName -- '@'
+  | AddressOfType Directive TypeName -- '^'
+  | TargetOfPointer Directive TypeName -- '@'
   | Constraint [GenericConstraint]
   | GenericDefinition (Lexeme Text)
                       [Argument]

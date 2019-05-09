@@ -6,26 +6,21 @@ import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase, (@=?))
 
 import DelphiAst
-import DelphiParser (typeAttribute', typeExpressions, newType)
+import DelphiParser (typeExpressions, newType)
 import Text.Megaparsec (parse)
-import Data.Text(unpack, intercalate)
-
-import Data.Maybe (Maybe(Just))
-
-typ a = Type $ Lexeme "" a
-arg a b c d = Arg a (Lexeme "" b) c d
-v a = V $ Lexeme "" a
-s a = S $ Lexeme "" a
-field a b = Field (Lexeme "" a) b
+import TestSupport
 
 typeExpressionTests :: TestTree
 typeExpressionTests = testGroup
   "Delphi type Expression Tests"
   [ testCase "Type Expression"
-  $ (Right (TypeDefinitions [ForwardClass (Type (Lexeme "" "foo")),ForwardClass (Type (Lexeme "" "bar"))]) @=? )
+  $ (Right (TypeDefinitions [ForwardClass (typ "foo"),ForwardClass (typ "bar")]) @=? )
   $ parse typeExpressions "" "type foo = class; bar=class;"
   , testCase "Uppercase Type Expression followed by comment"
-  $ (Right (TypeDefinitions [ForwardClass (Type (Lexeme "" "foo")),ForwardClass (Type (Lexeme "" "bar"))]) @=? )
+  $ (Right (TypeDefinitions
+      [ ForwardClass (typ "foo")
+      , ForwardClass (typ "bar")
+      ]) @=? )
   $ parse typeExpressions "" "TYPE foo = class; bar=class;\n {hey there}"
   , testCase "Type, all on it's own"
   $ (Right (TypeDefinitions []) @=? )
@@ -40,7 +35,7 @@ typeExpressionTests = testGroup
   $ (Right (TypeDefinitions [TypeDef (typ "foo") (NewType (typ "bar"))]) @=? )
   $ parse typeExpressions "" "type foo = type bar;"
   , testCase "type foo = 1..3;"
-  $ (Right (TypeDefinitions [TypeExpression (I (Lexeme "" 1) :.. I (Lexeme "" 3))]) @=? )
+  $ (Right (TypeDefinitions [TypeExpression (i 1 :.. i 3)]) @=? )
   $ parse typeExpressions "" "type foo = 1..3;"
   , testCase "type bar"
   $ (Right (TypeDef (typ "a") (NewType (typ "bar"))) @=?)

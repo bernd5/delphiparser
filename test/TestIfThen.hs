@@ -8,8 +8,7 @@ import Test.Tasty.HUnit (testCase, (@=?))
 import DelphiAst
 import DelphiParser (dIfExpression, statement)
 import Text.Megaparsec (parse)
-
-v a = V $ Lexeme "" a
+import TestSupport
 
 ifThenTests :: TestTree
 ifThenTests = testGroup

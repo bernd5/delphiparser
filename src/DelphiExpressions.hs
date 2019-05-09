@@ -70,7 +70,7 @@ stringLiteral = do
   c <- comment
   strings <- some ((S  . Lexeme c. pack <$> (char '\'' >> manyTill anyChar (symbol "'")))
     <|> (symbol "#" *> (ToChar . I <$> integer)))
-  return $ foldr f (S (Lexeme "" "")) strings
+  return $ foldr f (S (Lexeme [] "")) strings
   where
     f :: ValueExpression -> ValueExpression -> ValueExpression
     f (S a) (S b) = S (a <> b)
@@ -139,6 +139,9 @@ table = [ [ infixL (:*)  "*"
     , infixL (:<) "<"
     , infixL (:>) ">"
     , infixL (:==) "="
+    , infixL (:=.) ":=" -- TODO: Actually this should be removed.
+    , infixL (:<<) "shl"
+    , infixL (:>>) "shr"
     ]
   , [ infixL (:..) ".."
   ]

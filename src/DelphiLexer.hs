@@ -5,6 +5,7 @@ module DelphiLexer
   , sc
   , lexeme
   , symbol
+  , end
   , reserved
   , symbol'
   , parens
@@ -15,23 +16,25 @@ module DelphiLexer
   , float
   , semi
   , rword
+  , compilerDirective
   , anyIdentifier
   , identifier
   , identifier'
   , identifierPlus
   ) where
 
-import Prelude hiding (words, length, concat)
+import Prelude hiding (words, length, concat, take)
+import qualified Prelude as P
 import Data.Void
 import Data.Ratio ((%))
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
-import Data.Text (Text, toLower, strip, pack, unpack, words, intercalate, length, singleton, concat)
+import Data.Text (Text, toLower, strip, pack, unpack, words, intercalate, length, singleton, concat, breakOn, breakOnAll, take, isPrefixOf)
 import Control.Applicative (empty)
-import Control.Monad (void)
+import Control.Monad (void, replicateM)
 import Data.Maybe (fromMaybe, isJust)
-import DelphiAst (Lexeme(..))
+import DelphiAst (Lexeme(..), Directive(..))
 
 type Parser = Parsec Void Text
 
@@ -48,28 +51,121 @@ sc = L.space space1 lineCmnt blockCmnt
 takeWhileP' :: Maybe String -> (Token Text -> Bool) -> Parser Text
 takeWhileP' = takeWhileP
 
-comment :: Parser Text
+-- TODO: Make this take a continuation in the event that it's an include or if or something?
+-- And have it return not a `Parser Directive`, but the 'new' parse.
+comment :: Parser [Directive]
 comment = do
-  a <- optional $ many $ choice [ try lineComment
-                 , try blockComment
-                 ]
-  return $ intercalate "\n" $ fromMaybe [] a
+  a <- many $ choice [(\x -> [x]) <$> try lineComment, try blockComment]
+  return $ removeEmpties' $ P.concat a
 
-lineComment :: Parser Text
+lineComment :: Parser Directive
 lineComment = do
   a <- some ((string "//" *> takeWhileP' (Just "character") (/= '\n')) <* space)
-  return $ intercalate "\n" a
+  return $ Comment $ intercalate "\n" a
 
-blockComment :: Parser Text
+blockComment' :: Text -> Text -> Parser Directive
+blockComment' a b = do
+  string a
+  if a == "{" then
+    choice [ try compilerDirective
+           , restOfBlockComment' a b
+           ] <* space
+  else
+    (restOfBlockComment' a b) <* space
+
+compilerDirective :: Parser Directive
+compilerDirective = do
+  char '$'
+  directive <- takeWhileP' (Just "character") (/= '}') <* char '}'
+  let
+    directive' :: (Text, Text)
+    directive' = breakOn " " directive
+  case directive' of
+    ("i", b) -> do
+      return $ Include (strip b)
+    ("if", cond) -> do
+      let cond' = strip cond
+      a <- takeWhileP' (Just "character") (/= '{') <* char '{'
+      restOfIf cond' [Right a] []
+    ("ifdef", cond) -> do
+      let cond' = strip cond
+      a <- takeWhileP' (Just "character") (/= '{') <* char '{'
+      restOfIf cond' [Right a] []
+    (a', b) -> pure $ UnknownDirective a'
+
+restOfIf
+  :: Text
+  -> [Either Directive Text]
+  -> [Either Directive Text]
+  -> Parser Directive
+restOfIf cond a b = choice [ try $ compilerDirective >>= processIfDirectivePart cond a b
+                         , do
+                            a' <- Left <$> Comment <$> takeWhileP' (Just "character") (/= '}') <* char '}'
+                            b' <- Right <$> takeWhileP' (Just "character") (/= '{') <* char '{'
+                            let a'' = removeEmpties (a <> [a', b'])
+                            restOfIf cond a'' b
+                         ]
+
+restOfIfElse
+  :: Text
+  -> [Either Directive Text]
+  -> [Either Directive Text]
+  -> Parser Directive
+restOfIfElse cond a b = choice [ try $ compilerDirective >>= processIfDirectivePart cond a b
+                         , do
+                            a' <- Left <$> Comment <$> takeWhileP' (Just "character") (/= '}') <* char '}'
+                            b' <- Right <$> takeWhileP' (Just "character") (/= '{') <* char '{'
+                            let b'' = removeEmpties (b <> [a', b'])
+                            restOfIfElse cond a b''
+                         ]
+
+removeEmpties = filter (\x -> case x of
+                                  Left x -> True
+                                  Right "" -> False
+                                  otherwise -> True)
+removeEmpties' = filter (\x -> case x of
+                                  Comment "" -> False
+                                  otherwise -> True)
+
+processIfDirectivePart
+  :: Text
+  -> [Either Directive Text]
+  -> [Either Directive Text]
+  -> Directive -> Parser Directive
+processIfDirectivePart cond a b part = do
+  case part of
+    UnknownDirective "endif" -> do
+      return $ IfDef cond a b
+    UnknownDirective "else" -> do
+      return $ IfDef cond a b
+      els <- takeWhileP' (Just "character") (/= '{') <* char '{'
+      restOfIfElse cond a (b <> [Right els])
+    otherwise -> do
+      -- TODO: Figure out why I can't just use restOfIf as per the above, here.
+      rst <- takeWhileP' (Just "character") (/= '{') <* char '{'
+      fin <- compilerDirective -- TODO: Or a regular comment.
+      let a' = removeEmpties $ a <> [Left otherwise] <> [Right rst]
+      processIfDirectivePart cond a' [] fin
+
+restOfBlockComment' :: Text -> Text -> Parser Directive
+restOfBlockComment' a b = do
+  c <- pack <$> (manyTill anyChar (string b))
+  let a' = P.length $ breakOnAll a c
+  let b' = P.length $ breakOnAll b c
+  c' <- replicateM (a' - b') (pack <$> (manyTill anyChar (string b)))
+
+  return $ Comment $ intercalate b ([c] <> c')
+
+blockComment :: Parser [Directive]
 blockComment = do
   c <- some $ (choice
-    [ char '{' >> (manyTill anyChar (char '}'))
-    , string "(*" >> (manyTill anyChar (string "*)"))
+    [ blockComment' "{" "}"
+    , blockComment' "(*" "*)"
     ] <* space )
-  let c' = (intercalate "\n") $ map pack $ c
   d <- optional lineComment
-  let d' = fromMaybe "" d
-  return $ intercalate "\n" $ filter (\x -> x /= "") [c', d']
+  case d of
+    Just d' -> return $ c <> [d']
+    otherwise -> return c
 
 -- Removes all spaces after a lexime.
 lexeme :: Parser a -> Parser (Lexeme a)
@@ -126,6 +222,9 @@ reserved =
 
 rword :: Text -> Parser (Lexeme ())
 rword w = (lexeme . try) (string' w *> notFollowedBy alphaNumChar)
+
+end :: Parser (Lexeme ())
+end = rword "end"
 
 identifier :: Parser (Lexeme String)
 identifier = do
