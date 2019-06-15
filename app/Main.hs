@@ -6,19 +6,20 @@ module Main where
 import Prelude hiding (putStrLn)
 import DelphiParser
 import DelphiAst
-import System.Environment (getArgs)
 import System.Directory (getDirectoryContents, doesFileExist)
 import Text.Megaparsec (runParser, ParseError(..))
 import Data.Text.IO (putStrLn)
 import Data.ByteString (hGetContents)
 import System.IO (openBinaryFile, IOMode(ReadMode))
-import Data.Text (pack)
+import Data.Text (pack, unpack)
 import Data.Text.Encoding (decodeUtf8', decodeLatin1)
 import Control.Monad (filterM, forM)
 import qualified Control.Monad.Parallel as P (mapM)
 import Control.Exception (handle, SomeException)
 import System.FilePath ((</>), isExtensionOf)
 import Control.Applicative ((<|>))
+import Data.Maybe
+import Args
 
 files :: FilePath -> IO [FilePath]
 files d = do
@@ -31,12 +32,12 @@ files d = do
     r <- mapM (\x -> files (d </> x)) contents'
     pure $ concat r
 
-main :: IO ()
-main = do
-  args <- getArgs
-  let dirname = head args
+main = main' =<< getArgs
 
-  contents <- files dirname
+main' :: Args -> IO ()
+main' args = do
+  let file = fromMaybe "" $ Args.file args
+  contents <- files $ unpack (fromMaybe file $ dir args)
 
   let pasfiles = filter (\x -> isExtensionOf "pas" x || isExtensionOf "pp" x) contents
   

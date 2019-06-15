@@ -1,4 +1,4 @@
-name:                delphi
+name:                past
 version:             0.1.0.0
 github:              "arafangion/delphiparser"
 license:             BSD3
@@ -35,7 +35,7 @@ library:
 #  - -O0
 
 executables:
-  delphi-exe:
+  past-exe:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -45,16 +45,17 @@ executables:
     - -Wall
 #    - -O0
     dependencies:
-    - delphi
+    - past
     - text
     - megaparsec
     - directory
     - filepath
     - bytestring
+    - optparse-applicative
     - monad-parallel
 
 tests:
-  delphi-test:
+  past-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:
@@ -65,7 +66,7 @@ tests:
     - -O0
     dependencies:
     - text
-    - delphi
+    - past
     - tasty
     - tasty-hunit
     - megaparsec

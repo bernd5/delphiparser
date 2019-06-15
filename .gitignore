@@ -1,5 +1,5 @@
 .stack-work/
-delphi.cabal
+*.cabal
 *~
 *.o
 *.ppu
