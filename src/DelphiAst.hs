@@ -365,6 +365,7 @@ data TypeName
   | GenericInstance (Lexeme Text)
                     [TypeName]
   | UnspecifiedType
+  | UnspecifiedType' Text TypeName
   deriving (Eq, Show)
 
 data GenericConstraint =

@@ -496,7 +496,7 @@ simplifyTypeName m a b c = r a $ t b c $ m
     r (Just (Lexeme (a:_) "^")) = AddressOfType a
     r (Just (Lexeme (a:_) "@")) = TargetOfPointer a
     r Nothing = id
-    r _ = error "Unspecified pointer or reference type"
+    r a = UnspecifiedType' (pack $ "Unspecified pointer or reference type: " <> show a)
 
     t :: Maybe [TypeName] -> Maybe ArrayIndex -> (Lexeme Text -> TypeName)
     t x (Just y) = \a -> case a of

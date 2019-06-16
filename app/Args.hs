@@ -9,6 +9,7 @@ import           Data.Text
 data Args = Args
           { file :: Maybe Text
           , dir :: Maybe Text
+          , showTypes :: Bool
           }
 
 args :: Parser Args
@@ -20,6 +21,7 @@ args =
           (long "dir" <> value Nothing <> metavar "DIR" <> help
             "Directory to scan to locate pascal files for parsing"
           )
+    <*> switch ( long "show-types" <> short 't' <> help "Show a list of the discovered types" )
 
 toMaybeText s = Just $ pack s
 

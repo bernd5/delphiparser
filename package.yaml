@@ -30,6 +30,7 @@ library:
   - safe
   - pretty-simple
   - megaparsec
+  - containers
   ghc-options:
   - -Wall
 #  - -O0
@@ -53,6 +54,7 @@ executables:
     - bytestring
     - optparse-applicative
     - monad-parallel
+    - containers
 
 tests:
   past-test:
