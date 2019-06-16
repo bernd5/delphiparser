@@ -76,7 +76,7 @@ main' args = do
     putStrLn . pack $ "Parsed:      " <> show (length $ filter (\x -> 0 /= length x) parsedFiles)
     putStrLn . pack $ "Total types: " <> show (length types)
     putStrLn ""
-    let types' = categorize types
+    let types' = categorizeTypes types
     forM_ (Map.keys types') ( \k -> do
       putStrLn $ "# " <> k
       forM_ (Map.findWithDefault [] k types') $ putStrLn . showType
@@ -99,7 +99,7 @@ showTypeRhs (SimpleFunction args name) = "function " <> showTypeName name <> "("
 showTypeRhs (FunctionOfObject args name) = "function " <> showTypeName name <> "(" <> showArgs args <> ") -- of object"
 showTypeRhs (NewType name) = "type " <> showTypeName name
 showTypeRhs (ClassOf name) = "class of " <> showTypeName name
-showTypeRhs (ClassHelper name classDef) = "class helper for name " <> showClassDef classDef
+showTypeRhs (ClassHelper name classDef) = "class helper for " <> showTypeName name <> showClassDef classDef
 
 showType :: TypeDefinition -> Text
 showType (TypeDef name rhs) = intercalate " " [ name', rhs' ]
