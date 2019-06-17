@@ -35,7 +35,7 @@ import           System.FilePath                ( (</>)
                                                 , isExtensionOf
                                                 )
 import qualified Data.Map                      as Map
-import qualified Args                          as Args
+import qualified Args
 import           TypeCategories
 import           AstPrettyPrint
 

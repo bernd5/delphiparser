@@ -14,7 +14,7 @@ class PP a where
   pp :: a -> Text
 
 instance PP TypeDefinition where
-  pp (TypeAlias a b) = (pp a) <> " = " <> (pp b) <> ""
+  pp (TypeAlias a b) = pp a <> " = " <> pp b <> ""
   pp (EnumDefinition a b) = pp a <> " = (" <> intercalate ", " (map pp b) <> ")"
   pp (SetDefinition a b) = pp a <> " = set of " <> pp b
   pp (TypeDef a b) = pp a <> " = " <> pp b
@@ -52,7 +52,7 @@ instance PP ArgModifier where
   pp NormalArg = ""
 
 instance PP Argument where
-  pp (Arg a b Nothing Nothing) = intercalate " " [pp a, pp b]
+  pp (Arg a b Nothing Nothing) = unwords [pp a, pp b]
   pp (Arg a b (Just c) Nothing) = pp (Arg a b Nothing Nothing) <> ": " <> pp c
   pp (Arg a b (Just c) (Just d)) = pp (Arg a b (Just c) Nothing) <> " = " <> pp d
 
