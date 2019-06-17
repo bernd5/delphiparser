@@ -102,7 +102,7 @@ main' args = do
       (Map.keys types')
       (\k -> do
         putStrLn $ "# " <> k
-        forM_ (Map.findWithDefault [] k types') $ putStrLn . showType
+        forM_ (Map.findWithDefault [] k types') $ putStrLn . pp
         putStrLn ""
       )
 
