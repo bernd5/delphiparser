@@ -3,12 +3,16 @@
 {-# LANGUAGE FlexibleInstances #-}
 module AstPrettyPrint where
 
+import Prelude hiding (unwords)
 import           Data.Text                      ( pack
                                                 , Text
                                                 , intercalate
                                                 )
 import           Data.List                      ( foldl' )
 import           DelphiAst
+
+unwords :: [Text] -> Text
+unwords = intercalate " "
 
 class PP a where
   pp :: a -> Text
