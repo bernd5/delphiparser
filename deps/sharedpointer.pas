@@ -4,7 +4,7 @@ unit SharedPointer;
 interface
 
 type
-TDeallocator = {$IFNDEF FPC}reference to{$ENDIF} procedure(AObj: TObject);
+  // TDeallocator = {$IFNDEF FPC}reference to{$ENDIF} procedure(AObj: TObject);
 
 TShared<T: class> = record
 private
