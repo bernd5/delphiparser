@@ -42,8 +42,9 @@ typeNameTests = testGroup
               UnspecifiedType
             )
           )
-      , testCase' "{$if bar}{foo bar}foo{$else}{bar foo}baz{$endif}a{$endif}"
-                  typeName
+      , testCase'
+          "{$if bar}{foo bar}foo{$else}{bar foo}baz{$endif}a{$endif}"
+          typeName
         $ (DirectiveType
             (Lexeme
               [ IfDef "bar"
@@ -71,5 +72,9 @@ typeNameTests = testGroup
               UnspecifiedType
             ) -- Note: 'a{$endif}' is not parsed, as the parser is done.
           )
+      , testCase'
+            "baz{foo bar}foo{three}foo"
+            (readUpTo '{')
+            "baz"
       ]
   ]

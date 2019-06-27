@@ -10,7 +10,7 @@ data Directive
   | Include Text
   | IfDef Text [Either Directive Text] [Either Directive Text]
   | UnknownDirective Text
-  | Compound Directive Directive
+  | Compound [Directive]
   deriving (Eq, Show)
 
 data Lexeme a = Lexeme [Directive] a

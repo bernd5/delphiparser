@@ -15,6 +15,7 @@ module DelphiLexer
   , hexinteger
   , float
   , semi
+  , readUpTo
   , rword
   , compilerDirective
   , anyIdentifier
@@ -73,6 +74,9 @@ blockComment' a b = do
   else
     (restOfBlockComment' a b) <* space
 
+readUpTo :: Char -> Parser Text
+readUpTo a = takeWhileP' (Just "character") (/= a) <* char a
+
 compilerDirective :: Parser Directive
 compilerDirective = do
   char '$'
@@ -85,17 +89,18 @@ compilerDirective = do
       return $ Include (strip b)
     ("if", cond) -> do
       let cond' = strip cond
-      a <- takeWhileP' (Just "character") (/= '{') <* char '{'
+      a <- readUpTo '{'
       restOfIf' cond' [Right a] [] restOfIfCombiner
     ("ifdef", cond) -> do
       let cond' = strip cond
-      a <- takeWhileP' (Just "character") (/= '{') <* char '{'
+      a <- readUpTo '{'
       restOfIf' cond' [Right a] [] restOfIfCombiner
     (a', b) -> pure $ UnknownDirective a'
 
 restOfIfCombiner :: Text -> Text -> Directive -> Directive
 restOfIfCombiner a b c = case c of
                        IfDef d e f -> IfDef d ([ Left (Comment a), Right b] <> e) f
+
 
 restOfIfCombiner' :: Text -> Text -> Directive -> Directive
 restOfIfCombiner' a b c = case c of
@@ -104,19 +109,19 @@ restOfIfCombiner' a b c = case c of
 restOfIf'
   :: Text
   -> [Either Directive Text]
-  -> [Either Directive Text]
+  -> [Text]
   -> (Text -> Text -> Directive -> Directive)
   -> Parser Directive
 restOfIf' cond a b f = choice [ try cd
                          , do
-                            a' <- takeWhileP' (Just "character") (/= '}') <* char '}'
-                            b' <- takeWhileP' (Just "character") (/= '{') <* char '{'
+                            a' <- readUpTo '}'
+                            b' <- readUpTo '{'
                             (f a' b') <$> restOfIf' cond a b f
                          ]
       where
         cd = compilerDirective >>= \b' -> processIfDirectivePart cond
                                             (removeEmpties a)
-                                            (removeEmpties b)
+                                            b
                                             b'
 
 removeEmpties = filter (\x -> case x of
@@ -130,15 +135,17 @@ removeEmpties' = filter (\x -> case x of
 processIfDirectivePart
   :: Text
   -> [Either Directive Text]
-  -> [Either Directive Text]
-  -> Directive -> Parser Directive
+  -> [Text]
+  -> Directive
+  -> Parser Directive
 processIfDirectivePart cond a b part = do
   case part of
     UnknownDirective "endif" -> do
-      return $ IfDef cond a b
+        let b' = if (intercalate "" b) == "" then [] else [Right $ intercalate " " b]
+        return $ IfDef cond a b'
     UnknownDirective "else" -> do
       els <- takeWhileP' (Just "character") (/= '{') <* char '{'
-      restOfIf' cond a (b <> [Right els]) restOfIfCombiner'
+      restOfIf' cond a (b <> [els]) restOfIfCombiner'
     otherwise -> do
       -- TODO: Figure out why I can't just use restOfIf' as per the above, here.
       rst <- takeWhileP' (Just "character") (/= '{') <* char '{'
