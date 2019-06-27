@@ -49,6 +49,7 @@ module DelphiParser
 
 import Data.Maybe
 import Data.Text (Text, pack, unpack)
+import Data.List (foldl')
 import DelphiAst
 import DelphiLexer
 import DelphiArray (array, arrayIndex)
@@ -493,10 +494,10 @@ simplifyTypeName
 simplifyTypeName m a b c = r a $ t b c $ m
   where
     r :: Maybe (Lexeme Text) -> TypeName -> TypeName
-    r (Just (Lexeme (a:_) "^")) = AddressOfType a
-    r (Just (Lexeme (a:_) "@")) = TargetOfPointer a
+    r (Just (Lexeme a "^")) = AddressOfType (foldl' Compound (Comment "") a)
+    r (Just (Lexeme a "@")) = TargetOfPointer (foldl' Compound (Comment "") a)
     r Nothing = id
-    r _ = error "Unspecified pointer or reference type"
+    r a = UnspecifiedType' (pack $ "Unspecified pointer or reference type: " <> show a)
 
     t :: Maybe [TypeName] -> Maybe ArrayIndex -> (Lexeme Text -> TypeName)
     t x (Just y) = \a -> case a of

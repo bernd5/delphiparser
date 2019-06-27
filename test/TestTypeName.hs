@@ -54,27 +54,36 @@ typeNameTests = testGroup
               UnspecifiedType
             ) -- Note: 'a{$endif}' is not parsed, as the parser is done.
           )
-      , testCase'
-          "{$if bar}baz{foo bar}foo{three}foo{$else sigma}{bar foo}baz{four}{$endif ok}a{$endif}"
-          typeName
-        $ (DirectiveType
-            (Lexeme
-              [ IfDef
-                  "bar"
-                  [ Right "baz"
-                  , Left (Comment "foo bar")
-                  , Right "foo"
-                  , Left (Comment "three")
-                  , Right "foo"
+          , testCase'
+              "{$if bar}baz1{foo bar}foo{three}foo{$else sigma}{bar foo}baz{four}{$endif ok}a{$endif}"
+              typeName
+            $ (DirectiveType
+                (Lexeme
+                  [ IfDef
+                      "bar"
+                      [ Right "baz1"
+                      , Left (Comment "foo bar")
+                      , Right "foo"
+                      , Left (Comment "three")
+                      , Right "foo"
+                      ]
+                      [Left (Comment "bar foo"), Right "baz", Left (Comment "four")]
                   ]
-                  [Left (Comment "bar foo"), Right "baz", Left (Comment "four")]
+                  UnspecifiedType
+                ) -- Note: 'a{$endif}' is not parsed, as the parser is done.
+                )
+          , testCase'
+              "{$if bar}baz1{foo bar}foa{three}fob{$else sigma}{bar foo}baz{four}{$endif ok}a{$endif}"
+              comment
+            $ [ IfDef "bar" [ Right "baz1", Left (Comment "foo bar"), Right "foa", Left (Comment "three"), Right "fob"] [Left (Comment "bar foo"), Right "baz", Left (Comment "four")]
               ]
-              UnspecifiedType
-            ) -- Note: 'a{$endif}' is not parsed, as the parser is done.
-          )
       , testCase'
-            "baz{foo bar}foo{three}foo"
-            (readUpTo '{')
-            "baz"
+          "{$if bar}baz1{$else sigma}{bar foo}baz{four}{$endif ok}a{$endif}"
+          comment
+        $ [IfDef "bar" [Right "baz1"] [Left (Comment "bar foo"),Right "baz",Left (Comment "four")]]    
+      , testCase'
+          "{$if bar}baz1{foo bar}foo{$else sigma}{bar foo}baz{four}{$endif ok}a{$endif}"
+          comment
+          $ [IfDef "bar" [Right "baz1", Left (Comment "foo bar"), Right "foo"] [Left (Comment "bar foo"),Right "baz",Left (Comment "four")]]    
       ]
   ]

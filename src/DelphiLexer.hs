@@ -15,7 +15,6 @@ module DelphiLexer
   , hexinteger
   , float
   , semi
-  , readUpTo
   , rword
   , compilerDirective
   , anyIdentifier
@@ -74,9 +73,6 @@ blockComment' a b = do
   else
     (restOfBlockComment' a b) <* space
 
-readUpTo :: Char -> Parser Text
-readUpTo a = takeWhileP' (Just "character") (/= a) <* char a
-
 compilerDirective :: Parser Directive
 compilerDirective = do
   char '$'
@@ -89,40 +85,39 @@ compilerDirective = do
       return $ Include (strip b)
     ("if", cond) -> do
       let cond' = strip cond
-      a <- readUpTo '{'
-      restOfIf' cond' [Right a] [] restOfIfCombiner
+      a <- takeWhileP' (Just "character") (/= '{') <* char '{'
+      restOfIf cond' [Right a] []
     ("ifdef", cond) -> do
       let cond' = strip cond
-      a <- readUpTo '{'
-      restOfIf' cond' [Right a] [] restOfIfCombiner
+      a <- takeWhileP' (Just "character") (/= '{') <* char '{'
+      restOfIf cond' [Right a] []
     (a', b) -> pure $ UnknownDirective a'
 
-restOfIfCombiner :: Text -> Text -> Directive -> Directive
-restOfIfCombiner a b c = case c of
-                       IfDef d e f -> IfDef d ([ Left (Comment a), Right b] <> e) f
-
-
-restOfIfCombiner' :: Text -> Text -> Directive -> Directive
-restOfIfCombiner' a b c = case c of
-                       IfDef d e f -> IfDef d e ([ Left (Comment a), Right b] <> f)
-
-restOfIf'
+restOfIf
   :: Text
   -> [Either Directive Text]
-  -> [Text]
-  -> (Text -> Text -> Directive -> Directive)
+  -> [Either Directive Text]
   -> Parser Directive
-restOfIf' cond a b f = choice [ try cd
+restOfIf cond a b = choice [ try $ compilerDirective >>= processIfDirectivePart cond a b
                          , do
-                            a' <- readUpTo '}'
-                            b' <- readUpTo '{'
-                            (f a' b') <$> restOfIf' cond a b f
+                            a' <- Left <$> Comment <$> takeWhileP' (Just "character") (/= '}') <* char '}'
+                            b' <- Right <$> takeWhileP' (Just "character") (/= '{') <* char '{'
+                            let a'' = removeEmpties (a <> [a', b'])
+                            restOfIf cond a'' b
                          ]
-      where
-        cd = compilerDirective >>= \b' -> processIfDirectivePart cond
-                                            (removeEmpties a)
-                                            b
-                                            b'
+
+restOfIfElse
+  :: Text
+  -> [Either Directive Text]
+  -> [Either Directive Text]
+  -> Parser Directive
+restOfIfElse cond a b = choice [ try $ compilerDirective >>= processIfDirectivePart cond a b
+                         , do
+                            a' <- Left <$> Comment <$> takeWhileP' (Just "character") (/= '}') <* char '}'
+                            b' <- Right <$> takeWhileP' (Just "character") (/= '{') <* char '{'
+                            let b'' = removeEmpties (b <> [a', b'])
+                            restOfIfElse cond a b''
+                         ]
 
 removeEmpties = filter (\x -> case x of
                                   Left x -> True
@@ -135,19 +130,18 @@ removeEmpties' = filter (\x -> case x of
 processIfDirectivePart
   :: Text
   -> [Either Directive Text]
-  -> [Text]
-  -> Directive
-  -> Parser Directive
+  -> [Either Directive Text]
+  -> Directive -> Parser Directive
 processIfDirectivePart cond a b part = do
   case part of
     UnknownDirective "endif" -> do
-        let b' = if (intercalate "" b) == "" then [] else [Right $ intercalate " " b]
-        return $ IfDef cond a b'
+      return $ IfDef cond a b
     UnknownDirective "else" -> do
+      return $ IfDef cond a b
       els <- takeWhileP' (Just "character") (/= '{') <* char '{'
-      restOfIf' cond a (b <> [els]) restOfIfCombiner'
+      restOfIfElse cond a (b <> [Right els])
     otherwise -> do
-      -- TODO: Figure out why I can't just use restOfIf' as per the above, here.
+      -- TODO: Figure out why I can't just use restOfIf as per the above, here.
       rst <- takeWhileP' (Just "character") (/= '{') <* char '{'
       fin <- compilerDirective -- TODO: Or a regular comment.
       let a' = removeEmpties $ a <> [Left otherwise] <> [Right rst]

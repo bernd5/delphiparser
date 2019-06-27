@@ -10,7 +10,7 @@ data Directive
   | Include Text
   | IfDef Text [Either Directive Text] [Either Directive Text]
   | UnknownDirective Text
-  | Compound [Directive]
+  | Compound Directive Directive
   deriving (Eq, Show)
 
 data Lexeme a = Lexeme [Directive] a
@@ -19,6 +19,7 @@ data Lexeme a = Lexeme [Directive] a
 instance (Functor Lexeme) where
   --fmap :: (a -> b) -> f a -> f b
   fmap f (Lexeme a b) = Lexeme a (f b)
+
 
 instance Semigroup a => (Semigroup (Lexeme a)) where
   (Lexeme a b) <> (Lexeme c d) = Lexeme (a <> c) (b <> d)
@@ -338,7 +339,7 @@ type RecordDefinition = [Accessibility]
 
 type ClassDefinition = [Accessibility]
 
-data ArrayIndex
+newtype ArrayIndex
   = IndexOf [ValueExpression]
   deriving (Eq, Show)
 
@@ -364,6 +365,7 @@ data TypeName
   | GenericInstance (Lexeme Text)
                     [TypeName]
   | UnspecifiedType
+  | UnspecifiedType' Text TypeName
   deriving (Eq, Show)
 
 data GenericConstraint =

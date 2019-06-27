@@ -57,7 +57,7 @@ termWithPrefixAndPostfix a b c = do
   px <- many $ choice $ parseOperator <$> postfixes
   let px' = foldl (\n f -> f n) s px
 
-  return $ px'
+  return px'
 
 termWithPrefixAndPostfix' :: Parser Expression -> Parser InterfaceExpression -> Parser TypeName -> Parser ValueExpression
 termWithPrefixAndPostfix' a b c = do
@@ -68,8 +68,8 @@ termWithPrefixAndPostfix' a b c = do
 stringLiteral :: Parser ValueExpression
 stringLiteral = do
   c <- comment
-  strings <- some ((S  . (Lexeme c) . pack <$> (char '\'' >> manyTill anyChar (symbol "'")))
-    <|> (symbol "#" *> (ToChar <$> I <$> integer)))
+  strings <- some ((S  . Lexeme c. pack <$> (char '\'' >> manyTill anyChar (symbol "'")))
+    <|> (symbol "#" *> (ToChar . I <$> integer)))
   return $ foldr f (S (Lexeme [] "")) strings
   where
     f :: ValueExpression -> ValueExpression -> ValueExpression
@@ -79,7 +79,7 @@ stringLiteral = do
     f (ToChar (I a)) (ToChar (I b))= S (c a <> c b)
 
     c :: Lexeme Integer -> Lexeme Text
-    c (Lexeme cmt a) = Lexeme cmt (pack ( [chr ( fromIntegral a ) ]))
+    c (Lexeme cmt a) = Lexeme cmt (pack [chr ( fromIntegral a ) ])
 
 terms :: Parser Expression -> Parser InterfaceExpression -> Parser TypeName -> Parser ValueExpression
 terms a b c =
@@ -175,10 +175,10 @@ functionCall
   -> Parser InterfaceExpression
   -> Parser TypeName
   -> Parser (ValueExpression -> ValueExpression)
-functionCall a b c = flip (:$) <$> try (parens "(" ")" ((expression a b c) `sepBy` comma))
+functionCall a b c = flip (:$) <$> try (parens "(" ")" (expression a b c `sepBy` comma))
 
 indexCall :: Parser Expression -> Parser InterfaceExpression -> Parser TypeName -> Parser (ValueExpression -> ValueExpression)
-indexCall a b c = flip (:!!) <$> try (parens "[" "]" ((expression a b c) `sepBy` comma))
+indexCall a b c = flip (:!!) <$> try (parens "[" "]" (expression a b c `sepBy` comma))
 
 comma :: Parser ()
 comma = symbol ","

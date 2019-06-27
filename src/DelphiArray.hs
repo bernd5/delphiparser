@@ -28,8 +28,7 @@ staticArray :: Parser TypeName -> Parser ValueExpression -> Parser TypeName
 staticArray typeName expression = do
   index <- arrayIndex typeName expression
   rword "of"
-  base <- typeName
-  return $ StaticArray index base
+  StaticArray index <$> typeName
 
 dynamicArray :: Parser TypeName -> Parser ValueExpression -> Parser TypeName
 dynamicArray typeName _ = do
