@@ -55,6 +55,7 @@ executables:
     - optparse-applicative
     - monad-parallel
     - containers
+    - yesod
 
 tests:
   past-test:

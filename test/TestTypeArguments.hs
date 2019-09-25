@@ -26,6 +26,15 @@ typeArgumentTests =
     , testCase "One simple argument" $
       (Right (Just [arg NormalArg "AFoo" (Just $ typ "TBar") Nothing]) @=?) $
       parse typeArguments' "" "(AFoo: TBar)"
+    , testCase "One simple argument - Text" $
+      (Right (Just [arg NormalArg "AFoo" (Just $ typ "Text") Nothing]) @=?) $
+      parse typeArguments' "" "(AFoo: Text)"
+    , testCase "One var argument - Text" $
+      (Right (Just [arg VarArg "AFoo" (Just $ typ "Text") Nothing]) @=?) $
+      parse typeArguments' "" "(var AFoo: Text)"
+    , testCase "One var out argument - Text" $
+      (Right (Just [arg VarArg "out" (Just $ typ "Text") Nothing]) @=?) $
+      parse typeArguments' "" "(var out: Text)"
     , testCase "One 'default' argument" $
       (Right (Just [arg ConstArg "Default" (Just $ typ "TBar") Nothing]) @=?) $
       parse typeArguments' "" "(const Default: TBar)"

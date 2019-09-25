@@ -165,6 +165,7 @@ data ValueExpression
   | ValueExpression :& ValueExpression -- foo and bar
   | ValueExpression :| ValueExpression -- foo or bar
   | ValueExpression :== ValueExpression -- foo = bar
+  | ValueExpression :--:-- ValueExpression -- WriteLn(foo:24)
   | ValueExpression :=. ValueExpression -- foo := bar (TODO: Remove this one)
   | ValueExpression :+ ValueExpression -- foo + bar
   | ValueExpression :- ValueExpression -- foo - bar
@@ -204,6 +205,7 @@ data TypeDefinitionRHS
   | ProcedureOfObject [Argument]
   | ReferenceToFunction [Argument] TypeName
   | SimpleFunction [Argument] TypeName
+  | NestedFunction [Argument] TypeName
   | FunctionOfObject [Argument] TypeName
   | NewType TypeName -- ie, foo = type bar
   | ClassOf TypeName -- ie, 'foo = class of bar'

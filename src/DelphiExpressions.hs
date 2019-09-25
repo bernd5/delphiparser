@@ -24,7 +24,12 @@ expression
   -> Parser InterfaceExpression
   -> Parser TypeName
   -> Parser ValueExpression
-expression a b c = makeExprParser (termWithPrefixAndPostfix a b c) table
+expression a b c = makeExprParser (termWithPrefixAndPostfix a b c) $ table []
+
+expressionForWriteLn a b c = makeExprParser (termWithPrefixAndPostfix a b c) $ table s
+  where
+    s = [infixL (:--:--) ":"] -- Weird hard-coded special case for WriteLn a
+
 
 data Operator' m a =  Prefix' (m (a -> a)) | Postfix' (m (a -> a))
 
@@ -84,7 +89,7 @@ stringLiteral = do
 terms :: Parser Expression -> Parser InterfaceExpression -> Parser TypeName -> Parser ValueExpression
 terms a b c =
   choice
-    [ V <$> identifierPlus ["string"]
+    [ V <$> identifierPlus ["string", "write", "read"]
     , F <$> float
     , I <$> integer
     , I <$> hexinteger
@@ -120,8 +125,9 @@ terms a b c =
       return $ lbl := value
 
 table
-  :: [[Operator Parser ValueExpression]]
-table = [ [ infixL (:*)  "*"
+  :: [Operator Parser ValueExpression]
+  -> [[Operator Parser ValueExpression]]
+table a = [ [ infixL (:*)  "*"
     , infixL (:/)  "/"
     , infixL (:%) "mod"
     , infixL (:/)  "div"
@@ -144,7 +150,7 @@ table = [ [ infixL (:*)  "*"
     , infixL (:>>) "shr"
     ]
   , [ infixL (:..) ".."
-  ]
+  ] <> a
   ]
 void :: a -> ()
 void _ = ()
@@ -175,7 +181,7 @@ functionCall
   -> Parser InterfaceExpression
   -> Parser TypeName
   -> Parser (ValueExpression -> ValueExpression)
-functionCall a b c = flip (:$) <$> try (parens "(" ")" (expression a b c `sepBy` comma))
+functionCall a b c = flip (:$) <$> try (parens "(" ")" (expressionForWriteLn a b c `sepBy` comma))
 
 indexCall :: Parser Expression -> Parser InterfaceExpression -> Parser TypeName -> Parser (ValueExpression -> ValueExpression)
 indexCall a b c = flip (:!!) <$> try (parens "[" "]" (expression a b c `sepBy` comma))

@@ -42,8 +42,9 @@ typeNameTests = testGroup
               UnspecifiedType
             )
           )
-      , testCase' "{$if bar}{foo bar}foo{$else}{bar foo}baz{$endif}a{$endif}"
-                  typeName
+      , testCase'
+          "{$if bar}{foo bar}foo{$else}{bar foo}baz{$endif}a{$endif}"
+          typeName
         $ (DirectiveType
             (Lexeme
               [ IfDef "bar"

@@ -65,6 +65,17 @@ typeDefinitionTests = testGroup
           ) @=?
         )
       $ parse typeDefinition "" "bar = function(const foo:bar):string;"
+      , testCase "Ensure type nested function alias parses"
+      $ (Right
+          (TypeDef
+            (typ "bar")
+            (SimpleFunction [arg ConstArg "foo" (Just $ typ "bar") Nothing]
+                            (typ "string")
+            )
+          ) @=?
+        )
+      $ parse typeDefinition "" "bar = function(const foo:bar):string is nested;"
+
       , testCase "Ensure 'class of' works"
       $ (Right (TypeDef (typ "foo") (ClassOf (typ "bar"))) @=?)
       $ parse typeDefinition "" "foo = class of bar;"

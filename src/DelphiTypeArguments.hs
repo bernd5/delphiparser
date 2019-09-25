@@ -8,22 +8,18 @@ import DelphiLexer
 import DelphiAst
 
 import Data.Text (Text)
+import Data.Maybe (fromMaybe)
 
 typeArgNames :: Parser [(ArgModifier, Lexeme Text)]
 typeArgNames = try $ (do
-      c <- optional $ rword "const"
-      v <- optional $ rword "var"
-      o <- optional $ rword "out"
-      let m = tmod c v o
-
+      c <- optional $ choice [ ConstArg <$ rword "const"
+                             , VarArg <$ rword "var"
+                             , OutArg <$ rword "out"
+                             ]
+      let m = fromMaybe NormalArg c
       i <- identifierPlus reserved
       return (m, i)
     ) `sepBy` symbol ","
-  where
-    tmod (Just _) _ _ = ConstArg
-    tmod _ (Just _) _ = VarArg
-    tmod _ _ (Just _) = OutArg
-    tmod _ _ _ = NormalArg
 
 
 typeArguments :: Parser TypeName -> Parser ValueExpression -> Parser [Argument]
