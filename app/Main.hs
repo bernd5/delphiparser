@@ -6,7 +6,6 @@ module Main where
 import           Prelude                 hiding ( putStrLn )
 import           DelphiParser
 import           DelphiAst
-import System.Environment (getArgs)
 import           System.Directory               ( getDirectoryContents
                                                 , doesFileExist
                                                 )
@@ -39,6 +38,7 @@ import qualified Data.Map                      as Map
 import qualified Args
 import           TypeCategories
 import           AstPrettyPrint
+import Web
 
 unitName :: Unit -> Text
 unitName (Unit _ (Lexeme _ a) _ _ _ _) = a
@@ -119,6 +119,14 @@ main' args = do
         forM_ (Map.findWithDefault [] k types') $ putStrLn . pp
         putStrLn ""
       )
+
+  putStrLn $ pack $ show parsedFiles
+
+  let parsedFiles' = foldr (<>) [] parsedFiles
+
+  case Args.docWeb args of
+    Just port -> serveWeb port pasfiles parsedFiles'
+    Nothing   -> pure ()
 
 onError :: SomeException -> IO [Unit]
 onError e = do

@@ -346,6 +346,9 @@ dReferenceToFunctionP ident = do
   o <- optional $ do
     rword "of"
     rword "object"
+  isNested <- optional $ do
+    rword "is"
+    rword "nested"
   let t = if isJust r
           then ReferenceToFunction
           else
