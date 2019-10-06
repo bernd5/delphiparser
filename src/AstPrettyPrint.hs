@@ -28,6 +28,21 @@ prefix a b  = a <> b
 class PP a where
   pp :: a -> Text
 
+instance PP VarDefinition where
+  pp a = pack $ show a
+
+instance PP ConstDefinition where
+  pp a = pack $ show a
+
+instance Show a => PP (Maybe a) where
+  pp a = pack $ show a
+
+instance PP Integer where
+  pp a = pack $ show a
+
+instance PP Text where
+  pp a = a
+
 instance PP TypeDefinition where
   pp (TypeAlias a b) = pp a <> " = " <> pp b <> ""
   pp (EnumDefinition a b) = pp a <> " = (" <> intercalate ", " (map pp b) <> ")"

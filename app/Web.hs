@@ -3,10 +3,15 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE ViewPatterns #-}
+
 module Web where
+import Prelude hiding (head)
 import           Yesod
-import Data.Text
+import Data.Text hiding (head)
+import Data.List.Safe (head)
+import Data.Maybe (mapMaybe)
 import DelphiAst
+import HtmlPretty (showHtml)
 
 data DocServer = DocServer { delphiSourcePaths :: [Text]
                            , delphiUnits :: [Unit]
@@ -37,7 +42,7 @@ getUnitListR = do
   defaultLayout [whamlet|
     <h1>Object Pascal Documentation Server
     $forall unit <- units
-      <h2>#{unit}
+      <h2><a href="/units/#{unit}">#{unit}</a>
     <hr>
     Yesod Version #{yesodVersion}|]
 
@@ -49,11 +54,15 @@ getUnitListR = do
 getUnitInformationR :: Text -> Handler Html
 getUnitInformationR unitName = do
   units <- fmap delphiUnits getYesod
-  let hUnits = show $ Prelude.head units
-  defaultLayout [whamlet|
-    <h1>#{unitName}
-    #{hUnits}
-|]
+  let unit = head $ mapMaybe byUnitName units
+  case unit of
+    Just x -> defaultLayout [whamlet|#{showHtml x}|]
+    Nothing -> defaultLayout [whamlet|Missing|]
+  where
+    byUnitName x@(Unit _ (Lexeme _ n) _ _ _ _) = if n == unitName
+                                                 then Just x
+                                                 else Nothing
+    byUnitName x = Nothing
 
 
 serveWeb :: Int -> [FilePath] -> [Unit] -> IO ()

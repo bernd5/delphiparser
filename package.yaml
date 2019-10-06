@@ -56,6 +56,8 @@ executables:
     - monad-parallel
     - containers
     - yesod
+    - blaze-html
+    - listsafe
 
 tests:
   past-test:
