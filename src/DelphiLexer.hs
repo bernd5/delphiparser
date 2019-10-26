@@ -15,6 +15,7 @@ module DelphiLexer
   , hexinteger
   , float
   , semi
+  , semi'
   , rword
   , compilerDirective
   , anyIdentifier
@@ -53,10 +54,11 @@ takeWhileP' = takeWhileP
 
 -- TODO: Make this take a continuation in the event that it's an include or if or something?
 -- And have it return not a `Parser Directive`, but the 'new' parse.
-comment :: Parser [Directive]
+comment :: Parser Directive
 comment = do
   a <- many $ choice [(\x -> [x]) <$> try lineComment, try blockComment]
-  return $ removeEmpties' $ P.concat a
+  sc
+  return $ mconcat $ removeEmpties' $ P.concat a
 
 lineComment :: Parser Directive
 lineComment = do
@@ -176,9 +178,10 @@ lexeme a = do
 
 symbol' :: Text -> Parser (Lexeme Text)
 symbol' a = do
-  b <- L.symbol sc a
   c <- comment
-  return $ Lexeme c b
+  b <- L.symbol sc a
+  c' <- comment
+  return $ Lexeme (c <> c') b
 
 symbol :: Text -> Parser ()
 symbol a = void $ symbol' a
@@ -213,7 +216,12 @@ float = try $ do
       return (concat a, concat c)
 
 semi :: Parser ()
-semi = void $ symbol ";"
+semi = void $ semi'
+
+semi' :: Parser Directive
+semi' = takeComment <$> symbol' ";"
+  where
+    takeComment (Lexeme c _) = c
 
 reserved :: [Text]
 reserved =

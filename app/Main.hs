@@ -46,8 +46,8 @@ unitName (Program      (Lexeme _ a) _) = a
 unitName (UnitFragment _            _) = "<fragment>"
 
 units :: Unit -> [Text]
-units (Unit _ _ (Interface (Uses a) _) (Implementation (Uses b) _) _ _) = map f
-  $ concat (a <> b)
+units (Unit _ _ (Interface (Uses a _) _) (Implementation (Uses b _) _) _ _) = map f
+  $ a <> b
  where
   f :: Lexeme Text -> Text
   f (Lexeme _ c) = c

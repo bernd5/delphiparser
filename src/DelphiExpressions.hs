@@ -75,7 +75,7 @@ stringLiteral = do
   c <- comment
   strings <- some ((S  . Lexeme c. pack <$> (char '\'' >> manyTill anyChar (symbol "'")))
     <|> (symbol "#" *> (ToChar . I <$> integer)))
-  return $ foldr f (S (Lexeme [] "")) strings
+  return $ foldr f (S (Lexeme NoDirective "")) strings
   where
     f :: ValueExpression -> ValueExpression -> ValueExpression
     f (S a) (S b) = S (a <> b)

@@ -39,9 +39,12 @@ newtype ParserTestsData = ParserTestsData
   { sharedpointer :: Text
   }
 
-usesC (x : xs) = (Prelude.map (Lexeme []) x) : usesC xs
-usesC _        = []
-redirectedFunction a b = RedirectedFunction (Lexeme [] a) (Lexeme [] b)
+usesC' (x : xs) = (Prelude.map (Lexeme NoDirective) x) : usesC' xs
+usesC' _        = []
+
+usesC x = Uses (Prelude.concat (usesC' x)) NoDirective
+
+redirectedFunction a b = RedirectedFunction (Lexeme NoDirective a) (Lexeme NoDirective b)
 
 main :: IO ()
 main = do
@@ -91,14 +94,14 @@ unitTests p = testGroup
   $ (Right (usesC [["one"], ["two"], ["three"]]) @=?)
   $ parse uses "" "uses one, two, three;"
   , testCase "Underscores are valid as part of an identifier"
-  $ (Right (Lexeme [] "foo_bar") @=?)
+  $ (Right (Lexeme NoDirective "foo_bar") @=?)
   $ parse identifier "" "foo_bar"
   , testCase "Ensure delphi skeleton parses"
   $ (Right
-      (Unit []
-            (Lexeme [] "TestUnit")
-            (Interface (Uses []) [TypeDefinitions []])
-            (Implementation (Uses []) [])
+      (Unit NoDirective 
+            (Lexeme NoDirective "TestUnit")
+            (Interface (Uses [] NoDirective) [TypeDefinitions []])
+            (Implementation (Uses [] NoDirective) [])
             Initialization
             Finalization
       ) @=?
@@ -125,10 +128,10 @@ unitTests p = testGroup
       ["function TShared<T>.Cast<TT>: TShared<TT>;", "begin", "end;"]
   , testCase "Ensure comments at the start still parse"
   $ (Right
-      (Unit [c "--\n This file starts with comments\n--", c " And another comment"]
-            (Lexeme [] "TestUnit")
-            (Interface (Uses []) [TypeDefinitions []])
-            (Implementation (Uses []) [])
+      (Unit (Compound (c "--\n This file starts with comments\n--") (c " And another comment"))
+            (Lexeme NoDirective "TestUnit")
+            (Interface (Uses [] NoDirective) [TypeDefinitions []])
+            (Implementation (Uses [] NoDirective) [])
             Initialization
             Finalization
       ) @=?
@@ -137,6 +140,11 @@ unitTests p = testGroup
       dUnitP
       "testUnit.pas"
       "{--\n This file starts with comments\n--}\n// And another comment\n\n\nunit TestUnit; interface type implementation initialization finalization end."
+  , testCase "Ensure that 'uses' preserves the comment, if any"
+  $ (Right ( Uses [ Lexeme (Comment "aaaah") "alpha"
+                  , Lexeme (Compound (Comment "blah...") (Comment "BETA!")) "beta"
+                  ] (Comment "hey there")) @=? )
+  $ parse uses "" "uses alpha {aaaah}, {blah...} beta {BETA!}; {hey there}"
   , testCase "Ensure a class function declaration parses"
   $ (Right
       [ Function (typ "foo")
@@ -185,7 +193,7 @@ unitTests p = testGroup
   $ (Right (v "a" :$ [v "b"] :+ v "c") @=?)
   $ parse expression' "" "a(b)+c"
   , testCase "Ensure that you can assign to the result of a cast"
-  $ (Right (ExpressionValue ((P [As (V (Lexeme [] "FFreeTheValue")) (V (Lexeme [] "TFreeTheValue"))] :. V (Lexeme [] "FObjectToFree")) :=. Nil)) @=? )
+  $ (Right (ExpressionValue ((P [As (V (Lexeme NoDirective "FFreeTheValue")) (V (Lexeme NoDirective "TFreeTheValue"))] :. V (Lexeme NoDirective "FObjectToFree")) :=. Nil)) @=? )
   $ parse statement "" "(FFreeTheValue as TFreeTheValue).FObjectToFree := nil;"
   , testCase "Ensure a value involving a generic type member function parses"
   $ (Right (((v "TShared" :<<>> [typ "TT"]) :. v "Create") :$ [Nil]) @=?)
@@ -226,7 +234,7 @@ unitTests p = testGroup
   $ (Right EmptyExpression @=?)
   $ parse statement "" ";"
   , testCase "Ensure assign to an index property parses"
-  $ (Right (ExpressionValue ((V (Lexeme [] "foo") :!! [I (Lexeme [] 32)]) :=. V (Lexeme [] "blah"))) @=? )
+  $ (Right (ExpressionValue ((V (Lexeme NoDirective "foo") :!! [I (Lexeme NoDirective 32)]) :=. V (Lexeme NoDirective "blah"))) @=? )
   $ parse statement "" "foo[32] := blah;"
   , testCase "Ensure reading an index property parses"
   $ (Right (ExpressionValue (v "foo" :!! [i 32])) @=?)
@@ -259,7 +267,7 @@ unitTests p = testGroup
   , testCase "Ensure that const expression's involving arrays parse"
   $ (Right
       (ConstDefinitions
-        [ ConstDefinition (Lexeme [] "foo")
+        [ ConstDefinition (Lexeme NoDirective "foo")
                           (Just $ StaticArray (IndexOf [v "bar"]) (typ "baz"))
                           (P [v "one", v "two", v "three"])
         ]
@@ -271,7 +279,7 @@ unitTests p = testGroup
   , testCase "Ensure that const expression's involving arrays parse"
   $ (Right
       (ConstDefinitions
-        [ ConstDefinition (Lexeme [] "foo")
+        [ ConstDefinition (Lexeme NoDirective "foo")
                           (Just $ StaticArray (IndexOf [v "bar"]) (
                             StaticArray (IndexOf [i 30]) (typ "string")))
                           (P [s "one", s "two", s "three"])
@@ -290,7 +298,7 @@ unitTests p = testGroup
   $ parse expression' "" "a = foo.bar"
   , testCase "Ensure if a = foo.bar then... parses"
   $ (Right
-      (If (V (Lexeme [] "a") :== (V (Lexeme [] "foo") :. V (Lexeme [] "bar")))
+      (If (V (Lexeme NoDirective "a") :== (V (Lexeme NoDirective "foo") :. V (Lexeme NoDirective "bar")))
           (Then (ExpressionValue Nil))
           (Else EmptyExpression)
       ) @=?
@@ -346,7 +354,7 @@ unitTests p = testGroup
   $ parse (setDefinition (typ "foo")) "" "set of bar"
   , testCase "Ensure complete set example parses"
   $ (Right
-      (Interface (Uses [])
+      (Interface (Uses [] NoDirective)
                  [TypeDefinitions [SetDefinition (typ "foo") (typ "bar")]]
       ) @=?
     )
@@ -364,12 +372,12 @@ unitTests p = testGroup
   $ parse dProcedureImplementationP ""
   $ intercalate "\n" ["procedure TShared<T>.Cast<TT>;", "begin", "end;"]
   , testCase "Ensure that a begin/end following an include parses."
-  $ (Right (UnitFragment [Include "foo"] "...") @=?)
+  $ (Right (UnitFragment (Include "foo") "...") @=?)
   $ parse pascalFile "" "{$i foo} ..."
   , testCase "Ensure a static constructor implementation parses"
   $ (Right
       (Implementation
-        (Uses [])
+        (Uses [] NoDirective)
         [ MemberConstructorImpl (typ "TShared")
                                 (typ "Create")
                                 []

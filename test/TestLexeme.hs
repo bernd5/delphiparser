@@ -12,6 +12,15 @@ import DelphiAst (Lexeme(..), Directive(..))
 lexemeTests :: TestTree
 lexemeTests = testGroup "Lexeme Tests"
   [ testCase "char a"
-  $ (Right (Lexeme [] 'a') @=?)
+  $ (Right (Lexeme NoDirective 'a') @=?)
   $ parse (lexeme $ char 'a') "" "a"
+  , testCase "; bar"
+  $ (Right (Comment "foo") @=?)
+  $ parse semi' "" "; {foo}"
+  , testCase "; {foo} -- symbol'"
+  $ (Right (Lexeme (Comment "foo") ";") @=?)
+  $ parse (symbol' ";") "" "; {foo}"
+  , testCase "{foo}; {bar} -- symbol'"
+  $ (Right (Lexeme (Compound (Comment "foo") (Comment "bar")) ";") @=?)
+  $ parse (symbol' ";") "" "{foo}; {bar}"
   ]

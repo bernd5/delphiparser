@@ -28,6 +28,12 @@ prefix a b  = a <> b
 class PP a where
   pp :: a -> Text
 
+instance PP Directive where
+  pp a = pack $ show a
+
+instance PP Uses where
+  pp a = pack $ show a
+
 instance PP VarDefinition where
   pp a = pack $ show a
 
@@ -143,7 +149,7 @@ instance PP (Lexeme Text) where
   pp (Lexeme _ a) = a
 
 instance PP (Lexeme Integer) where
-  pp (Lexeme [] a) = (pack . show) a
+  pp (Lexeme NoDirective a) = (pack . show) a
 
 instance PP TypeDefinitionRHS where
   pp (SimpleProcedure a) = "procedure(" <> intercalate "; " (map pp a) <> ")"

@@ -11,9 +11,19 @@ data Directive
   | IfDef Text [Either Directive Text] [Either Directive Text]
   | UnknownDirective Text
   | Compound Directive Directive
+  | NoDirective
   deriving (Eq, Show)
 
-data Lexeme a = Lexeme [Directive] a
+instance Semigroup Directive where
+  a <> NoDirective = a
+  NoDirective <> a = a
+  a <> Compound b c = Compound (Compound a b) c
+  a <> b = Compound a b
+
+instance Monoid Directive where
+  mempty = NoDirective
+
+data Lexeme a = Lexeme Directive a
   deriving (Eq, Show)
 
 instance (Functor Lexeme) where
@@ -25,14 +35,14 @@ instance Semigroup a => (Semigroup (Lexeme a)) where
   (Lexeme a b) <> (Lexeme c d) = Lexeme (a <> c) (b <> d)
 
 data Unit = Unit
-             [Directive]
+             Directive
              (Lexeme Text)
              Interface
              Implementation
              Initialization
              Finalization
           | Program (Lexeme Text) [Expression]
-          | UnitFragment [Directive] Text
+          | UnitFragment Directive Text
   deriving (Eq, Show)
 
 data Interface =
@@ -40,8 +50,8 @@ data Interface =
             [InterfaceExpression]
   deriving (Eq, Show)
 
-newtype Uses =
-  Uses [[Lexeme Text]]
+data Uses =
+  Uses [Lexeme Text] Directive
   deriving (Eq, Show)
 
 data Implementation =
@@ -244,7 +254,7 @@ data ConstDefinition
   = ConstDefinition (Lexeme Text)
                   (Maybe TypeName)
                   ValueExpression
-  | ConstDirectiveFragment (Lexeme Text) (Maybe TypeName) [Directive]
+  | ConstDirectiveFragment (Lexeme Text) (Maybe TypeName) Directive
   deriving (Eq, Show)
 
 data VarDefinition =

@@ -12,6 +12,7 @@ import Data.List.Safe (head)
 import Data.Maybe (mapMaybe)
 import DelphiAst
 import HtmlPretty (showHtml)
+import Text.Lucius (CssUrl, luciusFile, luciusFileReload, renderCss)
 
 data DocServer = DocServer { delphiSourcePaths :: [Text]
                            , delphiUnits :: [Unit]
@@ -56,7 +57,9 @@ getUnitInformationR unitName = do
   units <- fmap delphiUnits getYesod
   let unit = head $ mapMaybe byUnitName units
   case unit of
-    Just x -> defaultLayout [whamlet|#{showHtml x}|]
+    Just x -> defaultLayout $ do
+      toWidget $ $(luciusFileReload "home.lucius")
+      toWidget [whamlet|<div id="content">#{showHtml x}|]
     Nothing -> defaultLayout [whamlet|Missing|]
   where
     byUnitName x@(Unit _ (Lexeme _ n) _ _ _ _) = if n == unitName

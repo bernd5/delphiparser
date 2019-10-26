@@ -57,6 +57,7 @@ executables:
     - containers
     - yesod
     - blaze-html
+    - shakespeare
     - listsafe
 
 tests:

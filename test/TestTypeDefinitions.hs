@@ -13,6 +13,7 @@ import           Test.Tasty.HUnit               ( testCase
                                                 )
 
 import           DelphiAst
+import DelphiLexer
 import           DelphiParser                   ( typeAttribute'
                                                 , typeDefinition
                                                 , classType
@@ -157,10 +158,10 @@ typeDefinitionTests = testGroup
             (typ "TFoo")
             [typ "TObject"]
             [ Public
-                [ Field (Lexeme [Comment "c"] "name")
-                        (Type (Lexeme [Comment "f"] "string"))
-                , Field (Lexeme [Comment "e"] "desc")
-                        (Type (Lexeme [Comment "f"] "string"))
+                [ Field (Lexeme (Comment "c") "name")
+                        (Type (Lexeme (Comment "f") "string"))
+                , Field (Lexeme (Comment "e") "desc")
+                        (Type (Lexeme (Comment "f") "string"))
                 ]
             ]
           ) @=?
@@ -174,7 +175,7 @@ typeDefinitionTests = testGroup
           , "{h} end; {i}{j}"
           ]
       , testCase "RecordDefinition with comments..."
-      $ (Right (Public [Field (Lexeme [] "name") (typ "string")]) @=?)
+      $ (Right (Public [Field (Lexeme NoDirective "name") (typ "string")]) @=?)
       $ parse (dRecordDefinitionP) ""
       $ intercalate "\n" ["public", "  { blah blah }  ", " {}name{}: string;"]
       , testCase "RecordDefinition without comments..."
@@ -182,35 +183,39 @@ typeDefinitionTests = testGroup
       $ parse       (dRecordDefinitionP) ""
       $ intercalate "\n"                 ["public", " name : string;"]
       , testCase'
+        "= {$i bar}"
+        (symbol' "=")
+        (Lexeme (Include "bar") "=")
+      , testCase'
         "foo = {$i bar}"
         typeDefinition
-        (TypeDef (Type (Lexeme [] "foo"))
-                 (NewType (Type (Lexeme [Include "bar"] "")))
+        (TypeDef (Type (Lexeme NoDirective "foo"))
+                 (NewType (Type (Lexeme (Include "bar") "")))
         )
       , testCase'
         "foo = array[bar] of string[11];"
         typeDefinition
         (TypeAlias
-          (Type (Lexeme [] "foo"))
+          (Type (Lexeme NoDirective "foo"))
           (StaticArray
-            (IndexOf [V (Lexeme [] "bar")])
-            (StaticArray (IndexOf [I (Lexeme [] 11)])
-                         (Type (Lexeme [] "string"))
+            (IndexOf [V (Lexeme NoDirective "bar")])
+            (StaticArray (IndexOf [I (Lexeme NoDirective 11)])
+                         (Type (Lexeme NoDirective "string"))
             )
           )
         )
       , testCase' "type foo = {$i bar} {yo!} foo = array[bar] of string[11];"
                   typeExpressions
         $ TypeDefinitions
-            [ (TypeDef (Type (Lexeme [] "foo"))
-                       (NewType (Type (Lexeme [Include "bar", Comment "yo!"] "")))
+            [ (TypeDef (Type (Lexeme NoDirective "foo"))
+                       (NewType (Type (Lexeme (Compound (Include "bar") (Comment "yo!")) "")))
               )
             , (TypeAlias
-                (Type (Lexeme [] "foo"))
+                (Type (Lexeme NoDirective "foo"))
                 (StaticArray
-                  (IndexOf [V (Lexeme [] "bar")])
-                  (StaticArray (IndexOf [I (Lexeme [] 11)])
-                               (Type (Lexeme [] "string"))
+                  (IndexOf [V (Lexeme NoDirective "bar")])
+                  (StaticArray (IndexOf [I (Lexeme NoDirective 11)])
+                               (Type (Lexeme NoDirective "string"))
                   )
                 )
               )

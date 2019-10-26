@@ -27,10 +27,10 @@ functionTests = testGroup
   $ (Right (v "string" :$ [v "foo"]) @=?)
   $ parse expression' "" "string(foo)"
   , testCase "WriteLn(foo:4:8) - pascal special case"
-  $ (Right (v "WriteLn" :$ [v "foo" :--:-- I (Lexeme [] 4) :--:-- I (Lexeme [] 8)]) @=?)
+  $ (Right (v "WriteLn" :$ [v "foo" :--:-- I (Lexeme NoDirective 4) :--:-- I (Lexeme NoDirective 8)]) @=?)
   $ parse expression' "" "WriteLn(foo:4:8)"
   , testCase "WriteLn(foo:2) - pascal special case"
-  $ (Right (v "WriteLn" :$ [v "foo" :--:-- I(Lexeme [] 4)]) @=?)
+  $ (Right (v "WriteLn" :$ [v "foo" :--:-- I(Lexeme NoDirective 4)]) @=?)
   $ parse expression' "" "WriteLn(foo:4)"
   , testCase "Write(foo)"
   $ (Right (v "Write" :$ [v "foo"]) @=?)

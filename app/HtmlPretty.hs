@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE QuasiQuotes           #-}
+{-# LANGUAGE QuasiQuotes       #-}
 
 module HtmlPretty where
 
@@ -36,15 +36,15 @@ instance HtmlShow a => HtmlShow (Maybe a) where
   showHtml Nothing = [shamlet||]
 
 instance HtmlShow ValueExpression where
-  showHtml (I (Lexeme [] a)) = [shamlet|#{showRaw a}|]
-  showHtml (S (Lexeme [] a)) = [shamlet|#{showRaw a}|]
+  showHtml (I (Lexeme NoDirective a)) = [shamlet|#{showRaw a}|]
+  showHtml (S (Lexeme NoDirective a)) = [shamlet|#{showRaw a}|]
   showHtml (DFalse) = [shamlet|<code>false|]
   showHtml (DTrue) = [shamlet|<code>true|]
   showHtml a = [shamlet|#{showRaw a}|]
 
 instance HtmlShow ConstDefinition where
   showHtml (ConstDefinition (Lexeme directives name) typ value) = [shamlet|
-    $if null directives
+    $if isNoDirective directives
     $else
       #{showHtml directives}
     \ #{name}
@@ -58,7 +58,7 @@ instance HtmlShow ConstDefinition where
     |]
 
 instance HtmlShow TypeName where
-  showHtml (Type (Lexeme [] a)) = [shamlet| #{showHtml a} |]
+  showHtml (Type (Lexeme NoDirective a)) = [shamlet| #{showHtml a} |]
   showHtml a = [shamlet| #{showRaw a} |]
 
 instance HtmlShow TypeDefinition where
@@ -83,11 +83,12 @@ instance HtmlShow InterfaceExpression where
   showHtml (Standalone a) = [shamlet| #{showHtml a} |]
 
 instance HtmlShow Interface where
-  showHtml (Interface (Uses a) b) = [shamlet|
+  showHtml (Interface (Uses a _) b) = [shamlet|
     $if null a
     $else
-      <h1>Uses:
-        #{showHtml (concat a)}
+      <div class="uses">
+        <h1>Uses:
+        #{showHtml a}
     <h1>Interface:
     <h2>Types
     #{showHtml (concat (mapMaybe types b))}
@@ -118,20 +119,28 @@ instance HtmlShow Interface where
 
 instance HtmlShow a => HtmlShow (Lexeme a) where
   showHtml (Lexeme a b) = [shamlet|
-  #{showHtml a}
-  #{showHtml b}|]
+  #{showHtml b}
+  $if isNoDirective a
+  $else
+    #{showHtml a}
+  |]
 
 instance HtmlShow Directive where
   showHtml (Comment a) = [shamlet|<pre>#{a}|]
+  showHtml (Compound a b) = [shamlet|#{showHtml a}#{showHtml b}|]
+  showHtml a = [shamlet|<pre>#{show a}|]
+
+isNoDirective NoDirective = True
+isNoDirective _ = False
 
 instance HtmlShow Unit where
   showHtml (Unit a b c d e f) = [shamlet|
-  $if null a
+  <h1>Unit: #{showHtml b}
+  $if isNoDirective a
   $else
     #{showHtml a}
-  <h1>Unit: #{showHtml b}
-  #{showHtml c}
 
+  #{showHtml c}
   |]
   showHtml (Program a b) = [shamlet|
     <h1>Program

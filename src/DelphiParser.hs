@@ -109,24 +109,26 @@ dUnitP = try $ do
   _ <- optional $ char '\xFEFF'
   _ <- optional sc
   c <- comment
-  unitName <- dUnitNameP
+  rword "unit"
+  unitName <- dottedIdentifier
+  c' <- semi'
   interface <- dUnitInterfaceP
   implementation <- dUnitImplementationP
   initialization <- dUnitInitializationP
   finalization <- dUnitFinalizationP
-  return $ Unit c unitName interface implementation initialization finalization
+  return $ Unit (mappend c c') unitName interface implementation initialization finalization
 
-rword' :: Text -> ([Directive] -> Parser a) -> Parser a
+rword' :: Text -> (Directive -> Parser a) -> Parser a
 rword' word f = do
   r <- rword word
 
   case r of
-    Lexeme [(Include a)] () -> do
-      let p = parse (f []) (unpack a) a
+    Lexeme (Include a) () -> do
+      let p = parse (f NoDirective) (unpack a) a
       case p of
         Left err -> fail $ show err
         Right result -> return result
-    Lexeme [(IfDef a b c)] () -> f [(IfDef a b c)]
+    Lexeme (IfDef a b c) () -> f (IfDef a b c)
     Lexeme a () -> f a
 
 program :: Parser Unit
@@ -160,22 +162,30 @@ program = try $ do
   rword "end."
   return $ Program s (expressions <> catMaybes [lastExpression])
 
-dUnitNameP :: Parser (Lexeme Text)
-dUnitNameP = rword "unit" *> dottedIdentifier <* semi
 
-uses :: Parser [[Lexeme Text]]
+insertComment :: Directive -> Lexeme Text -> Lexeme Text
+insertComment c (Lexeme d a) = Lexeme (c <> d) a
+
+insertComment' :: Lexeme Text -> Directive-> Lexeme Text
+insertComment' (Lexeme d a) c = Lexeme (d <> c) a
+
+uses :: Parser Uses
 uses = do
   rword "uses"
-  items <- (identifierPlus reserved) `sepBy` symbol "." `sepBy` symbol ","
-  semi
-  return items
+  items <- (do
+              x <- comment
+              y <- identifierPlus reserved
+              return $ insertComment x y
+            ) `sepBy` symbol' "." `sepBy` (char ',' <* sc)
+  c <- semi'
+  return $ Uses (concat items) c
 
 dUnitInterfaceP :: Parser Interface
 dUnitInterfaceP = do
   rword "interface"
   usings <- optional uses
   items <- try $ many interfaceItems
-  return $ Interface (Uses (fromMaybe [] usings)) items
+  return $ Interface (fromMaybe (Uses [] NoDirective) usings) items
 
 interfaceItems :: Parser InterfaceExpression
 interfaceItems = choice
@@ -193,7 +203,7 @@ singleConstExpression = do
   typ <- optional $ symbol ":" >> typeName
   c <- symbol' "="
   case c of
-    Lexeme [] "=" -> do
+    Lexeme NoDirective "=" -> do
       rhs <- expression'
       optional semi
       return $ ConstDefinition lhs typ rhs
@@ -243,9 +253,9 @@ typeDefinition = do
             else GenericDefinition ident args
     s <- symbol' "="
     case s of
-      Lexeme (x:xs) "=" -> do
-        return $ TypeDef lhs' (NewType $ Type (Lexeme (x:xs) ""))
-      _ -> typeDefinitionRhs ident args lhs'
+      Lexeme NoDirective _ -> typeDefinitionRhs ident args lhs'
+      Lexeme a "=" -> do
+        return $ TypeDef lhs' (NewType $ Type (Lexeme a ""))
 
 typeDefinitionRhs :: Lexeme Text -> [Argument] -> TypeName -> Parser TypeDefinition
 typeDefinitionRhs a b c = do
@@ -375,7 +385,7 @@ dottedIdentifier = do
   return $ intercalateLexeme "." parts
 
 intercalateLexeme :: Text -> [Lexeme Text] -> Lexeme Text
-intercalateLexeme sep = foldr1 (\a b -> a <> (Lexeme [] sep) <> b)
+intercalateLexeme sep = foldr1 (\a b -> a <> (Lexeme NoDirective sep) <> b)
 
 dArgsPassedP :: Parser [TypeName]
 dArgsPassedP = parens "(" ")" $ do
@@ -497,8 +507,8 @@ simplifyTypeName
 simplifyTypeName m a b c = r a $ t b c $ m
   where
     r :: Maybe (Lexeme Text) -> TypeName -> TypeName
-    r (Just (Lexeme a "^")) = AddressOfType (foldl' Compound (Comment "") a)
-    r (Just (Lexeme a "@")) = TargetOfPointer (foldl' Compound (Comment "") a)
+    r (Just (Lexeme a "^")) = AddressOfType a
+    r (Just (Lexeme a "@")) = TargetOfPointer a
     r Nothing = id
     r a = UnspecifiedType' (pack $ "Unspecified pointer or reference type: " <> show a)
 
@@ -527,10 +537,10 @@ typeName :: Parser TypeName
 typeName = do
   c <- comment
   case c of
-    [] -> typeName'
-    [Comment c] -> typeName' >>= \x -> pure $ DirectiveType $ Lexeme [Comment c] x
-    [IfDef cond body els] -> pure $ DirectiveType (Lexeme c UnspecifiedType)
-    [UnknownDirective _] -> pure $ DirectiveType $ Lexeme c UnspecifiedType
+    NoDirective -> typeName'
+    Comment c -> typeName' >>= \x -> pure $ DirectiveType $ Lexeme (Comment c) x
+    IfDef cond body els -> pure $ DirectiveType (Lexeme c UnspecifiedType)
+    UnknownDirective _ -> pure $ DirectiveType $ Lexeme c UnspecifiedType
     els -> pure $ DirectiveType (Lexeme els UnspecifiedType)
 
 typeName' :: Parser TypeName
@@ -790,7 +800,7 @@ dUnitImplementationP = do
           ]
         , AdditionalInterface <$> interfaceItems
         ]
-    return $ Implementation (Uses (fromMaybe [] u)) functions
+    return $ Implementation (fromMaybe (Uses [] NoDirective) u) functions
 
 dUnitInitializationP :: Parser Initialization
 dUnitInitializationP = do

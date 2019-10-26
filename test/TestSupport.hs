@@ -36,7 +36,7 @@ ifDef a b  "" = [Left $ IfDef a [Right b] []]
 ifDef a b  c' = [Left $ IfDef a [Right b] [Right c']]
 
 ifDef' :: Text -> Text -> Text -> d -> Lexeme d
-ifDef' a b c' d = Lexeme [either id undefined $ head $ ifDef a b c'] d
+ifDef' a b c' d = Lexeme (either id undefined $ head $ ifDef a b c') d
 
 c :: Text -> Directive
 c a = Comment a
@@ -44,20 +44,20 @@ include :: Text -> Directive
 include a = Include a
 
 typ :: Text -> TypeName
-typ a = Type $ Lexeme [] a
+typ a = Type $ Lexeme NoDirective a
 
 arg
   :: ArgModifier -> Text -> Maybe TypeName -> Maybe ValueExpression -> Argument
-arg a b c' d = Arg a (Lexeme [] b) c' d
+arg a b c' d = Arg a (Lexeme NoDirective b) c' d
 
 v :: Text -> ValueExpression
-v a = V $ Lexeme [] a
+v a = V $ Lexeme NoDirective a
 s :: Text -> ValueExpression
-s a = S $ Lexeme [] a
+s a = S $ Lexeme NoDirective a
 i :: Integer -> ValueExpression
-i a = I $ Lexeme [] a
+i a = I $ Lexeme NoDirective a
 field :: Text -> TypeName -> Field
-field a b = Field (Lexeme [] a) b
+field a b = Field (Lexeme NoDirective a) b
 
 lambdaFunction' :: Parser ValueExpression
 lambdaFunction' = lambdaFunction dBeginEndExpression interfaceItems typeName
@@ -65,7 +65,7 @@ lambdaFunction' = lambdaFunction dBeginEndExpression interfaceItems typeName
 lambdaArgs' :: Parser [Argument]
 lambdaArgs' = lambdaArgs dBeginEndExpression interfaceItems typeName
 
-varDefinition a b c = VarDefinition (Lexeme [] a) b c
+varDefinition a b c = VarDefinition (Lexeme NoDirective a) b c
 
 property
   :: Text
@@ -75,13 +75,13 @@ property
   -> [PropertySpecifier]
   -> Bool
   -> Field
-property a b c' d e f = Property (Lexeme [] a) b c' d e f
+property a b c' d e f = Property (Lexeme NoDirective a) b c' d e f
 propertyRead :: [Text] -> PropertySpecifier
-propertyRead a = PropertyRead (map (\x -> Lexeme [] x) a)
+propertyRead a = PropertyRead (map (\x -> Lexeme NoDirective x) a)
 propertyWrite :: [Text] -> PropertySpecifier
-propertyWrite a = PropertyWrite (map (\x -> Lexeme [] x) a)
+propertyWrite a = PropertyWrite (map (\x -> Lexeme NoDirective x) a)
 genericInstance :: Text -> [TypeName] -> TypeName
-genericInstance a b = GenericInstance (Lexeme [] a) b
+genericInstance a b = GenericInstance (Lexeme NoDirective a) b
 
 constDef :: Text -> Integer -> ConstDefinition
-constDef a b = ConstDefinition (Lexeme [] a) Nothing (I (Lexeme [] b))
+constDef a b = ConstDefinition (Lexeme NoDirective a) Nothing (I (Lexeme NoDirective b))

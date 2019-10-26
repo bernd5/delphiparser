@@ -19,18 +19,18 @@ typeNameTests = testGroup
   "Delphi type name Tests"
   [ testGroup
       "Various comments"
-      [ testCase' "foo // bar" typeName $ (Type (Lexeme [Comment " bar"] "foo"))
+      [ testCase' "foo // bar" typeName $ (Type (Lexeme (Comment " bar") "foo"))
       , testCase' "{ bar} foo"                     typeName
-        $ (DirectiveType (Lexeme [Comment " bar"] (Type (Lexeme [] "foo"))))
+        $ (DirectiveType (Lexeme (Comment " bar") (Type (Lexeme NoDirective "foo"))))
       , testCase' "{$bar}"                         typeName
-        $ (DirectiveType (Lexeme [UnknownDirective "bar"] UnspecifiedType))
+        $ (DirectiveType (Lexeme (UnknownDirective "bar") UnspecifiedType))
       , testCase' "{$if bar}foo{$endif}"           typeName
         $ (DirectiveType (ifDef' "bar" "foo" "" UnspecifiedType))
       , testCase' "{$if bar}foo{$else}baz{$endif}" typeName
         $ (DirectiveType (ifDef' "bar" "foo" "baz" UnspecifiedType))
       , testCase' "{$if bar}{$if bag}foo{$else}baz{$endif}{$endif}" typeName
         $ (DirectiveType
-            (Lexeme [IfDef "bar" (ifDef "bag" "foo" "baz") []] UnspecifiedType)
+            (Lexeme (IfDef "bar" (ifDef "bag" "foo" "baz") []) UnspecifiedType)
           )
       , testCase' "$if bar}{$if bag}foo{$else}baz{$endif}{$endif}"
                   compilerDirective
@@ -38,7 +38,7 @@ typeNameTests = testGroup
       , testCase' "{$if bar}{$if bar}foo{$else}baz{$endif}a{$endif}" typeName
         $ (DirectiveType
             (Lexeme
-              [IfDef "bar" ((ifDef "bar" "foo" "baz") <> [Right "a"]) []]
+              (IfDef "bar" ((ifDef "bar" "foo" "baz") <> [Right "a"]) [])
               UnspecifiedType
             )
           )
@@ -47,10 +47,10 @@ typeNameTests = testGroup
           typeName
         $ (DirectiveType
             (Lexeme
-              [ IfDef "bar"
+              ( IfDef "bar"
                       [Left (Comment "foo bar"), Right "foo"]
                       [Left (Comment "bar foo"), Right "baz"]
-              ]
+              )
               UnspecifiedType
             ) -- Note: 'a{$endif}' is not parsed, as the parser is done.
           )
@@ -59,7 +59,7 @@ typeNameTests = testGroup
               typeName
             $ (DirectiveType
                 (Lexeme
-                  [ IfDef
+                  ( IfDef
                       "bar"
                       [ Right "baz1"
                       , Left (Comment "foo bar")
@@ -68,22 +68,22 @@ typeNameTests = testGroup
                       , Right "foo"
                       ]
                       [Left (Comment "bar foo"), Right "baz", Left (Comment "four")]
-                  ]
+                  )
                   UnspecifiedType
                 ) -- Note: 'a{$endif}' is not parsed, as the parser is done.
                 )
           , testCase'
               "{$if bar}baz1{foo bar}foa{three}fob{$else sigma}{bar foo}baz{four}{$endif ok}a{$endif}"
               comment
-            $ [ IfDef "bar" [ Right "baz1", Left (Comment "foo bar"), Right "foa", Left (Comment "three"), Right "fob"] [Left (Comment "bar foo"), Right "baz", Left (Comment "four")]
-              ]
+            $ ( IfDef "bar" [ Right "baz1", Left (Comment "foo bar"), Right "foa", Left (Comment "three"), Right "fob"] [Left (Comment "bar foo"), Right "baz", Left (Comment "four")]
+              )
       , testCase'
           "{$if bar}baz1{$else sigma}{bar foo}baz{four}{$endif ok}a{$endif}"
           comment
-        $ [IfDef "bar" [Right "baz1"] [Left (Comment "bar foo"),Right "baz",Left (Comment "four")]]    
+        $ (IfDef "bar" [Right "baz1"] [Left (Comment "bar foo"),Right "baz",Left (Comment "four")])
       , testCase'
           "{$if bar}baz1{foo bar}foo{$else sigma}{bar foo}baz{four}{$endif ok}a{$endif}"
           comment
-          $ [IfDef "bar" [Right "baz1", Left (Comment "foo bar"), Right "foo"] [Left (Comment "bar foo"),Right "baz",Left (Comment "four")]]    
+          $ (IfDef "bar" [Right "baz1", Left (Comment "foo bar"), Right "foo"] [Left (Comment "bar foo"),Right "baz",Left (Comment "four")])
       ]
   ]
