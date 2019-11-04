@@ -7,6 +7,14 @@ body {
   background-color: var(--darkGrey);
 }
 
+nav {
+  border: medium dashed green;
+}
+
+.active {
+  color: grey;
+}
+
 #content {
   background-color: var(--white);
   width: 90%;

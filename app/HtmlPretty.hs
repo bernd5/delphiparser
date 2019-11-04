@@ -14,7 +14,10 @@ import Text.Blaze.Html.Renderer.String (renderHtml)
 
 notImplemented = [shamlet|<span>Not Implemented|]
 showRaw :: PP a => a -> Html
-showRaw a = [shamlet| <code> #{pp a}|]
+showRaw a = [shamlet| <pre>#{pp a}|]
+
+showRaw' :: PP a => a -> Text -> Html
+showRaw' a b = [shamlet| <pre class="#{b}">#{pp a}|]
 
 class HtmlShow a where
   showHtml :: a -> Html
@@ -36,11 +39,22 @@ instance HtmlShow a => HtmlShow (Maybe a) where
   showHtml Nothing = [shamlet||]
 
 instance HtmlShow ValueExpression where
-  showHtml (I (Lexeme NoDirective a)) = [shamlet|#{showRaw a}|]
-  showHtml (S (Lexeme NoDirective a)) = [shamlet|#{showRaw a}|]
+  showHtml (I (Lexeme NoDirective a)) = [shamlet|#{showRaw' a "IntegerExpression"}|]
+  showHtml (S (Lexeme NoDirective a)) = [shamlet|#{showRaw' a "StringExpression"}|]
   showHtml (DFalse) = [shamlet|<code>false|]
   showHtml (DTrue) = [shamlet|<code>true|]
-  showHtml a = [shamlet|#{showRaw a}|]
+  showHtml (Nil) = [shamlet|<code>Nil|]
+  showHtml (V (Lexeme NoDirective a)) = [shamlet|#{showHtml a}|]
+  showHtml a = [shamlet|<pre>#{showRaw' a "UnhandledExpression_ValueExpression"}|]
+
+instance HtmlShow Expression where
+  showHtml (a := b) = [shamlet|<code>
+    <span class="lhs">#{showHtml a}
+    <span class="op">=
+    <span class="rhs">#{showHtml b}|]
+
+  showHtml a = [shamlet|<pre>#{showRaw' a "UnhandledExpression_Expression"}|]
+
 
 instance HtmlShow ConstDefinition where
   showHtml (ConstDefinition (Lexeme directives name) typ value) = [shamlet|
@@ -51,7 +65,7 @@ instance HtmlShow ConstDefinition where
     $maybe typ' <- typ
       \ : #{showHtml typ'}
     $nothing
-    \ = #{showRaw value}
+    \ = #{showHtml value}
     \ |]
   showHtml a = [shamlet|
     #{showRaw a}
@@ -59,10 +73,17 @@ instance HtmlShow ConstDefinition where
 
 instance HtmlShow TypeName where
   showHtml (Type (Lexeme NoDirective a)) = [shamlet| #{showHtml a} |]
+  showHtml (AddressOfType a b) = [shamlet|
+    <span class="op">^<span>#{showHtml b}|]
   showHtml a = [shamlet| #{showRaw a} |]
 
 instance HtmlShow TypeDefinition where
-  showHtml a = [shamlet| #{showRaw a}|]
+  showHtml (TypeDef a b) = [shamlet|#{showRaw' a "TypeDefinition_TypeDef"}: #{showRaw' b "TypeDefinition_TypeDef"}|]
+  showHtml (TypeAlias a b) = [shamlet|<code>
+    <span class="lhs">#{showHtml a}
+    <span class="op"> = 
+    <span class="rhs">#{showHtml b}|]
+  showHtml a = [shamlet|#{showRaw' a "DefaultTypeDefinition"}|]
 
 instance HtmlShow VarDefinition where
   showHtml (VarDefinition a b c) = [shamlet|
@@ -87,18 +108,20 @@ instance HtmlShow Interface where
     $if null a
     $else
       <div class="uses">
-        <h1>Uses:
+        <h2>Uses:
         #{showHtml a}
-    <h1>Interface:
-    <h2>Types
+        <h3>Types Used from External Modules In Interface
+        TODO
+    <h2>Interface:
+    <h3>Types
     #{showHtml (concat (mapMaybe types b))}
-    <h2>Consts
+    <h3>Consts
     #{showHtml (concat (mapMaybe consts b))}
-    <h2>Resources
+    <h3>Resources
     #{showHtml (concat (mapMaybe resources b))}
-    <h2>Vars
+    <h3>Vars
     #{showHtml (concat (mapMaybe vars b))}
-    <h2>Fields
+    <h3>Fields
     #{showHtml (mapMaybe fields b)}
     |]
     where
@@ -134,15 +157,22 @@ isNoDirective NoDirective = True
 isNoDirective _ = False
 
 instance HtmlShow Unit where
-  showHtml (Unit a b c d e f) = [shamlet|
-  <h1>Unit: #{showHtml b}
-  $if isNoDirective a
-  $else
-    #{showHtml a}
+  showHtml (Unit directive unitName intf impl init fin) =
+    [shamlet|
+        <h1>Unit: #{showHtml unitName}
+        $if isNoDirective directive
+        $else
+          #{showHtml directive}
 
-  #{showHtml c}
-  |]
-  showHtml (Program a b) = [shamlet|
+        #{showHtml intf}
+
+        <h2>Implementation
+        <h3>Uses
+        <h3>Types Used from External Modules In Implementation
+        TODO
+    |]
+
+  showHtml (Program a uses implSpecs b ) = [shamlet|
     <h1>Program
     #{showHtml a}
     -- Program listing omitted --
@@ -152,3 +182,4 @@ instance HtmlShow Unit where
     #{showHtml a}
     #{showHtml b}
     |]
+

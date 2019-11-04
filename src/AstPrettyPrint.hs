@@ -142,6 +142,9 @@ instance PP ValueExpression where
   pp (a :.. b) = pp a <> ".." <> pp b
   pp a = (pack . show) a
 
+instance PP Expression where
+  pp a = (pack . show) a
+
 instance PP ArrayIndex where
   pp (IndexOf a) = intercalate ", " (map pp a)
 

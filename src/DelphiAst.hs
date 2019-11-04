@@ -41,7 +41,7 @@ data Unit = Unit
              Implementation
              Initialization
              Finalization
-          | Program (Lexeme Text) [Expression]
+          | Program (Lexeme Text) Uses [ImplementationSpec] [Expression]
           | UnitFragment Directive Text
   deriving (Eq, Show)
 

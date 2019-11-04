@@ -59,6 +59,11 @@ executables:
     - blaze-html
     - shakespeare
     - listsafe
+    - template-haskell
+    - classy-prelude-yesod
+    - yesod-static
+    - hjsmin
+    - data-default
 
 tests:
   past-test:

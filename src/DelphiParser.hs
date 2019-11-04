@@ -139,7 +139,7 @@ program = try $ do
   rword "program"
   s <- identifier'
   semi
-  optional uses
+  uses' <- (fromMaybe $ Uses [] NoDirective) <$> optional uses
   functions <-
     many $ choice 
       [ try functionImpl
@@ -160,7 +160,7 @@ program = try $ do
   expressions <- many (try $ statement <* semi)
   lastExpression <- optional statement
   rword "end."
-  return $ Program s (expressions <> catMaybes [lastExpression])
+  return $ Program s uses' functions (expressions <> catMaybes [lastExpression])
 
 
 insertComment :: Directive -> Lexeme Text -> Lexeme Text

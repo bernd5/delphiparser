@@ -1,0 +1,31 @@
+:root {
+    --white: #DDDDDD;
+    --darkGrey: #090909;
+}
+body {
+    background-color: var(--darkGrey);
+}
+nav {
+    border: medium dashed green;
+}
+#content {
+    background-color: var(--white);
+    width: 90%;
+    margin: auto;
+}
+ul {
+    list-style-type: none;
+    display: inline;
+    padding: 0.1em;
+}
+.uses h1 {
+    display: inline;
+}
+.uses ul {
+    list-style-type: none;
+    display: inline;
+    padding: 0.1em;
+}
+.uses li {
+    display: inline-block;
+}

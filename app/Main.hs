@@ -42,7 +42,7 @@ import Web
 
 unitName :: Unit -> Text
 unitName (Unit _ (Lexeme _ a) _ _ _ _) = a
-unitName (Program      (Lexeme _ a) _) = a
+unitName (Program      (Lexeme _ a) _ _ _) = a
 unitName (UnitFragment _            _) = "<fragment>"
 
 units :: Unit -> [Text]
@@ -158,6 +158,10 @@ mainParseFile x = do
 
 getTypes :: Unit -> [TypeDefinition]
 getTypes (Unit _ _ (Interface _ c) _ _ _) = getTypesIE c
+getTypes (Program _ _ c _) = concatMap getTypesIE' c
+  where
+    getTypesIE' (AdditionalInterface a) = getTypesIE [a]
+    getTypesIE' _ = []
 getTypes _ = []
 
 getTypesIE :: [InterfaceExpression] -> [TypeDefinition]
