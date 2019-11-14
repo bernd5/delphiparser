@@ -39,8 +39,8 @@ instance HtmlShow a => HtmlShow (Maybe a) where
   showHtml Nothing = [shamlet||]
 
 instance HtmlShow ValueExpression where
-  showHtml (I (Lexeme NoDirective a)) = [shamlet|#{showRaw' a "IntegerExpression"}|]
-  showHtml (S (Lexeme NoDirective a)) = [shamlet|#{showRaw' a "StringExpression"}|]
+  showHtml (I (Lexeme NoDirective a)) = [shamlet|#{a}|]
+  showHtml (S (Lexeme NoDirective a)) = [shamlet|"#{a}"|]
   showHtml (DFalse) = [shamlet|<code>false|]
   showHtml (DTrue) = [shamlet|<code>true|]
   showHtml (Nil) = [shamlet|<code>Nil|]
@@ -109,7 +109,9 @@ instance HtmlShow Interface where
     $else
       <div class="uses">
         <h2>Uses:
-        #{showHtml a}
+        $forall uses <- a
+          <li>
+            <a href=#{toModuleRef uses}>#{showHtml uses}
         <h3>Types Used from External Modules In Interface
         TODO
     <h2>Interface:
@@ -139,6 +141,8 @@ instance HtmlShow Interface where
 
       fields s@(Standalone _) = Just s
       fields _ = Nothing
+
+      toModuleRef (Lexeme _ a) = a
 
 instance HtmlShow a => HtmlShow (Lexeme a) where
   showHtml (Lexeme a b) = [shamlet|

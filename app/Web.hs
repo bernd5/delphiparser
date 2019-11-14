@@ -146,9 +146,12 @@ getUnitInformationR unitName = do
     Just x -> defaultLayout $ do
       toWidget $ $(luciusFileReload "home.lucius")
       toWidget [whamlet|<div id="content">#{showHtml x}|]
-    Nothing -> defaultLayout [whamlet|Missing|]
+    Nothing -> defaultLayout [whamlet|<div id="content">Missing|]
   where
     byUnitName x@(Unit _ (Lexeme _ n) _ _ _ _) = if n == unitName
+                                                 then Just x
+                                                 else Nothing
+    byUnitName x@(Program (Lexeme _ n) _ _ _) = if n == unitName
                                                  then Just x
                                                  else Nothing
     byUnitName x = Nothing
