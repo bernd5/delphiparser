@@ -6,6 +6,7 @@
 {-# LANGUAGE InstanceSigs          #-}
 
 module Web where
+
 import Prelude hiding (head)
 import           Yesod
 import Data.Text hiding (head)
@@ -122,6 +123,11 @@ $forall source <- sources
 <hr>
 Yesod Version #{yesodVersion}|]
 
+names :: Unit -> Text
+names (Unit _ (Lexeme _ name) _ _ _ _) = name
+names (UnitFragment _ _) = "<fragment>"
+names (Program (Lexeme _ name) _ _ _) = name
+
 getUnitListR :: Handler Html
 getUnitListR = do
   units' <- fmap delphiUnits getYesod
@@ -132,11 +138,6 @@ getUnitListR = do
       <h2><a href="/units/#{unit}">#{unit}</a>
     <hr>
     Yesod Version #{yesodVersion}|]
-
-  where
-    names (Unit _ (Lexeme _ name) _ _ _ _) = name
-    names (UnitFragment _ _) = "<fragment>"
-    names (Program (Lexeme _ name) _ _ _) = name
 
 getUnitInformationR :: Text -> Handler Html
 getUnitInformationR unitName = do

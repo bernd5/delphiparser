@@ -39,6 +39,7 @@ import qualified Args
 import           TypeCategories
 import           AstPrettyPrint
 import Web
+import Graphs
 
 unitName :: Unit -> Text
 unitName (Unit _ (Lexeme _ a) _ _ _ _) = a
@@ -101,7 +102,7 @@ main' args = do
   let pasfiles =
         filter (\x -> isExtensionOf "pas" x || isExtensionOf "pp" x) fileNames
 
-  parsedFiles <- forM pasfiles parseFile
+  parsedFiles <- forM pasfiles parseFile :: IO [[Unit]]
 
   let types = concatMap getTypes (concat parsedFiles)
   when (Args.showTypes args) $ do
@@ -120,9 +121,11 @@ main' args = do
         putStrLn ""
       )
 
+
   putStrLn $ pack $ show parsedFiles
 
   let parsedFiles' = foldr (<>) [] parsedFiles
+  generateUnitReferencesDots "units.dot" $ zip fileNames parsedFiles'
 
   case Args.docWeb args of
     Just port -> serveWeb port pasfiles parsedFiles'
