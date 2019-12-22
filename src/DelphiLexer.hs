@@ -39,9 +39,6 @@ import DelphiAst (Lexeme(..), Directive(..))
 
 type Parser = Parsec Void Text
 
--- For now, just skip comments.  But will later have to include them.
--- (because a code reformatter will need to preserve comments)
---
 -- sc - the space consumer.
 sc :: Parser ()
 sc = L.space space1 lineCmnt blockCmnt
@@ -56,9 +53,20 @@ takeWhileP' = takeWhileP
 -- And have it return not a `Parser Directive`, but the 'new' parse.
 comment :: Parser Directive
 comment = do
-  a <- many $ choice [(\x -> [x]) <$> try lineComment, try blockComment]
-  sc
-  return $ mconcat $ removeEmpties' $ P.concat a
+  a <- many $ do
+    choice [ lineComment
+           , blockComment' "{" "}"
+           , blockComment' "(*" "*)"] <* space
+
+  pure $ mconcat $ removeEmpties' a
+
+blockComment :: Parser Directive
+blockComment = do
+  a <- many $ do
+    choice [ blockComment' "{" "}"
+           , blockComment' "(*" "*)"] <* space
+
+  pure $ mconcat $ removeEmpties' a
 
 lineComment :: Parser Directive
 lineComment = do
@@ -66,14 +74,15 @@ lineComment = do
   return $ Comment $ intercalate "\n" a
 
 blockComment' :: Text -> Text -> Parser Directive
+blockComment' "{" "}" = do
+  char '{'
+  choice [ compilerDirective
+         , restOfBlockComment' "{" "}"
+         ] <* space
+
 blockComment' a b = do
   string a
-  if a == "{" then
-    choice [ try compilerDirective
-           , restOfBlockComment' a b
-           ] <* space
-  else
-    (restOfBlockComment' a b) <* space
+  (restOfBlockComment' a b) <* space
 
 compilerDirective :: Parser Directive
 compilerDirective = do
@@ -150,24 +159,8 @@ processIfDirectivePart cond a b part = do
       processIfDirectivePart cond a' [] fin
 
 restOfBlockComment' :: Text -> Text -> Parser Directive
-restOfBlockComment' a b = do
-  c <- pack <$> (manyTill anyChar (string b))
-  let a' = P.length $ breakOnAll a c
-  let b' = P.length $ breakOnAll b c
-  c' <- replicateM (a' - b') (pack <$> (manyTill anyChar (string b)))
-
-  return $ Comment $ intercalate b ([c] <> c')
-
-blockComment :: Parser [Directive]
-blockComment = do
-  c <- some $ (choice
-    [ blockComment' "{" "}"
-    , blockComment' "(*" "*)"
-    ] <* space )
-  d <- optional lineComment
-  case d of
-    Just d' -> return $ c <> [d']
-    otherwise -> return c
+restOfBlockComment' "{" "}" = Comment <$> (takeWhileP (Just "character") (/= '}')) <* char '}'
+restOfBlockComment' a b = Comment <$> pack <$> (manyTill anyChar (string b))
 
 -- Removes all spaces after a lexime.
 lexeme :: Parser a -> Parser (Lexeme a)
@@ -178,9 +171,9 @@ lexeme a = do
 
 symbol' :: Text -> Parser (Lexeme Text)
 symbol' a = do
-  c <- comment
+  c <- lineComment
   b <- L.symbol sc a
-  c' <- comment
+  c' <- blockComment
   return $ Lexeme (c <> c') b
 
 symbol :: Text -> Parser ()
