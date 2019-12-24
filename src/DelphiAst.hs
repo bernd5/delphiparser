@@ -9,7 +9,7 @@ data Directive
   = Comment Text
   | Include Text
   | IfDef Text [Either Directive Text] [Either Directive Text]
-  | UnknownDirective Text
+  | UnknownDirective (Text, Text)
   | Compound Directive Directive
   | NoDirective
   deriving (Eq, Show)

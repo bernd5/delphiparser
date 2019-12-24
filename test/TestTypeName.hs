@@ -23,7 +23,7 @@ typeNameTests = testGroup
       , testCase' "{ bar} foo"                     typeName
         $ (DirectiveType (Lexeme (Comment " bar") (Type (Lexeme NoDirective "foo"))))
       , testCase' "{$bar}"                         typeName
-        $ (DirectiveType (Lexeme (UnknownDirective "bar") UnspecifiedType))
+        $ (DirectiveType (Lexeme (UnknownDirective ("bar", "")) UnspecifiedType))
       , testCase' "{$if bar}foo{$endif}"           typeName
         $ (DirectiveType (ifDef' "bar" "foo" "" UnspecifiedType))
       , testCase' "{$if bar}foo{$else}baz{$endif}" typeName

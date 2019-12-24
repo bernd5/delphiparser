@@ -11,6 +11,8 @@ data Args = Args
           , dir :: Maybe Text
           , docWeb :: Maybe Int
           , showTypes :: Bool
+          , reformatPascal :: Bool
+          , saveDot :: Bool
           }
 
 args :: Parser Args
@@ -34,6 +36,14 @@ args =
     <*> switch
           (long "show-types" <> short 't' <> help
             "Show a list of the discovered types"
+          )
+    <*> switch
+          (long "reformat-pascal" <> help
+            "Print a reformatted pascal version"
+          )
+    <*> switch
+          (long "save-dot" <> help
+            "Save the unit charts as a dot file"
           )
 
 toMaybeText :: String -> Maybe Text

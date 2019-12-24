@@ -24,14 +24,14 @@ module DelphiLexer
   , identifierPlus
   ) where
 
-import Prelude hiding (words, length, concat, take)
+import Prelude hiding (words, length, concat, take, count)
 import qualified Prelude as P
 import Data.Void
 import Data.Ratio ((%))
-import Text.Megaparsec
+import Text.Megaparsec hiding (count)
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
-import Data.Text (Text, toLower, strip, pack, unpack, words, intercalate, length, singleton, concat, breakOn, breakOnAll, take, isPrefixOf)
+import Data.Text (Text, toLower, strip, pack, unpack, words, intercalate, length, singleton, concat, breakOn, breakOnAll, take, isPrefixOf, count)
 import Control.Applicative (empty)
 import Control.Monad (void, replicateM)
 import Data.Maybe (fromMaybe, isJust)
@@ -84,10 +84,18 @@ blockComment' a b = do
   string a
   (restOfBlockComment' a b) <* space
 
+readUpToEndComment :: Int -> Parser Text
+readUpToEndComment 0 = ""
+readUpToEndComment a = do
+  lhs <- takeWhileP' (Just "character") (/= '}') <* char '}'
+  let nesting = (count "{" lhs)
+  rhs <- readUpToEndComment $ a - 1 + nesting
+  return $ lhs <> (if nesting > 0 then "}" else "") <> rhs
+
 compilerDirective :: Parser Directive
 compilerDirective = do
   char '$'
-  directive <- takeWhileP' (Just "character") (/= '}') <* char '}'
+  directive <- readUpToEndComment 1
   let
     directive' :: (Text, Text)
     directive' = breakOn " " directive
@@ -102,7 +110,7 @@ compilerDirective = do
       let cond' = strip cond
       a <- takeWhileP' (Just "character") (/= '{') <* char '{'
       restOfIf cond' [Right a] []
-    (a', b) -> pure $ UnknownDirective a'
+    (a', b) -> pure $ UnknownDirective (a', b)
 
 restOfIf
   :: Text
@@ -111,7 +119,7 @@ restOfIf
   -> Parser Directive
 restOfIf cond a b = choice [ try $ compilerDirective >>= processIfDirectivePart cond a b
                          , do
-                            a' <- Left <$> Comment <$> takeWhileP' (Just "character") (/= '}') <* char '}'
+                            a' <- Left <$> Comment <$> readUpToEndComment 1
                             b' <- Right <$> takeWhileP' (Just "character") (/= '{') <* char '{'
                             let a'' = removeEmpties (a <> [a', b'])
                             restOfIf cond a'' b
@@ -124,7 +132,7 @@ restOfIfElse
   -> Parser Directive
 restOfIfElse cond a b = choice [ try $ compilerDirective >>= processIfDirectivePart cond a b
                          , do
-                            a' <- Left <$> Comment <$> takeWhileP' (Just "character") (/= '}') <* char '}'
+                            a' <- Left <$> Comment <$> readUpToEndComment 1
                             b' <- Right <$> takeWhileP' (Just "character") (/= '{') <* char '{'
                             let b'' = removeEmpties (b <> [a', b'])
                             restOfIfElse cond a b''
@@ -145,9 +153,9 @@ processIfDirectivePart
   -> Directive -> Parser Directive
 processIfDirectivePart cond a b part = do
   case part of
-    UnknownDirective "endif" -> do
+    UnknownDirective ("endif", _) -> do
       return $ IfDef cond a b
-    UnknownDirective "else" -> do
+    UnknownDirective ("else", _) -> do
       return $ IfDef cond a b
       els <- takeWhileP' (Just "character") (/= '{') <* char '{'
       restOfIfElse cond a (b <> [Right els])
@@ -159,22 +167,23 @@ processIfDirectivePart cond a b part = do
       processIfDirectivePart cond a' [] fin
 
 restOfBlockComment' :: Text -> Text -> Parser Directive
-restOfBlockComment' "{" "}" = Comment <$> (takeWhileP (Just "character") (/= '}')) <* char '}'
+restOfBlockComment' "{" "}" = Comment <$> readUpToEndComment 1
 restOfBlockComment' a b = Comment <$> pack <$> (manyTill anyChar (string b))
 
 -- Removes all spaces after a lexime.
 lexeme :: Parser a -> Parser (Lexeme a)
 lexeme a = do
+  -- TODO: and a block comment here.
   b <- L.lexeme sc a
-  c <- comment
+  c <- comment -- TODO: This is probably best a line comment.
   return $ Lexeme c b
 
 symbol' :: Text -> Parser (Lexeme Text)
 symbol' a = do
-  c <- lineComment
+  c <- blockComment
   b <- L.symbol sc a
-  c' <- blockComment
-  return $ Lexeme (c <> c') b
+  c' <- optional comment
+  return $ Lexeme (c <> (fromMaybe NoDirective c')) b
 
 symbol :: Text -> Parser ()
 symbol a = void $ symbol' a

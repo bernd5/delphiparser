@@ -133,34 +133,40 @@ rword' word f = do
 
 program :: Parser Unit
 program = try $ do
-  _ <- optional $ char '\xFEFF'
-  _ <- optional sc
-  comment
-  rword "program"
-  s <- identifier'
-  semi
-  uses' <- (fromMaybe $ Uses [] NoDirective) <$> optional uses
-  functions <-
-    many $ choice 
-      [ try functionImpl
-      , try procedureImpl
-      , try dFunctionImplementationP
-      , try dProcedureImplementationP
-      , try dConstructorImplementationP
-      , try dDestructorImplementationP
-      , rword "class" *> choice [
-          dFunctionImplementationP
-        , dProcedureImplementationP
-        , dConstructorImplementationP
-        , dDestructorImplementationP
+    _ <- optional $ char '\xFEFF'
+    _ <- optional sc
+    c1 <- comment
+    rword "program"
+    s <- identifier'
+    c2 <- semi'
+    uses' <- (fromMaybe $ Uses [] NoDirective) <$> optional uses
+    functions <-
+      many $ choice 
+        [ try functionImpl
+        , try procedureImpl
+        , try dFunctionImplementationP
+        , try dProcedureImplementationP
+        , try dConstructorImplementationP
+        , try dDestructorImplementationP
+        , rword "class" *> choice [
+            dFunctionImplementationP
+          , dProcedureImplementationP
+          , dConstructorImplementationP
+          , dDestructorImplementationP
+          ]
+        , AdditionalInterface <$> interfaceItems
         ]
-      , AdditionalInterface <$> interfaceItems
-      ]
-  rword "begin"
-  expressions <- many (try $ statement <* semi)
-  lastExpression <- optional statement
-  rword "end."
-  return $ Program s uses' functions (expressions <> catMaybes [lastExpression])
+    rword "begin"
+    expressions <- many (try $ statement <* semi)
+    lastExpression <- optional statement
+    rword "end."
+    return $ Program (insertComment c1 s)
+                     (insertComment' c2 uses')
+                     functions
+                     (expressions <> catMaybes [lastExpression])
+  where
+    insertComment' :: Directive -> Uses -> Uses
+    insertComment' a (Uses b c) = Uses b (a <> c)
 
 
 insertComment :: Directive -> Lexeme Text -> Lexeme Text

@@ -122,10 +122,15 @@ main' args = do
       )
 
 
-  putStrLn $ pack $ show parsedFiles
+  -- putStrLn $ pack $ show parsedFiles
 
   let parsedFiles' = foldr (<>) [] parsedFiles
-  generateUnitReferencesDots "units.dot" $ zip fileNames parsedFiles'
+  when (Args.saveDot args) $ do
+    generateUnitReferencesDots "units.dot" $ zip fileNames parsedFiles'
+
+  when (Args.reformatPascal args) $ do
+    forM_ parsedFiles' $ \unit -> do
+      putStrLn $ pp unit
 
   case Args.docWeb args of
     Just port -> serveWeb port pasfiles parsedFiles'
@@ -135,29 +140,6 @@ onError :: SomeException -> IO [Unit]
 onError e = do
   putStrLn . pack $ show e
   return []
-
-mainParseFile :: FilePath -> IO (FilePath, Maybe Unit)
-mainParseFile x = do
-  putStrLn . pack $ "Parsing file: " <> x
-  h  <- openBinaryFile x ReadMode
-  bs <- hGetContents h
-  let sp = case decodeUtf8' bs of
-        Left  _ -> decodeLatin1 bs
-        Right t -> t
-  let p = runParser pascalFile x sp
-  case p of
-    Left a -> case a of
-      TrivialError o (Just e) s -> do
-        putStrLn . pack $ "O: " <> show o
-        putStrLn . pack $ "E: " <> show e
-        putStrLn . pack $ "S: " <> show s
-        return (x, Nothing)
-      _ -> do
-        putStrLn . pack $ "A: " <> show a
-        return (x, Nothing)
-    Right !a -> do
-      --putStrLn $ showDelphi a
-      return (x, Just a)
 
 getTypes :: Unit -> [TypeDefinition]
 getTypes (Unit _ _ (Interface _ c) _ _ _) = getTypesIE c
