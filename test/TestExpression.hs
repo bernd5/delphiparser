@@ -8,7 +8,7 @@ import Test.Tasty.HUnit
 import Text.Megaparsec (parse, try, many)
 import DelphiAst
 import DelphiLexer
-import DelphiParser (expression', dBeginEndExpression, interfaceItems, typeName )
+import DelphiParser (expression', beginEndExpression, interfaceItems, typeName )
 import TestSupport
 
 expressionTests :: TestTree
@@ -116,7 +116,7 @@ expressionTests = testGroup
     $ parse (many $ try interfaceItems) "" "  begin end"
     , testCase "Statements: begin end"
     $ (Right (Begin []) @=?)
-    $ parse (try dBeginEndExpression) "" "begin end"
+    $ parse (try beginEndExpression) "" "begin end"
     ]
   , testGroup
     "Strings..."

@@ -107,7 +107,7 @@ unitTests p = testGroup
       ) @=?
     )
   $ parse
-      dUnitP
+      unit
       "testUnit.pas"
       "\xFEFFunit TestUnit; interface type implementation initialization finalization end."
   , testCase
@@ -137,7 +137,7 @@ unitTests p = testGroup
       ) @=?
     )
   $ parse
-      dUnitP
+      unit
       "testUnit.pas"
       "{--\n This file starts with comments\n--}\n// And another comment\n\n\nunit TestUnit; interface type implementation initialization finalization end."
   , testCase "Ensure that 'uses' preserves the comment, if any"

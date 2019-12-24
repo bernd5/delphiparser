@@ -35,7 +35,7 @@ ifThenTests = testGroup
           ]
         )
         (Then
-          (v "Result" := As
+          (Result := As
             (  P [As (v "FFreeTheValue") (v "TFreeTheValue")]
             :. v "FObjectToFree"
             )

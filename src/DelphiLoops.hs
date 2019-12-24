@@ -11,8 +11,8 @@ import DelphiAst
 
 loop :: Parser ValueExpression -> Parser Expression -> Parser Expression
 loop a b = choice
-  [ try $ for a b
-  , try $ while a b
+  [ for a b
+  , while a b
   , repeat a b]
 
 for :: Parser ValueExpression -> Parser Expression -> Parser Expression
@@ -46,7 +46,7 @@ while expression statement = do
 repeat :: Parser ValueExpression -> Parser Expression -> Parser Expression
 repeat expression statement = do
   rword "repeat"
-  b <- many (try $ statement <* semi)
+  b <- many (statement <* semi)
   rword "until"
   cond <- expression
   return $ Repeat b cond

@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE Strict #-}
 
 module DelphiLexer
   ( Parser
@@ -26,6 +27,7 @@ module DelphiLexer
 
 import Prelude hiding (words, length, concat, take, count)
 import qualified Prelude as P
+import Data.Char (isAlphaNum)
 import Data.Void
 import Data.Ratio ((%))
 import Text.Megaparsec hiding (count)
@@ -56,15 +58,15 @@ comment = do
   a <- many $ do
     choice [ lineComment
            , blockComment' "{" "}"
-           , blockComment' "(*" "*)"] <* space
+           , blockComment' "(*" "*)"]
 
   pure $ mconcat $ removeEmpties' a
 
 blockComment :: Parser Directive
 blockComment = do
-  a <- many $ do
+  a <- some $ do
     choice [ blockComment' "{" "}"
-           , blockComment' "(*" "*)"] <* space
+           , blockComment' "(*" "*)"]
 
   pure $ mconcat $ removeEmpties' a
 
@@ -173,17 +175,17 @@ restOfBlockComment' a b = Comment <$> pack <$> (manyTill anyChar (string b))
 -- Removes all spaces after a lexime.
 lexeme :: Parser a -> Parser (Lexeme a)
 lexeme a = do
-  -- TODO: and a block comment here.
   b <- L.lexeme sc a
-  c <- comment -- TODO: This is probably best a line comment.
-  return $ Lexeme c b
+  c <- optional comment
+  return $ Lexeme (fromMaybe NoDirective c)
+                  b
 
 symbol' :: Text -> Parser (Lexeme Text)
 symbol' a = do
-  c <- blockComment
   b <- L.symbol sc a
   c' <- optional comment
-  return $ Lexeme (c <> (fromMaybe NoDirective c')) b
+  return $ Lexeme (fromMaybe NoDirective c')
+                  b
 
 symbol :: Text -> Parser ()
 symbol a = void $ symbol' a
@@ -231,7 +233,7 @@ reserved =
     "and array asm begin break case const constructor continue destructor div do downto else end false file for function goto if implementation in inline interface label mod nil not object of on operator or packed procedure program record repeat set shl shr string then to true type unit until uses var while with xor as class dispose except exit exports finalization finally inherited initialization is library new on out property raise threadvar try absolute abstract alias assembler cdecl cppdecl default export external forward generic index local nostackframe oldfpccall override pascal private protected public published read register reintroduce safecall softfloat specialize stdcall virtual write far near"
 
 rword :: Text -> Parser (Lexeme ())
-rword w = (lexeme . try) (string' w *> notFollowedBy alphaNumChar)
+rword w = lexeme (string' w *> notFollowedBy alphaNumChar)
 
 end :: Parser (Lexeme ())
 end = rword "end"
@@ -255,5 +257,5 @@ identifierPlus override = (\x -> strip <$> x)  <$> (lexeme . try) (p >>= check)
         fail $ "keyword " ++ show x ++ " cannot be an identifier"
       | otherwise = return x
 
-anyIdentifier :: Parser (Lexeme String)
-anyIdentifier = (lexeme . try) $ (:) <$> letterChar <*> many (alphaNumChar <|> char '_')
+anyIdentifier :: Parser (Lexeme Text)
+anyIdentifier = lexeme $ takeWhileP (Just "character") (\c -> isAlphaNum c || c == '_')

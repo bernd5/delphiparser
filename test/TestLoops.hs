@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE Strict #-}
 
 module TestLoops ( loopTests ) where
 
@@ -26,23 +27,23 @@ loopTests = testGroup "Delphi Loop Tests"
     (Right
       (While
         (P [v "foo" :<= v "bar"] :& P [v "c" :!! [v "i"] :<= ((v "length") :$ [s "\\n"])])
-          (Begin [ v "result" := ((v "result") :+ ((v "s") :!! [v "i"]))
+          (Begin [ Result := (Result :+ ((v "s") :!! [v "i"]))
                  , ExpressionValue $ (v "inc") :$ [v "i"]
                  ]
           )) @=? ) $
     parse loop' "" "while (foo <= bar) and (c[i]<=length('\\n')) do begin result:=result+s[i]; inc(i); end"
   , testCase "result+s[i]" $
-    (Right (v "result" :+ (v "s" :!! [v "i"])) @=? ) $
+    (Right (Result :+ (v "s" :!! [v "i"])) @=? ) $
     parse expression' "" "result+s[i]"
   , testCase "result:=result+s[i] // Statement" $
-    (Right (v "result" := (v "result" :+ (v "s" :!! [v "i"]))) @=? ) $
+    (Right (Result := (Result :+ (v "s" :!! [v "i"]))) @=? ) $
     parse statement "" "result:=result+s[i]"
   , testCase "begin result:=result+s[i]; end" $
-    (Right (Begin [v "result" := (v "result" :+ (v "s" :!! [v "i"]))]) @=? ) $
+    (Right (Begin [Result := (Result :+ (v "s" :!! [v "i"]))]) @=? ) $
     parse statement "" "begin result:=result+s[i]; end"
   , testCase "begin result:=result+s[i]; inc(i); end" $
     (Right (Begin
-      [ v "result" := (v "result" :+ (v "s" :!! [v "i"]))
+      [ Result := (Result :+ (v "s" :!! [v "i"]))
       , ExpressionValue (v "inc" :$ [v "i"])]) @=? ) $
     parse statement "" "begin result:=result+s[i]; inc(i); end"
   , testCase "(foo <= bar) and (c[i]<=length('\\n'))" $

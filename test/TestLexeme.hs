@@ -20,7 +20,4 @@ lexemeTests = testGroup "Lexeme Tests"
   , testCase "; {foo} -- symbol'"
   $ (Right (Lexeme (Comment "foo") ";") @=?)
   $ parse (symbol' ";") "" "; {foo}"
-  , testCase "{foo}; {bar} -- symbol'"
-  $ (Right (Lexeme (Compound (Comment "foo") (Comment "bar")) ";") @=?)
-  $ parse (symbol' ";") "" "{foo}; {bar}"
   ]

@@ -89,8 +89,7 @@ stringLiteral = do
 terms :: Parser Expression -> Parser InterfaceExpression -> Parser TypeName -> Parser ValueExpression
 terms a b c =
   choice
-    [ V <$> identifierPlus ["string", "write", "read"]
-    , F <$> float
+    [ F <$> float
     , I <$> integer
     , I <$> hexinteger
     , DTrue <$ rword "true"
@@ -106,6 +105,7 @@ terms a b c =
     , try recordExpression
     , parens "(" ")" (expression a b c)
     , A <$> arrayIndex c (expression a b c)
+    , V <$> identifierPlus ["string", "write", "read"]
     ]
   where
     functionExit :: Parser ValueExpression

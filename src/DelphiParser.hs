@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE Strict #-}
 
 module DelphiParser
-  ( dUnitP
+  ( unit
   , program
   , unitFragment
   , pascalFile
@@ -42,7 +43,7 @@ module DelphiParser
   , singleVarExpression
   , dUnitImplementationP
   , interfaceItems
-  , dBeginEndExpression
+  , beginEndExpression
   , typeName
   , dValueExpression
   ) where
@@ -72,7 +73,7 @@ with' :: Parser Expression
 with' = with expression' statement
 
 expression' :: Parser ValueExpression
-expression' = expression dBeginEndExpression interfaceItems typeName
+expression' = expression beginEndExpression interfaceItems typeName
 
 property' :: Parser Field
 property' = property typeName dArgumentP expression'
@@ -96,7 +97,7 @@ dArgumentP :: Parser [Argument]
 dArgumentP = typeArguments typeName expression'
 
 pascalFile :: Parser Unit
-pascalFile = choice [dUnitP, program, unitFragment]
+pascalFile = choice [unit, program, unitFragment]
 
 unitFragment :: Parser Unit
 unitFragment = try $ do
@@ -104,8 +105,8 @@ unitFragment = try $ do
   rst <- takeRest
   return $ UnitFragment c rst
 
-dUnitP :: Parser Unit
-dUnitP = try $ do
+unit :: Parser Unit
+unit = try $ do
   _ <- optional $ char '\xFEFF'
   _ <- optional sc
   c <- comment
@@ -142,8 +143,8 @@ program = try $ do
     uses' <- (fromMaybe $ Uses [] NoDirective) <$> optional uses
     functions <-
       many $ choice 
-        [ try functionImpl
-        , try procedureImpl
+        [ functionImpl
+        , procedureImpl
         , try dFunctionImplementationP
         , try dProcedureImplementationP
         , try dConstructorImplementationP
@@ -391,7 +392,8 @@ dottedIdentifier = do
   return $ intercalateLexeme "." parts
 
 intercalateLexeme :: Text -> [Lexeme Text] -> Lexeme Text
-intercalateLexeme sep = foldr1 (\a b -> a <> (Lexeme NoDirective sep) <> b)
+intercalateLexeme sep [] = Lexeme NoDirective ""
+intercalateLexeme sep lexemes = foldr1 (\a b -> a <> (Lexeme NoDirective sep) <> b) lexemes
 
 dArgsPassedP :: Parser [TypeName]
 dArgsPassedP = parens "(" ")" $ do
@@ -602,23 +604,23 @@ dFunctionP = do
 statement :: Parser Expression
 statement = choice
   [ try dEqExpression
-  , try dIfExpression
-  , try loop'
-  , try dBeginEndExpression
-  , try $ Break <$ rword "break"
-  , try dValueExpression
-  , try with'
-  , try delphiTry'
-  , try delphiCase'
-  , try $ const EmptyExpression <$> semi
+  , dIfExpression
+  , loop'
+  , beginEndExpression
+  , Break <$ rword "break"
+  , dValueExpression
+  , with'
+  , delphiTry'
+  , delphiCase'
+  , const EmptyExpression <$> semi
   , Continue <$ rword "continue"
   ]
 
 dValueExpression :: Parser Expression
 dValueExpression = ExpressionValue <$> expression'
 
-dBeginEndExpression :: Parser Expression
-dBeginEndExpression = do
+beginEndExpression :: Parser Expression
+beginEndExpression = do
   rword "begin"
   comment
   expressions <- many (try $ statement <* semi)
@@ -628,7 +630,9 @@ dBeginEndExpression = do
 
 dEqExpression :: Parser Expression
 dEqExpression = do
-  lhs <- V <$> dottedIdentifier
+  lhs <- choice [ Result <$ rword "result"
+                , V <$> dottedIdentifier
+                ]
   symbol ":="
   rhs <- expression'
   return $ lhs := rhs
@@ -644,7 +648,6 @@ dIfExpression = do
   elseStatement <- optional (rword "else" *> statement)
   let elseStatement' = fromMaybe EmptyExpression elseStatement
   return $ If expr (Then s') (Else elseStatement')
-    
 
 dProcedureImplementationP :: Parser ImplementationSpec
 dProcedureImplementationP =
@@ -672,11 +675,11 @@ functionImpl = do
   _ <- semi
   annotations <- many annotation
   nested <- many $ choice
-    [ try procedureImpl
-    , try functionImpl
-    , AdditionalInterface <$> try interfaceItems
+    [ procedureImpl
+    , functionImpl
+    , AdditionalInterface <$> interfaceItems
     ]
-  statements <- dBeginEndExpression
+  statements <- beginEndExpression
   _ <- semi
   return $ FunctionImpl name args typ annotations nested statements
 
@@ -688,11 +691,11 @@ procedureImpl = do
   _ <- semi
   annotations <- many annotation
   nested <- many $ choice
-    [ try procedureImpl
-    , try functionImpl
-    , AdditionalInterface <$> try interfaceItems
+    [ procedureImpl
+    , functionImpl
+    , AdditionalInterface <$> interfaceItems
     ]
-  statements <- dBeginEndExpression
+  statements <- beginEndExpression
   _ <- semi
   return $ ProcedureImpl name args annotations nested statements
 
@@ -711,11 +714,11 @@ dMemberImplementationP a b = do
   _ <- semi
   annotations <- many annotation
   nested <- many $ choice
-    [ AdditionalInterface <$> try interfaceItems
-    , try procedureImpl
-    , try functionImpl
+    [ AdditionalInterface <$> interfaceItems
+    , procedureImpl
+    , functionImpl
     ]
-  statements <- dBeginEndExpression
+  statements <- beginEndExpression
   _ <- semi
   return $ b name member args (fromMaybe UnspecifiedType typ) annotations nested statements
 
@@ -728,7 +731,7 @@ dProcedureP' a b = do
   name <- typeName
   args <- dFunctionOrProcedureArgs'
   _ <- semi
-  annotations <- many (try annotation)
+  annotations <- many annotation
   return $ b name args UnspecifiedType annotations
 
 annotation :: Parser FieldAnnotation
@@ -792,12 +795,12 @@ dUnitImplementationP = do
     u <- optional uses
     functions <-
       many $ choice 
-        [ try functionImpl
-        , try procedureImpl
-        , try dFunctionImplementationP
-        , try dProcedureImplementationP
-        , try dConstructorImplementationP
-        , try dDestructorImplementationP
+        [ functionImpl
+        , procedureImpl
+        , dFunctionImplementationP
+        , dProcedureImplementationP
+        , dConstructorImplementationP
+        , dDestructorImplementationP
         , rword "class" *> choice [
             dFunctionImplementationP
           , dProcedureImplementationP

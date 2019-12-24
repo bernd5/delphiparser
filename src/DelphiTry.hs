@@ -9,9 +9,8 @@ import Text.Megaparsec
 
 delphiTry :: Parser TypeName ->  Parser ValueExpression -> Parser Expression -> Parser Expression
 delphiTry tn v e = choice
-  [ try $ delphiTryFinally e
-  , try $ delphiTryExcept e tn
-  , try $ delphiRaise v
+  [ tryFinallyExcept e tn
+  , delphiRaise v
   ]
 delphiRaise :: Parser ValueExpression -> Parser Expression
 delphiRaise expression = do
@@ -19,23 +18,29 @@ delphiRaise expression = do
   b <- expression
   return $ Raise b
 
-delphiTryFinally :: Parser Expression -> Parser Expression
-delphiTryFinally statement = do
+
+tryFinallyExcept :: Parser Expression -> Parser TypeName -> Parser Expression
+tryFinallyExcept statement typeName = do
   rword "try"
   b <- many $ statement <* semi
+  choice [ tryFinally b statement
+         , tryExcept b statement typeName
+         ]
+
+
+tryFinally :: [Expression] -> Parser Expression -> Parser Expression
+tryFinally b statement = do
   rword "finally"
   f <- many $ statement <* semi
   rword "end"
   return $ Try b (Right f)
-  
-  
-delphiTryExcept :: Parser Expression -> Parser TypeName -> Parser Expression
-delphiTryExcept statement typeName = do
-  rword "try"
-  b <- many $ statement <* semi
+
+
+tryExcept :: [Expression] -> Parser Expression -> Parser TypeName -> Parser Expression
+tryExcept b statement typeName = do
   rword "except"
-  f <- choice [ try (concat <$> ( some $ try $ onExceptionHandlers typeName statement))
-              , try $ crudeExceptionHandler statement]
+  f <- choice [ (concat <$> ( some $ try $ onExceptionHandlers typeName statement))
+              , crudeExceptionHandler statement]
   rword "end"
   return $ Try b (Left $ [ExceptOn Nothing f])
 

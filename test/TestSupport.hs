@@ -60,10 +60,10 @@ field :: Text -> TypeName -> Field
 field a b = Field (Lexeme NoDirective a) b
 
 lambdaFunction' :: Parser ValueExpression
-lambdaFunction' = lambdaFunction dBeginEndExpression interfaceItems typeName
+lambdaFunction' = lambdaFunction beginEndExpression interfaceItems typeName
 
 lambdaArgs' :: Parser [Argument]
-lambdaArgs' = lambdaArgs dBeginEndExpression interfaceItems typeName
+lambdaArgs' = lambdaArgs beginEndExpression interfaceItems typeName
 
 varDefinition a b c = VarDefinition (Lexeme NoDirective a) b c
 

@@ -40,7 +40,7 @@ delphiTryTests = testGroup
               [ CaseBranch [v "one"] (ExpressionValue (v "alpha"))
               , CaseBranch [v "two"] (ExpressionValue (v "beta"))
               ]
-              (Just (Else (v "Result" := v "gamma")))
+              (Just (Else (Result := v "gamma")))
             )
         ]
         (Left [ExceptOn Nothing [ExpressionValue (v "chalk" :$ [])]])
@@ -72,7 +72,7 @@ delphiTryTests = testGroup
               [ CaseBranch [v "one"] (ExpressionValue (v "alpha"))
               , CaseBranch [v "two"] (ExpressionValue (v "beta"))
               ]
-              (Just (Else (v "Result" := v "gamma")))
+              (Just (Else (Result := v "gamma")))
             )
         ]
         (Left [ExceptOn Nothing [ExpressionValue (v "chalk" :$ [])]])
