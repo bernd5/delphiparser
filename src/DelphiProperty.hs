@@ -49,11 +49,11 @@ listOrExpression expression = choice
 specifier :: Parser ValueExpression -> Parser PropertySpecifier
 specifier expression = do
   spec <- choice
-    [ try $ PropertyRead <$> (rword "read" >> (identifier' `sepBy` symbol "."))
-    , try $ PropertyWrite <$> (rword "write" >> (identifier' `sepBy` symbol "."))
-    , try $ PropertyStored <$ (rword "stored" >> optional expression)
-    , try $ PropertyDefault <$> (rword "default" >> listOrExpression expression)
-    , try $ PropertyNoDefault <$ rword "nodefault"
+    [ PropertyRead <$> (rword "read" >> (identifier' `sepBy` symbol "."))
+    , PropertyWrite <$> (rword "write" >> (identifier' `sepBy` symbol "."))
+    , PropertyStored <$ (rword "stored" >> optional expression)
+    , PropertyDefault <$> (rword "default" >> listOrExpression expression)
+    , PropertyNoDefault <$ rword "nodefault"
     --, rword "implements"
     ]
   return spec

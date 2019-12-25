@@ -138,17 +138,17 @@ program = try $ do
     _ <- optional sc
     c1 <- comment
     rword "program"
-    s <- identifier'
+    s <- anyIdentifier
     c2 <- semi'
     uses' <- (fromMaybe $ Uses [] NoDirective) <$> optional uses
     functions <-
       many $ choice 
         [ functionImpl
         , procedureImpl
-        , try dFunctionImplementationP
-        , try dProcedureImplementationP
-        , try dConstructorImplementationP
-        , try dDestructorImplementationP
+        , dFunctionImplementationP
+        , dProcedureImplementationP
+        , dConstructorImplementationP
+        , dDestructorImplementationP
         , rword "class" *> choice [
             dFunctionImplementationP
           , dProcedureImplementationP
@@ -158,7 +158,7 @@ program = try $ do
         , AdditionalInterface <$> interfaceItems
         ]
     rword "begin"
-    expressions <- many (try $ statement <* semi)
+    expressions <- many (statement <* semi)
     lastExpression <- optional statement
     rword "end."
     return $ Program (insertComment c1 s)
@@ -181,7 +181,7 @@ uses = do
   rword "uses"
   items <- (do
               x <- comment
-              y <- identifierPlus reserved
+              y <- anyIdentifier
               return $ insertComment x y
             ) `sepBy` symbol' "." `sepBy` (char ',' <* sc)
   c <- semi'
@@ -191,22 +191,22 @@ dUnitInterfaceP :: Parser Interface
 dUnitInterfaceP = do
   rword "interface"
   usings <- optional uses
-  items <- try $ many interfaceItems
+  items <- many interfaceItems
   return $ Interface (fromMaybe (Uses [] NoDirective) usings) items
 
 interfaceItems :: Parser InterfaceExpression
 interfaceItems = choice
-  [ try typeExpressions
-  , try constExpressions 
-  , try resourceExpressions 
-  , Standalone <$> try dProcedureP
-  , Standalone <$> try dFunctionP
-  , try varExpressions
+  [ typeExpressions
+  , constExpressions 
+  , resourceExpressions 
+  , Standalone <$> dProcedureP
+  , Standalone <$> dFunctionP
+  , varExpressions
   ] 
 
 singleConstExpression :: Parser ConstDefinition
 singleConstExpression = do
-  lhs <- identifier'
+  lhs <- anyIdentifier
   typ <- optional $ symbol ":" >> typeName
   c <- symbol' "="
   case c of
@@ -219,7 +219,7 @@ singleConstExpression = do
 
 singleVarExpression :: Parser [VarDefinition]
 singleVarExpression = do
-  names <- (identifierPlus reserved) `sepBy` symbol ","
+  names <- anyIdentifier `sepBy` symbol ","
   typ <- symbol ":" >> typeName
   def <- optional (symbol "=" >> expression')
   semi
@@ -228,13 +228,13 @@ singleVarExpression = do
 constExpressions :: Parser InterfaceExpression
 constExpressions = do
   rword "const"
-  consts <- many $ try singleConstExpression
+  consts <- many singleConstExpression
   return $ ConstDefinitions consts
 
 resourceExpressions :: Parser InterfaceExpression
 resourceExpressions = do
   rword "resourcestring"
-  consts <- many $ try singleConstExpression
+  consts <- many singleConstExpression
   return $ ResourceDefinitions consts
 
 varExpressions :: Parser InterfaceExpression
@@ -253,7 +253,7 @@ typeExpressions = do
 typeDefinition :: Parser TypeDefinition
 typeDefinition = do
     ident <- identifier'
-    args <- try dGenericArgs
+    args <- dGenericArgs
     let lhs' =
           if null args
             then Type ident
@@ -267,13 +267,16 @@ typeDefinition = do
 typeDefinitionRhs :: Lexeme Text -> [Argument] -> TypeName -> Parser TypeDefinition
 typeDefinitionRhs a b c = do
     ie <- choice
-      [ try $ dReferenceToProcedureP a
-      , try $ dReferenceToFunctionP a
-      , try $ dGenericRecordP c
-      , try $ interfaceType c stringLiteral
-      , try $ setDefinition c
-      , try $ enumDefinition c  -- Contains parens
-      , try $ do
+      [ referenceTo *> choice [ dReferenceToProcedureP True a
+                              , dReferenceToFunctionP True a
+                              ]
+      , dReferenceToProcedureP False a
+      , dReferenceToFunctionP False a
+      , dGenericRecordP c
+      , interfaceType c stringLiteral
+      , setDefinition c
+      , enumDefinition c  -- Contains parens
+      , do
         rword "class"
         r <- optional $ choice
           [ metaClassDefinition c
@@ -281,8 +284,8 @@ typeDefinitionRhs a b c = do
           , classType c
           ]
         return $ fromMaybe (ForwardClass c) r
-      , try $ newType c
-      , try $ typeAlias c -- Just for *very* simple type aliases
+      , newType c
+      , typeAlias c -- Just for *very* simple type aliases
       , TypeExpression <$> expression'
       ]
     optional semi
@@ -330,20 +333,23 @@ setType = do
 
 enumDefinition :: TypeName -> Parser TypeDefinition
 enumDefinition a = do
-  rhs <- parens "(" ")" $ identifier' `sepBy` symbol ","
+  rhs <- parens "(" ")" $ anyIdentifier`sepBy` symbol ","
   return $ EnumDefinition a rhs
 
-dReferenceToProcedureP :: Lexeme Text -> Parser TypeDefinition
-dReferenceToProcedureP ident = do
-  r <- optional $ do
-    rword "reference"
-    rword "to"
+referenceTo :: Parser ()
+referenceTo = do
+  rword "reference"
+  rword "to"
+  return ()
+
+dReferenceToProcedureP :: Bool -> Lexeme Text -> Parser TypeDefinition
+dReferenceToProcedureP isReference ident = do
   rword "procedure"
   args <- dFunctionOrProcedureArgs'
   o <- optional $ do
     rword "of"
     rword "object"
-  let t = if isJust r
+  let t = if isReference
           then ReferenceToProcedure
           else
             if isJust o
@@ -351,11 +357,8 @@ dReferenceToProcedureP ident = do
               else SimpleProcedure
   return $ TypeDef (Type ident) (t args)
 
-dReferenceToFunctionP :: Lexeme Text -> Parser TypeDefinition
-dReferenceToFunctionP ident = do
-  r <- optional $ do
-    rword "reference"
-    rword "to"
+dReferenceToFunctionP :: Bool -> Lexeme Text -> Parser TypeDefinition
+dReferenceToFunctionP isReference ident = do
   rword "function"
   args <- dFunctionOrProcedureArgs'
   symbol ":"
@@ -366,7 +369,7 @@ dReferenceToFunctionP ident = do
   isNested <- optional $ do
     rword "is"
     rword "nested"
-  let t = if isJust r
+  let t = if isReference
           then ReferenceToFunction
           else
             if isJust o
@@ -388,7 +391,7 @@ dGenericRecordP a = do
 
 dottedIdentifier :: Parser (Lexeme Text)
 dottedIdentifier = do
-  parts <- (identifierPlus reserved) `sepBy` symbol "."
+  parts <- anyIdentifier `sepBy` symbol "."
   return $ intercalateLexeme "." parts
 
 intercalateLexeme :: Text -> [Lexeme Text] -> Lexeme Text
@@ -447,25 +450,24 @@ dRecordDefinitionP' a b = do
 
 dFieldDefinitionP :: Parser [Field]
 dFieldDefinitionP = do
-  c <- comment
   choice
-    [ try $ pure <$> recordCase
-    , try $ pure <$> dConstructorFieldP
-    , try $ pure <$> dDestructorFieldP
-    , try $ pure <$> dProcedureP
-    , try $ pure <$> dFunctionP
-    , try $ pure <$> property'
-    , try $ pure [] <* typeExpressions
-    , try $ rword "class" *> choice [classVar
-                                    , try dSimpleFieldP
-                                    , try $ pure <$> dConstructorFieldP
-                                    , try $ pure <$> dDestructorFieldP
-                                    , try $ pure <$> dProcedureP
-                                    , try $ pure <$> staticFunction
-                                    , try $ pure <$> property'
-                                    ]
-    , try dSimpleFieldP
-    ] <* comment
+    [ pure <$> recordCase
+    , pure <$> dConstructorFieldP
+    , pure <$> dDestructorFieldP
+    , pure <$> dProcedureP
+    , pure <$> dFunctionP
+    , pure <$> property'
+    , pure [] <* typeExpressions
+    , rword "class" *> choice [classVar
+                              , simpleField
+                              , pure <$> dConstructorFieldP
+                              , pure <$> dDestructorFieldP
+                              , pure <$> dProcedureP
+                              , pure <$> staticFunction
+                              , pure <$> property'
+                              ]
+    , simpleField
+    ] <* optional semi
 
 recordCase :: Parser Field
 recordCase = do
@@ -530,12 +532,12 @@ simplifyTypeName m a b c = r a $ t b c $ m
     t Nothing Nothing = Type
 
 singleTypeName :: Parser TypeName
-singleTypeName = choice [ try array'
+singleTypeName = choice [ array'
   , do
     -- TODO: Remind me again why I distinguish between singleTypeName, and typeName?
     -- TODO: Distinguish between the different sorts of identifiers, especially class.
     pointer <- optional $ (symbol' "^" <|> symbol' "@")
-    name <- identifierPlus ["string", "boolean", "cardinal", "class"]
+    name <-anyIdentifier
     args <- optional dGenericTypes
     ai <- optional $ arrayIndex typeName expression'
     return $ simplifyTypeName name pointer args ai
@@ -553,12 +555,12 @@ typeName = do
 
 typeName' :: Parser TypeName
 typeName' = choice
-        [ try array'
-        , try setType
+        [ array'
+        , setType
         , do
           -- TODO: Distinguish between the different sorts of identifiers, especially class.
           pointer <- optional $ (symbol' "^" <|> symbol' "@")
-          name    <- (identifierPlus reserved) `sepBy1` symbol "."
+          name    <- anyIdentifier `sepBy1` symbol "."
           let name' = intercalateLexeme "." name
           args <- optional dGenericTypes
           ai   <- optional $ arrayIndex typeName expression'
@@ -575,9 +577,9 @@ staticFunction = a <$> dFunctionP
 dFunctionP :: Parser Field
 dFunctionP = do
   rword "function"
-  name <- identifierPlus reserved `sepBy1` symbol "."
+  name <- anyIdentifier `sepBy1` symbol "."
   let name' = intercalateLexeme "." name
-  eq <- optional $ ((symbol "=") *> identifier')
+  eq <- optional $ ((symbol "=") *> anyIdentifier)
   if isJust eq then do
     -- Is a redirect
     semi
@@ -589,7 +591,7 @@ dFunctionP = do
       return $ InheritedFunction name'
   where
     desc name = do
-      generics <- try dGenericArgs
+      generics <- dGenericArgs
       let name' =
             if null generics
               then Type name
@@ -623,10 +625,9 @@ beginEndExpression :: Parser Expression
 beginEndExpression = do
   rword "begin"
   comment
-  expressions <- many (try $ statement <* semi)
-  lastExpression <- optional statement
+  expressions <- many (statement <* optional semi)
   end
-  return $ Begin $ expressions <> catMaybes [lastExpression]
+  return $ Begin $ expressions
 
 dEqExpression :: Parser Expression
 dEqExpression = do
@@ -704,7 +705,6 @@ dMemberImplementationP ::
   -> (TypeName -> TypeName -> [Argument] -> TypeName -> [FieldAnnotation] -> [ImplementationSpec] -> Expression -> ImplementationSpec)
   -> Parser ImplementationSpec
 dMemberImplementationP a b = do
-  comment
   rword a
   name <- singleTypeName
   _ <- symbol "."
@@ -749,7 +749,7 @@ annotation = choice
   , (rword "stdcall" *> semi) $> StdCall
   , do
       rword "message"
-      m <- identifier'
+      m <- anyIdentifier
       semi
       return $ Message m
   ]
@@ -766,7 +766,7 @@ dProcedureP = dProcedureP' "procedure" (\a b _ d -> Procedure a b d)
 classVar :: Parser [Field]
 classVar = do
   rword "var"
-  name <- (Type <$> identifier') `sepBy1` symbol ","
+  name <- (Type <$> anyIdentifier) `sepBy1` symbol ","
   typ <- symbol ":" >> typeName
   semi
   return $ map (\x -> ClassVar x typ) name
@@ -778,10 +778,10 @@ dSimpleFieldP = do
   return $ sf
 
 simpleField :: Parser [Field]
-simpleField = do
+simpleField = try $ do
   optional $ rword "const"
   comment
-  name <- (identifierPlus reserved)`sepBy1` symbol ","
+  name <- anyIdentifier `sepBy1` symbol ","
   symbol ":"
   typ <- typeName
   e <- optional $ symbol "="

@@ -96,7 +96,7 @@ terms a b c =
     , lambdaExpression a b c
     , functionExit
     , DFalse <$ rword "false"
-    , Inherited <$> (rword "inherited" >> optional identifier')
+    , Inherited <$> (rword "inherited" >> optional anyIdentifier)
     , Result <$ rword "result"
     , Nil <$ rword "nil"
     , stringLiteral
@@ -119,7 +119,7 @@ terms a b c =
 
     labelAndValue :: Parser Expression
     labelAndValue = do
-      lbl <- V <$> identifier'
+      lbl <- V <$> anyIdentifier
       symbol ":"
       value <- expression a b c
       return $ lbl := value
@@ -172,8 +172,8 @@ genericArgs :: Parser (ValueExpression -> ValueExpression)
 genericArgs =
   flip (:<<>>) <$>
   try
-    (do p <- parens "<" ">" ((Type <$> identifier') `sepBy1` comma)
-        notFollowedBy $ choice [void <$> identifier]
+    (do p <- parens "<" ">" ((Type <$> anyIdentifier) `sepBy1` comma)
+        notFollowedBy $ void <$> anyIdentifier
         return p)
 
 functionCall
@@ -210,9 +210,7 @@ lambdaFunction beginEnd interfaceItems typeName = do
   args <- optional $ parens "(" ")" $ lambdaArgs beginEnd interfaceItems typeName
   let args' = fromMaybe [] args
   typ <- symbol ":" *> typeName
-  nested <- many $ choice
-    [ AdditionalInterface <$> try interfaceItems
-    ]
+  nested <- many $ AdditionalInterface <$> interfaceItems
   statements <- beginEnd
   return $ LambdaFunction args' typ nested statements
 
@@ -221,8 +219,6 @@ lambdaProcedure beginEnd interfaceItems typeName = do
   rword "procedure"
   args <- optional $ parens "(" ")" $ lambdaArgs beginEnd interfaceItems typeName
   let args' = fromMaybe [] args
-  nested <- many $ choice
-    [ AdditionalInterface <$> try interfaceItems
-    ]
+  nested <- many $ AdditionalInterface <$> interfaceItems
   statements <- beginEnd
   return $ LambdaProcedure args' nested statements

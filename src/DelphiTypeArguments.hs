@@ -17,7 +17,7 @@ typeArgNames = try $ (do
                              , OutArg <$ rword "out"
                              ]
       let m = fromMaybe NormalArg c
-      i <- identifierPlus reserved
+      i <- anyIdentifier
       return (m, i)
     ) `sepBy` symbol ","
 

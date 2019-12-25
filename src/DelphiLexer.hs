@@ -258,4 +258,7 @@ identifierPlus override = (\x -> strip <$> x)  <$> (lexeme . try) (p >>= check)
       | otherwise = return x
 
 anyIdentifier :: Parser (Lexeme Text)
-anyIdentifier = lexeme $ takeWhileP (Just "character") (\c -> isAlphaNum c || c == '_')
+anyIdentifier = lexeme $ do
+  c <- letterChar
+  rst <- takeWhileP (Just "character") (\c -> isAlphaNum c || c == '_')
+  pure $ pack [c] <> rst
