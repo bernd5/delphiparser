@@ -18,7 +18,7 @@ loop a b = choice
 for :: Parser ValueExpression -> Parser Expression -> Parser Expression
 for expression statement = do
   rword "for"
-  var <- identifier'
+  var <- anyIdentifier
   choice [ (do
               symbol ":="
               from <- expression

@@ -18,11 +18,9 @@ module DelphiLexer
   , semi
   , semi'
   , rword
+  , reservedWord
   , compilerDirective
   , anyIdentifier
-  , identifier
-  , identifier'
-  , identifierPlus
   ) where
 
 import Prelude hiding (words, length, concat, take, count)
@@ -119,7 +117,7 @@ restOfIf
   -> [Either Directive Text]
   -> [Either Directive Text]
   -> Parser Directive
-restOfIf cond a b = choice [ try $ compilerDirective >>= processIfDirectivePart cond a b
+restOfIf cond a b = choice [ compilerDirective >>= processIfDirectivePart cond a b
                          , do
                             a' <- Left <$> Comment <$> readUpToEndComment 1
                             b' <- Right <$> takeWhileP' (Just "character") (/= '{') <* char '{'
@@ -132,7 +130,7 @@ restOfIfElse
   -> [Either Directive Text]
   -> [Either Directive Text]
   -> Parser Directive
-restOfIfElse cond a b = choice [ try $ compilerDirective >>= processIfDirectivePart cond a b
+restOfIfElse cond a b = choice [ compilerDirective >>= processIfDirectivePart cond a b
                          , do
                             a' <- Left <$> Comment <$> readUpToEndComment 1
                             b' <- Right <$> takeWhileP' (Just "character") (/= '{') <* char '{'
@@ -172,7 +170,7 @@ restOfBlockComment' :: Text -> Text -> Parser Directive
 restOfBlockComment' "{" "}" = Comment <$> readUpToEndComment 1
 restOfBlockComment' a b = Comment <$> pack <$> (manyTill anyChar (string b))
 
--- Removes all spaces after a lexime.
+-- Removes all spaces and comments after a lexime.
 lexeme :: Parser a -> Parser (Lexeme a)
 lexeme a = do
   b <- L.lexeme sc a
@@ -232,30 +230,14 @@ reserved =
   words
     "and array asm begin break case const constructor continue destructor div do downto else end false file for function goto if implementation in inline interface label mod nil not object of on operator or packed procedure program record repeat set shl shr string then to true type unit until uses var while with xor as class dispose except exit exports finalization finally inherited initialization is library new on out property raise threadvar try absolute abstract alias assembler cdecl cppdecl default export external forward generic index local nostackframe oldfpccall override pascal private protected public published read register reintroduce safecall softfloat specialize stdcall virtual write far near"
 
-rword :: Text -> Parser (Lexeme ())
-rword w = lexeme (string' w *> notFollowedBy alphaNumChar)
+rword :: Text -> Parser (Lexeme Text)
+rword w = lexeme (try $ string' w <* notFollowedBy alphaNumChar)
 
-end :: Parser (Lexeme ())
+reservedWord :: Parser (Lexeme Text)
+reservedWord = choice $ map rword reserved
+
+end :: Parser (Lexeme Text)
 end = rword "end"
-
-identifier :: Parser (Lexeme String)
-identifier = do
-  a <- identifier'
-  return $ unpack <$> a
-
-identifier' :: Parser (Lexeme Text)
-identifier' = identifierPlus []
-
-identifierPlus :: [Text] -> Parser (Lexeme Text)
-identifierPlus override = (\x -> strip <$> x)  <$> (lexeme . try) (p >>= check)
-  where
-    p :: Parser Text
-    p = pack <$> ((:) <$> (letterChar <|> char '_') <*> many (alphaNumChar <|> char '_'))
-    check x
-      | (toLower x) `elem` override = return x
-      | (toLower x) `elem` reserved =
-        fail $ "keyword " ++ show x ++ " cannot be an identifier"
-      | otherwise = return x
 
 anyIdentifier :: Parser (Lexeme Text)
 anyIdentifier = lexeme $ do

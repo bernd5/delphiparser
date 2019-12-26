@@ -95,7 +95,7 @@ unitTests p = testGroup
   $ parse uses "" "uses one, two, three;"
   , testCase "Underscores are valid as part of an identifier"
   $ (Right (Lexeme NoDirective "foo_bar") @=?)
-  $ parse identifier "" "foo_bar"
+  $ parse anyIdentifier "" "foo_bar"
   , testCase "Ensure delphi skeleton parses"
   $ (Right
       (Unit NoDirective 

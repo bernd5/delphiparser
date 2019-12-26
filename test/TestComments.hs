@@ -10,7 +10,7 @@ import DelphiAst (Directive(..), Lexeme(..))
 import TestSupport
 
 commentTests :: TestTree
-commentTests = testGroup "c Tests"
+commentTests = testGroup "comment Tests"
   [ testCase "//SimpleLinec NewLine"
   $ (Right (c "SimpleLineComment") @=? )
   $ parse comment "" "//SimpleLineComment\n"

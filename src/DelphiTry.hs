@@ -39,7 +39,7 @@ tryFinally b statement = do
 tryExcept :: [Expression] -> Parser Expression -> Parser TypeName -> Parser Expression
 tryExcept b statement typeName = do
   rword "except"
-  f <- choice [ (concat <$> ( some $ try $ onExceptionHandlers typeName statement))
+  f <- choice [ (concat <$> ( some $ onExceptionHandlers typeName statement))
               , crudeExceptionHandler statement]
   rword "end"
   return $ Try b (Left $ [ExceptOn Nothing f])
@@ -50,7 +50,7 @@ crudeExceptionHandler statement = many $ statement <* semi
 onExceptionHandlers :: Parser TypeName -> Parser Expression -> Parser [Expression]
 onExceptionHandlers typeName statement = do
   rword "on"
-  name <- optional (identifier <* symbol ":")
+  name <- optional (anyIdentifier <* symbol ":")
   typ <- typeName
   rword "do"
   statements <- many ( statement <* (optional semi))

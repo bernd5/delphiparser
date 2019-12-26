@@ -15,7 +15,7 @@ import Data.Maybe (isJust)
 property :: Parser TypeName -> Parser [Argument] -> Parser ValueExpression -> Parser Field
 property typeName arrayParameter expression = do
     rword "property"
-    name <- identifier'
+    name <- anyIdentifier
     rest name <|> inherited name
   where
     inherited :: Lexeme Text -> Parser Field
@@ -49,8 +49,8 @@ listOrExpression expression = choice
 specifier :: Parser ValueExpression -> Parser PropertySpecifier
 specifier expression = do
   spec <- choice
-    [ PropertyRead <$> (rword "read" >> (identifier' `sepBy` symbol "."))
-    , PropertyWrite <$> (rword "write" >> (identifier' `sepBy` symbol "."))
+    [ PropertyRead <$> (rword "read" >> (anyIdentifier `sepBy` symbol "."))
+    , PropertyWrite <$> (rword "write" >> (anyIdentifier `sepBy` symbol "."))
     , PropertyStored <$ (rword "stored" >> optional expression)
     , PropertyDefault <$> (rword "default" >> listOrExpression expression)
     , PropertyNoDefault <$ rword "nodefault"

@@ -40,6 +40,7 @@ import qualified Data.Map                      as Map
 import qualified Args
 import           TypeCategories
 import           AstPrettyPrint
+import           HaskellPrettyPrint
 import Web
 import Graphs
 
@@ -133,6 +134,9 @@ main' args = do
   when (Args.reformatPascal args) $ do
     forM_ parsedFiles' $ \unit -> do
       putStrLn $ pp unit
+  when (Args.reformatHaskell args) $ do
+    forM_ parsedFiles' $ \unit -> do
+      putStrLn $ hh unit
 
   case Args.docWeb args of
     Just port -> serveWeb port pasfiles parsedFiles'

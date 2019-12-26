@@ -12,6 +12,7 @@ data Args = Args
           , docWeb :: Maybe Int
           , showTypes :: Bool
           , reformatPascal :: Bool
+          , reformatHaskell :: Bool
           , saveDot :: Bool
           }
 
@@ -40,6 +41,10 @@ args =
     <*> switch
           (long "reformat-pascal" <> help
             "Print a reformatted pascal version"
+          )
+    <*> switch
+          (long "reformat-haskell" <> help
+            "Print a reformatted haskell version"
           )
     <*> switch
           (long "save-dot" <> help

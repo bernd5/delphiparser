@@ -105,7 +105,10 @@ terms a b c =
     , try recordExpression
     , parens "(" ")" (expression a b c)
     , A <$> arrayIndex c (expression a b c)
-    , V <$> identifierPlus ["string", "write", "read"]
+    , V <$> rword "string"
+    , V <$> rword "write"
+    , V <$> rword "read"
+    , V <$> (notFollowedBy reservedWord >> anyIdentifier)
     ]
   where
     functionExit :: Parser ValueExpression

@@ -124,13 +124,13 @@ rword' word f = do
   r <- rword word
 
   case r of
-    Lexeme (Include a) () -> do
+    Lexeme (Include a) _ -> do
       let p = parse (f NoDirective) (unpack a) a
       case p of
         Left err -> fail $ show err
         Right result -> return result
-    Lexeme (IfDef a b c) () -> f (IfDef a b c)
-    Lexeme a () -> f a
+    Lexeme (IfDef a b c) _ -> f (IfDef a b c)
+    Lexeme a _ -> f a
 
 program :: Parser Unit
 program = try $ do
@@ -252,7 +252,8 @@ typeExpressions = do
 
 typeDefinition :: Parser TypeDefinition
 typeDefinition = do
-    ident <- identifier'
+    notFollowedBy reservedWord
+    ident <-anyIdentifier
     args <- dGenericArgs
     let lhs' =
           if null args
@@ -770,12 +771,6 @@ classVar = do
   typ <- symbol ":" >> typeName
   semi
   return $ map (\x -> ClassVar x typ) name
-
-dSimpleFieldP :: Parser [Field]
-dSimpleFieldP = do
-  sf <- simpleField
-  optional semi
-  return $ sf
 
 simpleField :: Parser [Field]
 simpleField = try $ do
